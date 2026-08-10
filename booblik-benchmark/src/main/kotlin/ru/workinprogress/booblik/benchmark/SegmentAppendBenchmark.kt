@@ -31,8 +31,9 @@ import kotlin.io.path.deleteRecursively
  * * **`flush` is a parameter, not a setting.** Without a flush both paths measure the speed of the
  *   page cache; with one they measure the disk. Both are legitimate answers to different questions,
  *   and a number without this parameter attached is not an answer to either.
- * * **The segment is recreated per iteration, not per invocation.** Creating it per invocation
- *   would measure `open` and, for the mapped path, the pre-sizing of a half-gigabyte file.
+ * * **A full segment is recycled, not reopened.** Reopening would fold an unmap and a remap of a
+ *   gigabyte into the measured method — which is what M-27 was about. How often it happened is
+ *   printed at teardown, so a suspicious row can be checked rather than guessed at.
  * * **Temp directory, and it is a real filesystem.** On macOS `/tmp` is APFS on SSD; in CI it is
  *   whatever the runner mounts. Compare numbers across runs only on the same host — see
  *   docs/benchmarking.md.
@@ -53,17 +54,24 @@ class SegmentAppendBenchmark {
     private lateinit var dir: Path
     private lateinit var segment: LogSegment
     private lateinit var payload: ByteArray
+    private var recycles: Int = 0
 
     @Setup
     fun setUp() {
         RuntimeFootprint.verify()
         dir = Files.createTempDirectory("booblik-bench")
         payload = ByteArray(payloadSize) { it.toByte() }
+        recycles = 0
         openSegment()
     }
 
     @TearDown
     fun tearDown() {
+        // Reported rather than assumed. If recycling ever stops being cheap, this line is what
+        // says whether a suspicious row had one of them in it or a thousand.
+        println(
+            "# recycled the segment $recycles times (mode=$mode, payloadSize=$payloadSize, flush=$flushEveryAppend)",
+        )
         segment.close()
         @OptIn(ExperimentalPathApi::class)
         dir.deleteRecursively()
@@ -78,14 +86,18 @@ class SegmentAppendBenchmark {
      */
     @Benchmark
     fun append(): Long {
-        // A full segment is not an error here, it is the end of the runway. The rollover cost lands
-        // in the number as a rare outlier; at a gigabyte per iteration it happens at most a few
-        // times per run, and throughput mode averages over millions of invocations. If it ever
-        // shows up in the variance, the fix is a shorter iteration, not a bigger segment — the
-        // mapped path pre-sizes the file, and Int.MAX_VALUE is the ceiling for both paths.
+        // A full segment is recycled in place — the write position goes back to zero — rather than
+        // closed and reopened. That is M-27, and it was not a micro-optimisation: at a kilobyte per
+        // record the mapped path fills a gigabyte roughly every quarter second, so a two-second
+        // iteration used to contain up to ten unmap/remap cycles of a gigabyte each. The row was
+        // measuring rollover, not `append`, and it showed: 28 % error against 3-8 % everywhere
+        // else. Recycling is a couple of field stores, so what is left in the number is the append.
+        //
+        // Making the segment bigger instead was never available: `Int.MAX_VALUE` is the ceiling for
+        // both write paths, only twice what is already used here.
         if (!segment.hasRoomFor(payload.size)) {
-            segment.close()
-            openSegment()
+            segment.truncateTo(Offset.ZERO)
+            recycles += 1
         }
         val offset = segment.append(payload)
         if (flushEveryAppend) segment.force()
@@ -97,7 +109,11 @@ class SegmentAppendBenchmark {
     }
 
     private companion object {
-        /** 1 GiB — a couple of seconds of runway even at the fastest parameter combination. */
+        /**
+         * 1 GiB. Not chosen to avoid recycling — recycling is cheap now — but to keep the volume of
+         * dirty pages in play realistic. Shrink it and the kernel would be writing back the same few
+         * pages, which is a benchmark of the page cache and not of a log.
+         */
         const val CAPACITY = 1024 * 1024 * 1024
     }
 }

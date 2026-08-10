@@ -277,26 +277,47 @@ class LogSegment private constructor(
             return LogSegment(baseOffset, file, writer, readChannel, index, recovered.nextOffset)
         }
 
-        /** Walks record headers from the start of the segment, filling [index] as it goes. */
+        /**
+         * Walks record headers from the start of the segment, filling [index] as it goes.
+         *
+         * Reads in [RECOVERY_BUFFER] chunks rather than four bytes at a time, and the difference is
+         * not marginal. The straightforward version issues one `read` syscall per record; measured
+         * on a 256 MiB log of 128-byte records (M-23, `StartupProbe`), that was 1.9 million syscalls
+         * and 174 MiB/s — a rate at which a 100 GiB log takes ten minutes to open. The bottleneck
+         * was never the disk.
+         *
+         * The buffer is refilled whenever the next header would cross its end. Bodies are skipped
+         * rather than read: recovery only cares where each record ends, never what is in it.
+         */
         private fun recover(
             channel: FileChannel,
             baseOffset: Offset,
             limit: Int,
             index: SparseOffsetIndex,
         ): Recovered {
-            val prefix = ByteBuffer.allocate(SegmentWriter.LENGTH_PREFIX)
+            val buffer = ByteBuffer.allocateDirect(RECOVERY_BUFFER)
             var position = Position.ZERO
             var offset = baseOffset
+            var bufferStart = -1L
 
             while (position.value + SegmentWriter.LENGTH_PREFIX <= limit) {
-                prefix.clear()
-                if (channel.read(prefix, position.value.toLong()) != SegmentWriter.LENGTH_PREFIX) break
-                prefix.flip()
-                val length = prefix.int
+                val at = position.value.toLong()
+                // Refill when the header we are about to read is not wholly inside the buffer.
+                if (bufferStart < 0 || at < bufferStart ||
+                    at + SegmentWriter.LENGTH_PREFIX > bufferStart + buffer.limit()
+                ) {
+                    buffer.clear()
+                    val read = channel.read(buffer, at)
+                    if (read < SegmentWriter.LENGTH_PREFIX) break
+                    buffer.flip()
+                    bufferStart = at
+                }
+
+                val length = buffer.getInt((at - bufferStart).toInt())
                 // Zero is the end-of-log sentinel in a pre-sized file; a negative length is
                 // corruption and is treated the same way — stop and keep what came before.
                 if (length <= 0) break
-                val end = position.value.toLong() + SegmentWriter.LENGTH_PREFIX + length
+                val end = at + SegmentWriter.LENGTH_PREFIX + length
                 if (end > limit) break
 
                 index.append(offset, position, SegmentWriter.LENGTH_PREFIX + length)
@@ -305,6 +326,9 @@ class LogSegment private constructor(
             }
             return Recovered(position, offset)
         }
+
+        /** 1 MiB of headers-and-bodies per syscall. Direct, so the copy into the JVM never happens. */
+        private const val RECOVERY_BUFFER = 1 shl 20
 
         private class Recovered(
             val position: Position,

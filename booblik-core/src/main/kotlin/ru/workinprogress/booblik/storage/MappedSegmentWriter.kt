@@ -24,7 +24,7 @@ import java.nio.channels.FileChannel
  * disk-usage alarm reads the one that scares people.
  */
 class MappedSegmentWriter(
-    channel: FileChannel,
+    private val channel: FileChannel,
     override val capacity: Int,
     initialSize: Int = 0,
 ) : SegmentWriter {
@@ -99,13 +99,31 @@ class MappedSegmentWriter(
         written = position.value
     }
 
+    /**
+     * `msync` **and then** `fsync`, and the second call is not belt-and-braces.
+     *
+     * `MemorySegment.force()` on its own is not a durability barrier. Measured directly (M-24,
+     * `DurabilityProbe`): after it returns, an `fsync` on the same file still costs 92 % of what a
+     * bare `fsync` costs — so the work `fsync` does was still outstanding. The two calls are not
+     * cheap and expensive versions of one thing; they are different things, and only one of them is
+     * the promise [SegmentWriter.force] makes.
+     *
+     * This is why the M0 benchmark's headline — a barrier through a mapping being sixty times
+     * cheaper — did not survive contact with the question "cheaper at what". It was measuring a
+     * weaker operation on a smaller amount of dirty data.
+     */
     override fun force() {
         segment.force()
+        channel.force(false)
     }
 
     override fun close() {
         // Deterministic: the mapping is gone when this returns, not when the GC decides. That is
         // the entire reason for the shared arena.
         arena.close()
+        // And the descriptor goes too. Mapping a file does not take ownership of the channel it was
+        // mapped from — the mapping outlives it quite happily — so nothing else would ever close
+        // this one, and a broker that rolls segments would leak a descriptor per segment.
+        channel.close()
     }
 }

@@ -8,6 +8,10 @@ plugins {
 
 dependencies {
     implementation(project(":booblik-core"))
+    // Declared here rather than inherited: `:booblik-core` keeps coroutines as `implementation`, so
+    // it does not leak onto consumers' compile classpaths — which is right for a library and means
+    // anything driving the writer has to ask for them itself.
+    implementation(libs.coroutines.core)
     implementation(libs.benchmark.runtime)
     implementation(libs.hdrhistogram)
 }
@@ -51,6 +55,31 @@ benchmark {
             common()
             warmups = 2
             iterations = 3
+        }
+    }
+}
+
+// Probes are not benchmarks and deliberately do not live under JMH. Each answers one question that
+// is about a *shape* rather than an average — how a barrier behaves after another barrier, how a
+// scan scales, how throughput decays over a minute — and JMH's job is to hide exactly that kind of
+// variation. They are ordinary programs with a `main`, run on demand.
+val probes =
+    mapOf(
+        "probeDurability" to "M-24: does msync promise what fsync promises",
+        "probeStartup" to "M-23: how fast recovery scans a log",
+        "probeSustainedWrite" to "M-26: throughput once the log outgrows memory",
+    )
+
+probes.forEach { (task, description) ->
+    tasks.register<JavaExec>(task) {
+        group = "verification"
+        this.description = description
+        mainClass.set("ru.workinprogress.booblik.benchmark.probe.${task.removePrefix("probe")}Probe")
+        classpath = sourceSets["main"].runtimeClasspath
+        // Arguments come from `-Pargs="..."` so a probe can be pointed at the other write path
+        // without editing it.
+        argumentProviders.add {
+            (project.findProperty("args") as String?)?.split(" ")?.filter(String::isNotEmpty).orEmpty()
         }
     }
 }
