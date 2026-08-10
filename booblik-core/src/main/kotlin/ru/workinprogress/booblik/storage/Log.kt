@@ -31,3 +31,17 @@ interface Log {
     /** Makes everything written so far durable. Expensive; see [SegmentWriter.force]. */
     fun force()
 }
+
+/**
+ * A record whose bytes do not match the checksum stored with them.
+ *
+ * Thrown by the reading path, which has the bytes and can tell. The zero-copy path cannot and does
+ * not try — the client verifies there instead, because it is the one that ends up holding the
+ * bytes. Recovery does not throw at all: it stops, keeping everything before the damage, which is
+ * the only useful thing to do with a log whose tail is questionable.
+ */
+class CorruptRecordException(
+    baseOffset: ru.workinprogress.booblik.Offset,
+    offset: ru.workinprogress.booblik.Offset,
+    position: ru.workinprogress.booblik.Position,
+) : IllegalStateException("record at offset $offset (segment $baseOffset, position $position) fails its checksum")

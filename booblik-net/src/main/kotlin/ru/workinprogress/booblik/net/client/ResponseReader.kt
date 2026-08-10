@@ -15,7 +15,7 @@ data class ProduceResult(
     val logEndOffset: Offset,
 )
 
-/** What the broker answered a FETCH with. [records] are already unframed. */
+/** What the broker answered a FETCH with. [records] are already unframed and checksum-verified. */
 data class FetchResult(
     val correlationId: Int,
     val error: ErrorCode,
@@ -24,6 +24,17 @@ data class FetchResult(
     /** True when the response ended inside a record, which `maxBytes` makes routine. */
     val truncated: Boolean,
 )
+
+/**
+ * A record that arrived not matching the checksum stored with it.
+ *
+ * The client is the only party on the read path that can notice. The broker streams segment bytes
+ * to the socket without looking at them — that is what zero-copy means — so verification has to
+ * happen where the bytes finally land.
+ */
+class CorruptRecordException(
+    index: Int,
+) : IllegalStateException("record $index in the fetch response fails its checksum")
 
 /**
  * Reads response frames off a socket and unpacks them.
@@ -69,9 +80,10 @@ object ResponseReader {
 
         val records = ArrayList<ByteArray>()
         var truncated = false
-        while (body.remaining() >= Int.SIZE_BYTES) {
+        while (body.remaining() >= RECORD_HEADER) {
             val mark = body.position()
             val size = body.int
+            val expectedCrc = body.int
             if (size <= 0 || size > body.remaining()) {
                 // `maxBytes` cuts on a byte boundary, not a record boundary, so the tail of a full
                 // response is normally a record that does not fit. Dropping it and asking again
@@ -83,10 +95,22 @@ object ResponseReader {
             }
             val record = ByteArray(size)
             body.get(record)
+            // Checked here and nowhere else on this path. A truncated tail is not corruption and
+            // must not be reported as such, which is why the length check comes first.
+            if (checksum(record) != expectedCrc) throw CorruptRecordException(records.size)
             records += record
         }
         if (body.remaining() > 0) truncated = true
         return FetchResult(correlationId, error, highWatermark, records, truncated)
+    }
+
+    /** `[int32 length][int32 crc]`, the same header the broker writes to disk. */
+    private const val RECORD_HEADER = Int.SIZE_BYTES * 2
+
+    private fun checksum(record: ByteArray): Int {
+        val crc = java.util.zip.CRC32C()
+        crc.update(record, 0, record.size)
+        return crc.value.toInt()
     }
 
     fun readFully(

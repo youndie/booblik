@@ -160,7 +160,7 @@ class RecoveryTest {
     }
 
     private companion object {
-        /** `[int32 length][6 bytes]` for the single record written by the tests above. */
-        const val INTACT_RECORD_END = 4L + 6L
+        /** `[int32 length][int32 crc][6 bytes]` for the single record written by the tests above. */
+        const val INTACT_RECORD_END = 8L + 6L
     }
 }

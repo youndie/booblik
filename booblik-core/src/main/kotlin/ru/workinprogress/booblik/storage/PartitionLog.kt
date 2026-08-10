@@ -56,7 +56,7 @@ class PartitionLog private constructor(
     val sizeInBytes: Long get() = segments.sumOf { it.size.value.toLong() }
 
     override fun hasRoomFor(payloadSize: Int): Boolean =
-        payloadSize.toLong() + SegmentWriter.LENGTH_PREFIX <= segmentCapacity
+        payloadSize.toLong() + SegmentWriter.RECORD_HEADER <= segmentCapacity
 
     /**
      * Appends one record, rolling to a new segment first if the active one cannot take it.

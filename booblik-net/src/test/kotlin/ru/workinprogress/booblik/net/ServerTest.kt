@@ -109,8 +109,8 @@ class ServerTest {
                 client.sendProduce(TOPIC, PARTITION, sent)
                 client.receiveProduce()
 
-                // Two and a half records' worth: 104 bytes each on disk.
-                client.sendFetch(TOPIC, PARTITION, Offset.ZERO, maxBytes = 260)
+                // Two and a half records' worth: 108 bytes each on disk with the header.
+                client.sendFetch(TOPIC, PARTITION, Offset.ZERO, maxBytes = 270)
                 val fetched = client.receiveFetch()
 
                 assertEquals(2, fetched.records.size, "$transport/$fetchMode")
@@ -132,12 +132,12 @@ class ServerTest {
 
             client.sendFetch(TOPIC, PARTITION, Offset.ZERO, maxBytes = 1 shl 20)
             val first = client.receiveFetch()
-            assertEquals(5, first.records.size, "1024 / (4 + 200) = 5 records per segment")
+            assertEquals(4, first.records.size, "1024 / (8 + 200) = 4 records per segment")
 
-            client.sendFetch(TOPIC, PARTITION, Offset(5), maxBytes = 1 shl 20)
+            client.sendFetch(TOPIC, PARTITION, Offset(4), maxBytes = 1 shl 20)
             val second = client.receiveFetch()
-            assertEquals(5, second.records.size)
-            assertContentEquals(sent[5], second.records[0])
+            assertEquals(4, second.records.size)
+            assertContentEquals(sent[4], second.records[0])
         }
     }
 

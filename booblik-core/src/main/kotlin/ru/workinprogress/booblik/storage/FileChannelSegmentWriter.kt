@@ -9,10 +9,10 @@ import java.nio.channels.FileChannel
  * (`FileRecords.append`, research §1.1).
  *
  * One `write` syscall per record would be the naive shape and it is not what happens here: the
- * length prefix and the payload go out in a single gathering write, because splitting them doubles
- * the syscall count for records that are mostly small.
+ * header and the payload go out in a single gathering write, because splitting them doubles the
+ * syscall count for records that are mostly small.
  *
- * The scratch buffer is a field, not a local: allocating a 4-byte `ByteBuffer` per append is the
+ * The scratch buffer is a field, not a local: allocating an 8-byte `ByteBuffer` per append is the
  * kind of garbage that does not show up in a microbenchmark of the write itself and does show up
  * as GC pressure at a million records per second.
  */
@@ -21,7 +21,7 @@ class FileChannelSegmentWriter(
     override val capacity: Int,
     initialSize: Int = channel.size().toInt(),
 ) : SegmentWriter {
-    private val prefix: ByteBuffer = ByteBuffer.allocateDirect(SegmentWriter.LENGTH_PREFIX)
+    private val header: ByteBuffer = ByteBuffer.allocateDirect(SegmentWriter.RECORD_HEADER)
     private val frame = arrayOfNulls<ByteBuffer>(2)
 
     private var written: Int = initialSize
@@ -43,15 +43,16 @@ class FileChannelSegmentWriter(
         length: Int,
     ): Position {
         require(length > 0) { "a zero-length record is the end-of-log sentinel and cannot be stored" }
-        require(hasRoomFor(length)) { "segment full: $written + ${SegmentWriter.LENGTH_PREFIX + length} > $capacity" }
+        require(hasRoomFor(length)) { "segment full: $written + ${SegmentWriter.RECORD_HEADER + length} > $capacity" }
         val start = written
 
-        prefix.clear()
-        prefix.putInt(length)
-        prefix.flip()
+        header.clear()
+        header.putInt(length)
+        header.putInt(SegmentWriter.checksum(payload, offset, length))
+        header.flip()
 
         val body = ByteBuffer.wrap(payload, offset, length)
-        frame[0] = prefix
+        frame[0] = header
         frame[1] = body
 
         @Suppress("UNCHECKED_CAST")
@@ -59,11 +60,11 @@ class FileChannelSegmentWriter(
         // A gathering write is allowed to write less than everything, and on a regular file it
         // effectively never does — but "effectively never" is how a corrupt segment gets written
         // once a week in production, so the loop stays.
-        while (prefix.hasRemaining() || body.hasRemaining()) {
+        while (header.hasRemaining() || body.hasRemaining()) {
             channel.write(buffers, 0, 2)
         }
 
-        written = start + SegmentWriter.LENGTH_PREFIX + length
+        written = start + SegmentWriter.RECORD_HEADER + length
         return Position(start)
     }
 

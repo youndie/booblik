@@ -25,7 +25,7 @@ class PartitionLogTest {
         }
     }
 
-    /** 204 bytes per record, so a 1024-byte segment holds exactly five. */
+    /** 208 bytes per record with the header, so a 1024-byte segment holds exactly four. */
     private val record = ByteArray(200) { it.toByte() }
 
     @Test
@@ -36,10 +36,10 @@ class PartitionLogTest {
                     repeat(12) { log.append(record) }
 
                     assertEquals(Offset(12), log.nextOffset, "mode=$mode")
-                    assertEquals(3, log.segmentCount, "mode=$mode: 5 + 5 + 2")
+                    assertEquals(3, log.segmentCount, "mode=$mode: 4 + 4 + 4")
                     assertEquals(
-                        listOf(Offset.ZERO, Offset(5), Offset(10)),
-                        (0 until 3).map { log.segmentFor(Offset((it * 5).toLong()))!!.baseOffset },
+                        listOf(Offset.ZERO, Offset(4), Offset(8)),
+                        (0 until 3).map { log.segmentFor(Offset((it * 4).toLong()))!!.baseOffset },
                         "mode=$mode",
                     )
                 }
@@ -90,7 +90,7 @@ class PartitionLogTest {
 
                     val sink = ByteArrayOutputStream()
                     val moved = log.transferTo(Offset.ZERO, Int.MAX_VALUE, Channels.newChannel(sink))
-                    assertEquals(5L * (SegmentWriter.LENGTH_PREFIX + record.size), moved, "mode=$mode")
+                    assertEquals(4L * (SegmentWriter.RECORD_HEADER + record.size), moved, "mode=$mode")
                 }
             }
         }
@@ -107,7 +107,7 @@ class PartitionLogTest {
                     val removed = log.retainAtMost(maxBytes = 1)
                     assertEquals(2, removed, "mode=$mode")
                     assertEquals(1, log.segmentCount, "mode=$mode: the active segment always stays")
-                    assertEquals(Offset(10), log.logStartOffset, "mode=$mode")
+                    assertEquals(Offset(8), log.logStartOffset, "mode=$mode")
                     assertNull(log.read(Offset.ZERO), "mode=$mode: retired data is gone from the log")
                     assertContentEquals(record, log.read(Offset(11)), "mode=$mode")
 

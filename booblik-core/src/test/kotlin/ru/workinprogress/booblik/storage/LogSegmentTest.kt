@@ -80,7 +80,7 @@ class LogSegmentTest {
                 repeat(5_000) { segment.append(payload) }
 
                 assertEquals(Position.ZERO, segment.positionOf(Offset.ZERO), "mode=$mode")
-                val recordSize = SegmentWriter.LENGTH_PREFIX + payload.size
+                val recordSize = SegmentWriter.RECORD_HEADER + payload.size
                 assertEquals(Position(4_321 * recordSize), segment.positionOf(Offset(4_321)), "mode=$mode")
                 assertContentEquals(payload, segment.read(Offset(4_999)), "mode=$mode")
             }
@@ -106,10 +106,13 @@ class LogSegmentTest {
                     moved += n
                 }
 
+                // `[length][crc][payload]`, and the checksum has to be the real one — a test that
+                // recomputed it some other way would be checking its own arithmetic.
                 val expected =
                     ByteBuffer
-                        .allocate(SegmentWriter.LENGTH_PREFIX + payload.size)
+                        .allocate(SegmentWriter.RECORD_HEADER + payload.size)
                         .putInt(payload.size)
+                        .putInt(SegmentWriter.checksum(payload, 0, payload.size))
                         .put(payload)
                         .array()
                 assertContentEquals(expected, sink.toByteArray(), "mode=$mode")
@@ -126,7 +129,7 @@ class LogSegmentTest {
                 while (segment.hasRoomFor(payload.size)) segment.append(payload)
 
                 assertTrue(!segment.hasRoomFor(payload.size), "mode=$mode")
-                assertEquals(5, segment.nextOffset.value, "mode=$mode: 1024 / (4 + 200) = 5 records")
+                assertEquals(4, segment.nextOffset.value, "mode=$mode: 1024 / (8 + 200) = 4 records")
             }
         }
     }

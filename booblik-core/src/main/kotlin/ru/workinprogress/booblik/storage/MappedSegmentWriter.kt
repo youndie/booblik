@@ -42,7 +42,7 @@ class MappedSegmentWriter(
         length: Int,
     ): Position {
         require(length > 0) { "a zero-length record is the end-of-log sentinel and cannot be stored" }
-        require(hasRoomFor(length)) { "segment full: $written + ${SegmentWriter.LENGTH_PREFIX + length} > $capacity" }
+        require(hasRoomFor(length)) { "segment full: $written + ${SegmentWriter.RECORD_HEADER + length} > $capacity" }
         val start = written
 
         // **Body first, length prefix last**, and the order is the whole recovery story for this
@@ -53,15 +53,15 @@ class MappedSegmentWriter(
         // record. Written prefix-last, the same crash leaves a zero there and recovery stops
         // exactly where it should.
         //
-        // This is not a proof, and it should not be read as one: nothing orders the writeback of
-        // two pages, so a record straddling a page boundary can still be torn the wrong way round.
-        // It converts "reliably wrong" into "wrong only under page-level reordering". The actual
-        // fix is a checksum per record, which is what Kafka does — M-60.
+        // On its own this was not a proof, and it was never read as one: nothing orders the
+        // writeback of two pages, so a record straddling a page boundary can still be torn the
+        // wrong way round. The checksum below is what closes that gap (M-60) — the ordering here
+        // now only decides *where* recovery stops, not whether it can tell.
         MemorySegment.copy(
             MemorySegment.ofArray(payload),
             offset.toLong(),
             segment,
-            (start + SegmentWriter.LENGTH_PREFIX).toLong(),
+            (start + SegmentWriter.RECORD_HEADER).toLong(),
             length.toLong(),
         )
 
@@ -76,9 +76,17 @@ class MappedSegmentWriter(
         // Big-endian on purpose: everything that leaves this process — the wire protocol included —
         // is big-endian, and a segment that disagreed with the wire would need a byte swap on the
         // zero-copy path, which is the one path that must not touch the bytes.
+        // Checksum before length, length last. The length is what recovery reads first, so it is
+        // the field that must appear last: a record whose length is visible has, by construction,
+        // had everything else stored already.
+        segment.set(
+            ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN),
+            (start + SegmentWriter.LENGTH_BYTES).toLong(),
+            SegmentWriter.checksum(payload, offset, length),
+        )
         segment.set(ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN), start.toLong(), length)
 
-        written = start + SegmentWriter.LENGTH_PREFIX + length
+        written = start + SegmentWriter.RECORD_HEADER + length
         return Position(start)
     }
 
@@ -89,7 +97,7 @@ class MappedSegmentWriter(
         // is not an option; what marks the end of the log is a zero length prefix, and without
         // this store the discarded record's own prefix would still be sitting there for the next
         // recovery to read back as valid.
-        if (position.value + SegmentWriter.LENGTH_PREFIX <= capacity) {
+        if (position.value + SegmentWriter.RECORD_HEADER <= capacity) {
             segment.set(
                 ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN),
                 position.value.toLong(),

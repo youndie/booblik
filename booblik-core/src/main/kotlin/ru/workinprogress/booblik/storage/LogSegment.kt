@@ -65,7 +65,7 @@ class LogSegment private constructor(
     ): Offset {
         val assigned = nextOffset
         val position = writer.append(payload, from, length)
-        index.append(assigned, position, SegmentWriter.LENGTH_PREFIX + length)
+        index.append(assigned, position, SegmentWriter.RECORD_HEADER + length)
         // Published last: an offset is only visible once its bytes are.
         nextOffset = assigned.inc()
         return assigned
@@ -89,13 +89,13 @@ class LogSegment private constructor(
         var current = entry.offset
         var position = entry.position
         val limit = writer.size.value
-        val prefix = ByteBuffer.allocate(SegmentWriter.LENGTH_PREFIX)
+        val header = ByteBuffer.allocate(SegmentWriter.RECORD_HEADER)
         while (current < offset) {
             if (position.value >= limit) return null
-            prefix.clear()
-            if (readChannel.read(prefix, position.value.toLong()) != SegmentWriter.LENGTH_PREFIX) return null
-            prefix.flip()
-            position = position + SegmentWriter.LENGTH_PREFIX + prefix.int
+            header.clear()
+            if (readChannel.read(header, position.value.toLong()) != SegmentWriter.RECORD_HEADER) return null
+            header.flip()
+            position = position + SegmentWriter.RECORD_HEADER + header.int
             current = current.inc()
         }
         return position
@@ -104,18 +104,25 @@ class LogSegment private constructor(
     /** Reads one record into the heap. For tests and for the non-zero-copy path; not the hot path. */
     fun read(offset: Offset): ByteArray? {
         val position = positionOf(offset) ?: return null
-        val prefix = ByteBuffer.allocate(SegmentWriter.LENGTH_PREFIX)
-        if (readChannel.read(prefix, position.value.toLong()) != SegmentWriter.LENGTH_PREFIX) return null
-        prefix.flip()
-        val length = prefix.int
+        val header = ByteBuffer.allocate(SegmentWriter.RECORD_HEADER)
+        if (readChannel.read(header, position.value.toLong()) != SegmentWriter.RECORD_HEADER) return null
+        header.flip()
+        val length = header.int
+        val expectedCrc = header.int
         val body = ByteBuffer.allocate(length)
         var read = 0
         while (read < length) {
-            val n = readChannel.read(body, (position.value + SegmentWriter.LENGTH_PREFIX + read).toLong())
+            val n = readChannel.read(body, (position.value + SegmentWriter.RECORD_HEADER + read).toLong())
             if (n < 0) return null
             read += n
         }
-        return body.array()
+        val bytes = body.array()
+        // Verified here because this path already has the bytes in hand. The zero-copy path cannot
+        // do this and does not try — it never touches them, which is the whole point of it.
+        if (SegmentWriter.checksum(bytes, 0, length) != expectedCrc) {
+            throw CorruptRecordException(baseOffset, offset, position)
+        }
+        return bytes
     }
 
     /**
@@ -314,31 +321,80 @@ class LogSegment private constructor(
             var offset = baseOffset
             var bufferStart = -1L
 
-            while (position.value + SegmentWriter.LENGTH_PREFIX <= limit) {
+            while (position.value + SegmentWriter.RECORD_HEADER <= limit) {
                 val at = position.value.toLong()
                 // Refill when the header we are about to read is not wholly inside the buffer.
                 if (bufferStart < 0 || at < bufferStart ||
-                    at + SegmentWriter.LENGTH_PREFIX > bufferStart + buffer.limit()
+                    at + SegmentWriter.RECORD_HEADER > bufferStart + buffer.limit()
                 ) {
                     buffer.clear()
                     val read = channel.read(buffer, at)
-                    if (read < SegmentWriter.LENGTH_PREFIX) break
+                    if (read < SegmentWriter.RECORD_HEADER) break
                     buffer.flip()
                     bufferStart = at
                 }
 
-                val length = buffer.getInt((at - bufferStart).toInt())
+                val headerAt = (at - bufferStart).toInt()
+                val length = buffer.getInt(headerAt)
                 // Zero is the end-of-log sentinel in a pre-sized file; a negative length is
                 // corruption and is treated the same way — stop and keep what came before.
                 if (length <= 0) break
-                val end = at + SegmentWriter.LENGTH_PREFIX + length
+                val end = at + SegmentWriter.RECORD_HEADER + length
                 if (end > limit) break
+                // And the record has to match its own checksum. Without this the length prefix was
+                // the only evidence a record was intact, so a body that was half-written came back
+                // as data — risk 5, and the reason M-60 exists.
+                if (!verify(
+                        channel,
+                        buffer,
+                        bufferStart,
+                        at,
+                        length,
+                        expected =
+                            buffer.getInt(headerAt + SegmentWriter.LENGTH_BYTES),
+                    )
+                ) {
+                    break
+                }
 
-                index.append(offset, position, SegmentWriter.LENGTH_PREFIX + length)
+                index.append(offset, position, SegmentWriter.RECORD_HEADER + length)
                 position = Position(end.toInt())
                 offset = offset.inc()
             }
             return Recovered(position, offset)
+        }
+
+        /**
+         * Checks one record against its stored checksum during recovery.
+         *
+         * Usually the whole record is already inside the read buffer and this costs a CRC over
+         * bytes that were fetched anyway. A record that straddles the buffer boundary is read
+         * again on its own — rare by construction, since the buffer is a megabyte and records are
+         * not.
+         */
+        private fun verify(
+            channel: FileChannel,
+            buffer: ByteBuffer,
+            bufferStart: Long,
+            at: Long,
+            length: Int,
+            expected: Int,
+        ): Boolean {
+            val bodyAt = at + SegmentWriter.RECORD_HEADER
+            val body = ByteArray(length)
+            val inBuffer = (bodyAt - bufferStart).toInt()
+            if (inBuffer >= 0 && inBuffer + length <= buffer.limit()) {
+                buffer.get(inBuffer, body)
+            } else {
+                val direct = ByteBuffer.wrap(body)
+                var read = 0
+                while (read < length) {
+                    val n = channel.read(direct, bodyAt + read)
+                    if (n < 0) return false
+                    read += n
+                }
+            }
+            return SegmentWriter.checksum(body, 0, length) == expected
         }
 
         /** 1 MiB of headers-and-bodies per syscall. Direct, so the copy into the JVM never happens. */

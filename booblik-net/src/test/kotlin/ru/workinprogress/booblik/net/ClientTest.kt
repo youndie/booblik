@@ -161,9 +161,9 @@ class ClientTest {
             val records = (0 until 10).map { ByteArray(100) { b -> (it + b).toByte() } }
             connection.produce(topic, partition, records)
 
-            val consumer = Consumer(connection, topic, partition, maxBytes = 260)
+            val consumer = Consumer(connection, topic, partition, maxBytes = 270)
             val first = consumer.poll()
-            assertEquals(2, first.records.size, "260 bytes holds two 104-byte records and part of a third")
+            assertEquals(2, first.records.size, "270 bytes holds two 108-byte records and part of a third")
             assertEquals(Offset(2), consumer.position)
 
             val second = consumer.poll()
