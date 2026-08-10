@@ -76,10 +76,12 @@ class PartialFrameTest {
     }
 
     @Test
-    fun `an unparseable frame is answered, and the connection survives it`() {
+    fun `an unserviceable frame is answered, and the connection survives it`() {
         withRawSocket { _, socket ->
-            // Valid framing, nonsense inside: the broker can still tell the client what went wrong,
-            // and there is no reason to drop a connection whose framing is intact.
+            // Valid framing and a valid header, asking for an api key that does not exist. The
+            // broker can name the problem *and* echo the correlation id, because the part of the
+            // frame carrying it parsed fine. Codes are covered in ErrorCodeTest; what matters here
+            // is that the connection is not dropped over it.
             val body =
                 ByteBuffer.allocate(Protocol.REQUEST_HEADER_BYTES).apply {
                     putShort(999)
@@ -96,8 +98,8 @@ class PartialFrameTest {
             writeFully(socket, frame)
 
             val response = readFrame(socket)
-            assertEquals(0, response.int, "an unparseable frame has no correlation id to echo")
-            assertEquals(ErrorCode.CORRUPT_REQUEST, ErrorCode.of(response.short))
+            assertEquals(5, response.int, "the header parsed, so the id must come back")
+            assertEquals(ErrorCode.UNSUPPORTED_VERSION, ErrorCode.of(response.short))
 
             // And the connection is still usable.
             writeFully(socket, fetchFrame(correlationId = 8))

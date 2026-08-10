@@ -35,6 +35,18 @@ data class FetchRequest(
     val maxBytes: Int,
 ) : Request
 
+/** Either a request, or an error the client can be told about by correlation id. */
+sealed interface DecodeResult {
+    data class Ok(
+        val request: Request,
+    ) : DecodeResult
+
+    data class Failed(
+        val correlationId: Int,
+        val code: ErrorCode,
+    ) : DecodeResult
+}
+
 /**
  * Turns bytes into requests.
  *
@@ -47,26 +59,52 @@ object RequestDecoder {
     /**
      * Decodes a complete frame body — everything after the `int32` length prefix.
      *
-     * @throws CorruptRequestException if the frame does not parse.
+     * Returns a [DecodeResult] rather than throwing, because a failure still has to be **answered**,
+     * and answering needs the correlation id. The header is therefore read before anything is
+     * validated: an unsupported api version is a request the client can be told about by name,
+     * whereas a frame too short to hold a header is one we can only answer into the void.
      */
-    fun decode(buffer: ByteBuffer): Request {
-        val apiKeyId = buffer.getShortChecked("apiKey")
-        val apiVersion = buffer.getShortChecked("apiVersion")
-        val correlationId = buffer.getIntChecked("correlationId")
+    fun decode(buffer: ByteBuffer): DecodeResult {
+        val apiKeyId: Short
+        val apiVersion: Short
+        val correlationId: Int
+        try {
+            apiKeyId = buffer.getShortChecked("apiKey")
+            apiVersion = buffer.getShortChecked("apiVersion")
+            correlationId = buffer.getIntChecked("correlationId")
+        } catch (_: CorruptRequestException) {
+            // Nothing here is trustworthy, including any number we might echo back.
+            return DecodeResult.Failed(UNKNOWN_CORRELATION_ID, ErrorCode.CORRUPT_REQUEST)
+        }
 
-        val apiKey =
-            ApiKey.of(apiKeyId)
-                ?: throw CorruptRequestException("unknown apiKey $apiKeyId")
+        val apiKey = ApiKey.of(apiKeyId)
+        // An unknown api key and an unknown version are the same class of problem — a client
+        // speaking something this broker does not speak — and they share a code. `CORRUPT_REQUEST`
+        // would be wrong: the frame is perfectly well formed, we simply do not implement it.
+        if (apiKey == null || apiVersion != Protocol.VERSION) {
+            return DecodeResult.Failed(correlationId, ErrorCode.UNSUPPORTED_VERSION)
+        }
+
         val header = RequestHeader(apiKey, apiVersion, correlationId)
-
-        val topic = TopicName(buffer.getStringChecked())
-        val partition = PartitionId(buffer.getIntChecked("partitionId").requireNonNegative("partitionId"))
-
-        return when (apiKey) {
-            ApiKey.PRODUCE -> decodeProduce(header, topic, partition, buffer)
-            ApiKey.FETCH -> decodeFetch(header, topic, partition, buffer)
+        return try {
+            val topic = TopicName(buffer.getStringChecked())
+            val partition = PartitionId(buffer.getIntChecked("partitionId").requireNonNegative("partitionId"))
+            DecodeResult.Ok(
+                when (apiKey) {
+                    ApiKey.PRODUCE -> decodeProduce(header, topic, partition, buffer)
+                    ApiKey.FETCH -> decodeFetch(header, topic, partition, buffer)
+                },
+            )
+        } catch (_: IllegalArgumentException) {
+            // Catching the supertype is deliberate: the decoder throws `CorruptRequestException`,
+            // but `TopicName` and `PartitionId` validate themselves in their own constructors and
+            // throw plain `IllegalArgumentException`. Both mean the same thing on the wire.
+            DecodeResult.Failed(correlationId, ErrorCode.CORRUPT_REQUEST)
         }
     }
+
+    /** Echoed when the frame was too short to contain a correlation id worth echoing. */
+    const val UNKNOWN_CORRELATION_ID = 0
 
     private fun decodeProduce(
         header: RequestHeader,

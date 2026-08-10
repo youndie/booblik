@@ -73,6 +73,9 @@ object LoadProbe {
         // A knob because it turned out to matter: a segment that fills during the run puts a roll
         // inside the measurement, and a roll is visible in the tail.
         val segmentCapacity = args.getOrElse(6) { SEGMENT_CAPACITY.toString() }.toInt()
+        // M-44. Depth 1 is strict request-response: the sender may not issue the next request until
+        // the previous answer is in. Anything higher is pipelining.
+        val pipelineDepth = args.getOrElse(7) { MAX_IN_FLIGHT.toString() }.toInt()
 
         val dir = Files.createTempDirectory("booblik-load")
         val scope = CoroutineScope(SupervisorJob())
@@ -87,7 +90,9 @@ object LoadProbe {
         try {
             val address = server.start()
             println("# M-33/M-34 load probe: $workload, $transport, fetch=$fetchMode")
-            println("# $connections connections, target $targetRate/s total, ${seconds}s")
+            println(
+                "# $connections connections, target $targetRate/s total, ${seconds}s, pipeline depth $pipelineDepth",
+            )
             println(
                 "# records of $RECORD_SIZE B, batches of $BATCH_SIZE; segment capacity ${segmentCapacity / 1024 / 1024} MiB",
             )
@@ -96,7 +101,7 @@ object LoadProbe {
 
             val histogram = Histogram(TimeUnit.MINUTES.toNanos(1), 3)
             val gcBefore = gcSnapshot()
-            val completed = run(workload, address, connections, targetRate, seconds, histogram)
+            val completed = run(workload, address, connections, targetRate, seconds, pipelineDepth, histogram)
             val gcAfter = gcSnapshot()
 
             report(workload, targetRate, seconds, completed, histogram, log.nextOffset)
@@ -130,6 +135,7 @@ object LoadProbe {
         connections: Int,
         targetRate: Int,
         seconds: Long,
+        pipelineDepth: Int,
         histogram: Histogram,
     ): Long {
         val perConnectionRate = targetRate.toDouble() / connections
@@ -148,6 +154,11 @@ object LoadProbe {
                         // would let the harness hide a broker that has stopped answering, by
                         // accumulating work in the client instead of reporting latency.
                         val inFlight = ArrayBlockingQueue<Long>(MAX_IN_FLIGHT)
+                        // Bounds how many requests may be outstanding. Released by the receiver
+                        // *after* the answer is recorded, not when it is dequeued — otherwise
+                        // depth 1 would let the sender go one request early and stop being
+                        // request-response at all.
+                        val slots = java.util.concurrent.Semaphore(pipelineDepth)
                         val local = histograms[index]
 
                         val receiver =
@@ -161,6 +172,7 @@ object LoadProbe {
                                             Workload.FETCH -> client.receiveFetch()
                                         }
                                         local.recordValue(System.nanoTime() - due)
+                                        slots.release()
                                     }
                                 } catch (_: Exception) {
                                     // The connection went away; the run is over for this thread.
@@ -188,6 +200,7 @@ object LoadProbe {
                             val due = began + issued * intervalNanos
                             val wait = due - System.nanoTime()
                             if (wait > 0) parkNanos(wait)
+                            slots.acquire()
 
                             when (workload) {
                                 Workload.PRODUCE -> {
@@ -204,6 +217,9 @@ object LoadProbe {
                         }
                         inFlight.put(POISON)
                         receiver.join(TimeUnit.SECONDS.toMillis(10))
+                        // Anything the receiver never got to is not a completed request, and the
+                        // semaphore would otherwise keep the next thread waiting on a dead one.
+                        slots.release(pipelineDepth)
                         synchronized(histogram) {
                             completed += local.totalCount
                             histogram.add(local)

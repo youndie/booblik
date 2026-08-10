@@ -3,6 +3,7 @@ package ru.workinprogress.booblik.net
 import ru.workinprogress.booblik.log.AckPolicy
 import ru.workinprogress.booblik.net.nio.Connection
 import ru.workinprogress.booblik.net.wire.CorruptRequestException
+import ru.workinprogress.booblik.net.wire.DecodeResult
 import ru.workinprogress.booblik.net.wire.ErrorCode
 import ru.workinprogress.booblik.net.wire.FetchRequest
 import ru.workinprogress.booblik.net.wire.ProduceRequest
@@ -67,19 +68,18 @@ class Session(
     }
 
     private suspend fun handle(frame: ByteBuffer) {
+        // The connection stays open on a decode failure: the framing was intact, so the client is
+        // still speaking the protocol — it just said something this broker cannot serve.
         val request =
-            try {
-                RequestDecoder.decode(frame)
-            } catch (_: IllegalArgumentException) {
-                // Catching the supertype is deliberate: `CorruptRequestException` covers what the
-                // decoder checks, but `TopicName` and `PartitionId` validate themselves in their
-                // own constructors and throw plain `IllegalArgumentException`. Both mean the same
-                // thing on the wire.
-                //
-                // A frame we could not parse has no correlationId we can trust, so the answer
-                // carries zero — and the connection stays open, because the framing was intact.
-                respondError(correlationId = 0, code = ErrorCode.CORRUPT_REQUEST)
-                return
+            when (val decoded = RequestDecoder.decode(frame)) {
+                is DecodeResult.Ok -> {
+                    decoded.request
+                }
+
+                is DecodeResult.Failed -> {
+                    respondError(decoded.correlationId, decoded.code)
+                    return
+                }
             }
 
         val handle = partitions.find(request.topic, request.partition)
