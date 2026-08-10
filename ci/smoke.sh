@@ -47,6 +47,26 @@ echo "→ PRODUCE и FETCH по проводу"
 python3 - "$PORT" <<'PY'
 import socket, struct, sys
 
+# CRC32C (Castagnoli) — the same polynomial java.util.zip.CRC32C uses. Written out rather than
+# imported because the point of this script is to read the format with code that shares nothing
+# with the implementation.
+_TABLE = []
+for _i in range(256):
+    _c = _i
+    for _ in range(8):
+        _c = (_c >> 1) ^ (0x82F63B78 if _c & 1 else 0)
+    _TABLE.append(_c)
+
+
+def crc32c(data: bytes) -> int:
+    crc = 0xFFFFFFFF
+    for byte in data:
+        crc = (crc >> 8) ^ _TABLE[(crc ^ byte) & 0xFF]
+    crc ^= 0xFFFFFFFF
+    # The broker stores it as a signed int32.
+    return crc - (1 << 32) if crc >= (1 << 31) else crc
+
+
 port = int(sys.argv[1])
 topic = b"smoke"
 sock = socket.create_connection(("127.0.0.1", port), timeout=15)
@@ -86,16 +106,25 @@ response = read_frame()
 correlation, error = struct.unpack(">ih", response[:6])
 assert correlation == 2, f"FETCH echoed correlation {correlation}"
 assert error == 0, f"FETCH failed with error {error}"
+# `[int32 size][int32 crc32c][payload]`. Parsed independently of the Kotlin client on purpose:
+# this script is the only place the wire format is read by code that does not share its
+# implementation, which is how it caught the header growing from four bytes to eight.
 payload = response[18:]
 read, offset = [], 0
-while offset + 4 <= len(payload):
-    size = struct.unpack(">i", payload[offset:offset + 4])[0]
-    offset += 4
-    read.append(payload[offset:offset + size])
+while offset + 8 <= len(payload):
+    size, crc = struct.unpack(">ii", payload[offset:offset + 8])
+    offset += 8
+    record = payload[offset:offset + size]
     offset += size
-assert read == records, f"read back {len(read)} records, not the {len(records)} written"
+    # The broker computes this on write; the client is the only party on the read path that can
+    # check it, because the zero-copy path never touches the bytes.
+    read.append((record, crc))
+assert [r for r, _ in read] == records, f"read back {len(read)} records, not the {len(records)} written"
+for index, (record, crc) in enumerate(read):
+    expected = crc32c(record)
+    assert expected == crc, f"record {index} checksum {crc} does not match {expected}"
 sock.close()
-print(f"   {len(records)} записей записаны и прочитаны обратно побайтово")
+print(f"   {len(records)} записей записаны, прочитаны побайтово и сошлись по контрольной сумме")
 PY
 
 echo "→ рестарт: лог должен пережить остановку"
