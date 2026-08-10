@@ -16,6 +16,9 @@ benchmark = "0.4.17"
 # would cost more memory than the payload being measured.
 hdrhistogram = "2.2.2"
 ktor = "3.5.2"
+# Reads compiled classes in a test. Test-only, and the only dependency in the project that exists
+# to check a property of the code rather than to be part of it.
+asm = "9.10.1"
 
 [libraries]
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -23,6 +26,7 @@ coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", ve
 benchmark-runtime = { module = "org.jetbrains.kotlinx:kotlinx-benchmark-runtime", version.ref = "benchmark" }
 hdrhistogram = { module = "org.hdrhistogram:HdrHistogram", version.ref = "hdrhistogram" }
 ktor-network = { module = "io.ktor:ktor-network", version.ref = "ktor" }
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

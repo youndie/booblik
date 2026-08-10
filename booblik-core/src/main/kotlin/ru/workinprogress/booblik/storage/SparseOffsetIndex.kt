@@ -27,9 +27,23 @@ import ru.workinprogress.booblik.Position
 class SparseOffsetIndex(
     val baseOffset: Offset,
     private val intervalBytes: Int = DEFAULT_INTERVAL_BYTES,
-    maxEntries: Int = DEFAULT_MAX_ENTRIES,
+    private val maxEntries: Int = DEFAULT_MAX_ENTRIES,
 ) {
-    private val entries = LongArray(maxEntries)
+    /**
+     * Grown on demand rather than allocated at [maxEntries], and replaced wholesale when it grows.
+     *
+     * The array used to be allocated at full size for every segment — a megabyte of index whether
+     * the segment held half a gigabyte or a kilobyte. A broker with a few hundred small segments
+     * spent hundreds of megabytes on entries that did not exist, and at a 64 MiB heap it died.
+     * Found by `LogPropertiesTest`, which opens many tiny segments on purpose.
+     *
+     * Sizing it from the segment capacity instead was the obvious fix and the wrong one: records
+     * can be larger than the index interval, so `capacity / interval` is not an upper bound on the
+     * entries a segment will want, and a too-small index made the **index** the thing that filled
+     * up first — segments started rolling after one record.
+     */
+    @Volatile
+    private var entries = LongArray(INITIAL_ENTRIES)
 
     @Volatile
     private var count: Int = 0
@@ -38,7 +52,8 @@ class SparseOffsetIndex(
 
     val entryCount: Int get() = count
 
-    val isFull: Boolean get() = count == entries.size
+    /** Only ever true at the hard cap, which a segment reaches long after it runs out of bytes. */
+    val isFull: Boolean get() = count == maxEntries
 
     /**
      * Offers a record to the index. Most calls do nothing — an entry is only added once
@@ -59,6 +74,7 @@ class SparseOffsetIndex(
             return false
         }
         if (isFull) return false
+        if (count == entries.size) grow()
 
         entries[count] = (relative shl Integer.SIZE) or (position.value.toLong() and LOW_MASK)
         // Publish the slot before publishing its existence: a reader that sees count == n must see
@@ -66,6 +82,13 @@ class SparseOffsetIndex(
         count += 1
         bytesSinceLastEntry = recordBytes
         return true
+    }
+
+    private fun grow() {
+        // Replaced, not resized in place: a reader may be walking the old array, and it stays a
+        // consistent view of the entries it was published with. Readers take `count` **before**
+        // `entries` so they can never see a count that belongs to an array they have not got.
+        entries = entries.copyOf((entries.size * 2).coerceAtMost(maxEntries))
     }
 
     /**
@@ -91,7 +114,11 @@ class SparseOffsetIndex(
         val relative = target - baseOffset
         if (relative < 0) return null
 
+        // Order matters: `count` first, then the array. The array is then at least as new as the
+        // count, so it certainly holds that many entries. Reading them the other way round could
+        // pair a fresh count with a stale, shorter array.
         val snapshot = count
+        val entries = this.entries
         if (snapshot == 0) return null
 
         // Binary search for the rightmost entry with relativeOffset <= relative.
@@ -100,7 +127,7 @@ class SparseOffsetIndex(
         var found = -1
         while (low <= high) {
             val mid = (low + high) ushr 1
-            if (relativeOffsetAt(mid) <= relative) {
+            if (entries[mid] ushr Integer.SIZE <= relative) {
                 found = mid
                 low = mid + 1
             } else {
@@ -110,14 +137,12 @@ class SparseOffsetIndex(
         if (found < 0) return null
 
         return IndexEntry(
-            offset = baseOffset + relativeOffsetAt(found),
-            position = Position(positionAt(found)),
+            offset = baseOffset + (entries[found] ushr Integer.SIZE),
+            position = Position((entries[found] and LOW_MASK).toInt()),
         )
     }
 
     private fun relativeOffsetAt(i: Int): Long = entries[i] ushr Integer.SIZE
-
-    private fun positionAt(i: Int): Int = (entries[i] and LOW_MASK).toInt()
 
     data class IndexEntry(
         val offset: Offset,
@@ -130,6 +155,9 @@ class SparseOffsetIndex(
 
         /** 128 Ki entries × 4 KiB interval covers a 512 MiB segment with 1 MiB of index. */
         const val DEFAULT_MAX_ENTRIES = 128 * 1024
+
+        /** 64 entries, 512 bytes. A segment that never grows past this costs almost nothing. */
+        private const val INITIAL_ENTRIES = 64
 
         private const val LOW_MASK = 0xFFFF_FFFFL
     }

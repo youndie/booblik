@@ -6,6 +6,7 @@ import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.channels.SelectionKey
 import java.nio.channels.SocketChannel
+import java.nio.channels.WritableByteChannel
 
 /**
  * One client connection, as the session loop sees it.
@@ -20,6 +21,16 @@ import java.nio.channels.SocketChannel
  * whole reason the shape fits both.
  */
 interface Connection : Closeable {
+    /**
+     * The channel [transferFrom] hands to `FileChannel.transferTo`.
+     *
+     * Exposed so the property it must have can be checked rather than assumed: the JDK takes the
+     * `sendfile` path **only** when this is a `SocketChannelImpl`, and wrapping the socket in any
+     * decorator silently turns the read path into a copy loop that returns identical bytes
+     * (M-63, `SendfileTest`).
+     */
+    val transferTarget: WritableByteChannel
+
     /** Fills [buffer] completely, or throws if the peer goes away first. */
     suspend fun readFully(buffer: ByteBuffer)
 
@@ -47,6 +58,8 @@ class SelectorConnection(
     private val key: SelectionKey,
     private val loop: SelectorLoop,
 ) : Connection {
+    override val transferTarget: WritableByteChannel get() = channel
+
     override suspend fun readFully(buffer: ByteBuffer) {
         while (buffer.hasRemaining()) {
             val read = channel.read(buffer)
@@ -95,6 +108,8 @@ class SelectorConnection(
 class BlockingConnection(
     private val channel: SocketChannel,
 ) : Connection {
+    override val transferTarget: WritableByteChannel get() = channel
+
     override suspend fun readFully(buffer: ByteBuffer) {
         while (buffer.hasRemaining()) {
             if (channel.read(buffer) < 0) throw java.io.EOFException("peer closed the connection mid-frame")

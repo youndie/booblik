@@ -39,8 +39,8 @@ class CrashRecoveryTest {
     }
 
     private companion object {
-        /** Enough that the writer is demonstrably going, small enough not to slow the test down. */
-        const val MINIMUM_BEFORE_KILL = 64L * 1024
+        /** Records the writer must report before it is worth killing. */
+        const val MINIMUM_BEFORE_KILL = 2_000L
     }
 
     private fun spawnWriter(
@@ -60,28 +60,26 @@ class CrashRecoveryTest {
     }
 
     /**
-     * Waits until the segment file has actually grown, then returns.
+     * Waits until the writer reports having written [MINIMUM_BEFORE_KILL] records.
      *
-     * The first version of this test slept a fixed 300 ms and then killed the process, and every
-     * round recovered nothing: between JVM startup and the test worker's own overhead, the writer
-     * had not begun. Sleeping longer would have papered over it — the fix is to stop guessing and
-     * watch the file, which also means the test cannot silently degrade into "killed a process that
-     * was not writing" on a slower machine.
+     * Two earlier versions of this were wrong in instructive ways. Sleeping a fixed 300 ms killed
+     * the process before it had started — JVM startup plus the test worker's overhead — and every
+     * round recovered nothing, which looked exactly like a bug in recovery. Watching the file size
+     * fixed that for `FILE_CHANNEL` and was still wrong for `MAPPED`: mapping pre-sizes the file to
+     * its full capacity, so the size crosses any threshold **before the first record exists**.
+     *
+     * So the writer says what it has done, and the parent waits for that. A signal derived from
+     * the thing being tested is worth more than one inferred from a side effect of it.
      */
-    private fun awaitWriting(
-        dir: Path,
-        process: Process,
-    ) {
-        val file = dir.resolve(LogSegment.fileName(Offset.ZERO))
+    private fun awaitWriting(process: Process): Long {
+        val reader = process.inputStream.bufferedReader()
         val deadline = System.nanoTime() + 30_000_000_000L
         while (System.nanoTime() < deadline) {
-            if (Files.exists(file) && Files.size(file) > MINIMUM_BEFORE_KILL) return
-            check(process.isAlive) {
-                "the writer died before writing anything:\n" + process.inputStream.readBytes().decodeToString()
-            }
-            Thread.sleep(10)
+            val line = reader.readLine() ?: break
+            val written = line.removePrefix(CrashWriter.PROGRESS).trim().toLongOrNull() ?: continue
+            if (written >= MINIMUM_BEFORE_KILL) return written
         }
-        error("the writer never got going:\n" + process.inputStream.readBytes().decodeToString())
+        error("the writer never reported $MINIMUM_BEFORE_KILL records; exited=${!process.isAlive}")
     }
 
     @Test
@@ -92,7 +90,7 @@ class CrashRecoveryTest {
             for (round in 0 until 3) {
                 withDir { dir ->
                     val process = spawnWriter(dir, mode)
-                    awaitWriting(dir, process)
+                    awaitWriting(process)
                     // A little longer, varied per round, so the kill lands at a different point in
                     // a record each time.
                     Thread.sleep(20L + round * 37L)
@@ -136,6 +134,11 @@ class CrashRecoveryTest {
 object CrashWriter {
     const val CAPACITY = 64 * 1024 * 1024
 
+    /** Prefix of the progress line the parent waits for. */
+    const val PROGRESS = "written"
+
+    private const val REPORT_EVERY = 500L
+
     /** Deterministic content, so the parent can check any record it finds without bookkeeping. */
     fun payload(offset: Long): ByteArray = "record-$offset".repeat(4).toByteArray()
 
@@ -150,6 +153,12 @@ object CrashWriter {
             if (!segment.hasRoomFor(record.size)) return
             segment.append(record)
             offset += 1
+            // Progress is reported, not inferred. The parent has no other reliable way to know the
+            // writer is past its first record — see `awaitWriting`.
+            if (offset % REPORT_EVERY == 0L) {
+                println("$PROGRESS $offset")
+                System.out.flush()
+            }
         }
     }
 }
