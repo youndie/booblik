@@ -13,7 +13,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectories
 
-/** Which of the two write paths a segment uses. The default follows the benchmark, not taste. */
+/**
+ * Which of the two write paths a segment uses.
+ *
+ * The default is [MAPPED], and it follows the measurements rather than taste — see decision Р1 and
+ * `docs/benchmarking.md`. It was [FILE_CHANNEL] for most of this project's life, and the thing that
+ * changed was not the speed but the *kind* of argument left against the mapping: once every record
+ * carries a checksum (M-60), a torn record is detectable on both paths, and the last objection that
+ * was about correctness rather than throughput went away.
+ */
 enum class SegmentMode { FILE_CHANNEL, MAPPED }
 
 /**
@@ -253,7 +261,7 @@ class LogSegment private constructor(
         fun open(
             dir: Path,
             baseOffset: Offset,
-            mode: SegmentMode = SegmentMode.FILE_CHANNEL,
+            mode: SegmentMode = SegmentMode.MAPPED,
             capacity: Int = DEFAULT_CAPACITY,
             indexIntervalBytes: Int = SparseOffsetIndex.DEFAULT_INTERVAL_BYTES,
         ): LogSegment {

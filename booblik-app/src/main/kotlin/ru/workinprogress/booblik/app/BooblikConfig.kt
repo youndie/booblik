@@ -119,7 +119,7 @@ data class BooblikConfig(
                 segmentMode =
                     enum(
                         "booblik.segment.mode",
-                        SegmentMode.FILE_CHANNEL,
+                        SegmentMode.MAPPED,
                         SegmentMode.entries.toTypedArray(),
                     ),
                 segmentCapacity = int("booblik.segment.capacity.bytes", LogSegment.DEFAULT_CAPACITY),

@@ -41,7 +41,7 @@ publishes:
 | `booblik.data.dir` | `data` | корень, внутри — каталог на партицию `<топик>-<номер>` |
 | `booblik.port` | 9092 | 0 = любой свободный |
 | `booblik.topics` | `default:1` | `orders:3,clicks:1` |
-| `booblik.segment.mode` | `FILE_CHANNEL` | второй режим — `MAPPED`, см. решение Р1 и M-45 |
+| `booblik.segment.mode` | **`MAPPED`** | путь записи; `FILE_CHANNEL` — путь отката, см. Р1 и M-45 |
 | `booblik.segment.capacity.bytes` | 512 МиБ | потолок — `Int.MAX_VALUE` у обоих путей записи |
 | `booblik.index.interval.bytes` | 4096 | сколько лога приходится на одну запись индекса |
 | `booblik.flush.every.records` | нет | барьер раз в N записей |

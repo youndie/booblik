@@ -8,7 +8,12 @@ booblik.port=9092
 # Fixed at startup. The broker does not create topics — see docs/services/booblik-app.md.
 booblik.topics=orders:3,clicks:1
 
-booblik.segment.mode=FILE_CHANNEL
+# MAPPED is the default. It pre-sizes each segment file to its full capacity: a fresh broker with
+# four partitions shows four 512 MiB files before a single record exists. They are sparse, so the
+# space is not actually taken — but `ls` and every disk-usage alarm read the apparent size, and
+# -Xmx does not bound a mapping, so the heap flags say nothing about this process's RSS.
+# FILE_CHANNEL is the alternative: slower, and its files are exactly as long as their contents.
+booblik.segment.mode=MAPPED
 booblik.segment.capacity.bytes=536870912
 booblik.index.interval.bytes=4096
 

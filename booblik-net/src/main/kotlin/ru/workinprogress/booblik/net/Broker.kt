@@ -17,7 +17,7 @@ import java.nio.file.Path
 import kotlin.io.path.createDirectories
 
 data class BrokerConfig(
-    val segmentMode: SegmentMode = SegmentMode.FILE_CHANNEL,
+    val segmentMode: SegmentMode = SegmentMode.MAPPED,
     val segmentCapacity: Int = LogSegment.DEFAULT_CAPACITY,
     val indexIntervalBytes: Int = SparseOffsetIndex.DEFAULT_INTERVAL_BYTES,
     val flushPolicy: FlushPolicy = FlushPolicy.Disabled,

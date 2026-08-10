@@ -229,7 +229,7 @@ class PartitionLog private constructor(
          */
         fun open(
             dir: Path,
-            mode: SegmentMode = SegmentMode.FILE_CHANNEL,
+            mode: SegmentMode = SegmentMode.MAPPED,
             segmentCapacity: Int = LogSegment.DEFAULT_CAPACITY,
             indexIntervalBytes: Int = SparseOffsetIndex.DEFAULT_INTERVAL_BYTES,
         ): PartitionLog {

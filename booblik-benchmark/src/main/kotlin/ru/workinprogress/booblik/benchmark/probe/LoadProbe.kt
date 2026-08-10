@@ -76,10 +76,15 @@ object LoadProbe {
         // M-44. Depth 1 is strict request-response: the sender may not issue the next request until
         // the previous answer is in. Anything higher is pipelining.
         val pipelineDepth = args.getOrElse(7) { MAX_IN_FLIGHT.toString() }.toInt()
+        // The write path was hardcoded to FILE_CHANNEL here, which meant the end-to-end numbers
+        // measured a broker nobody would run once the default changed (M-45). It follows the
+        // default now, and can be overridden to compare the two through the socket rather than
+        // only at the storage layer.
+        val segmentMode = SegmentMode.valueOf(args.getOrElse(8) { SegmentMode.MAPPED.name })
 
         val dir = Files.createTempDirectory("booblik-load")
         val scope = CoroutineScope(SupervisorJob())
-        val log = PartitionLog.open(dir, SegmentMode.FILE_CHANNEL, segmentCapacity)
+        val log = PartitionLog.open(dir, segmentMode, segmentCapacity)
         val writer = PartitionWriter(log, scope)
         val server =
             BooblikServer(
@@ -89,7 +94,7 @@ object LoadProbe {
 
         try {
             val address = server.start()
-            println("# M-33/M-34 load probe: $workload, $transport, fetch=$fetchMode")
+            println("# M-33/M-34 load probe: $workload, $transport, fetch=$fetchMode, segments=$segmentMode")
             println(
                 "# $connections connections, target $targetRate/s total, ${seconds}s, pipeline depth $pipelineDepth",
             )

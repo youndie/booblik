@@ -35,7 +35,7 @@ class BooblikConfigTest {
         val config = BooblikConfig.load(env = emptyMap())
         assertEquals(BooblikConfig.DEFAULT_PORT, config.port)
         assertEquals(mapOf(TopicName("default") to 1), config.topics)
-        assertEquals(SegmentMode.FILE_CHANNEL, config.segmentMode)
+        assertEquals(SegmentMode.MAPPED, config.segmentMode, "the default write path is the mapping (M-45)")
         assertTrue(!config.flushPolicy.isEnabled, "no flush policy unless somebody chose a window")
         assertNull(config.retentionBytes, "nothing is deleted unless somebody asked")
     }
