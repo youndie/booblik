@@ -81,4 +81,27 @@ object RequestEncoder {
             flip()
         }
     }
+
+    /** Empty [topics] asks for everything this broker has. */
+    fun metadata(
+        correlationId: Int,
+        topics: List<TopicName>,
+    ): ByteBuffer {
+        val names = topics.map { it.value.toByteArray(Charsets.UTF_8) }
+        val bodyBytes =
+            Protocol.REQUEST_HEADER_BYTES + Int.SIZE_BYTES + names.sumOf { Short.SIZE_BYTES + it.size }
+
+        return ByteBuffer.allocate(Protocol.LENGTH_PREFIX_BYTES + bodyBytes).apply {
+            putInt(bodyBytes)
+            putShort(ApiKey.METADATA.id)
+            putShort(Protocol.VERSION)
+            putInt(correlationId)
+            putInt(names.size)
+            names.forEach {
+                putShort(it.size.toShort())
+                put(it)
+            }
+            flip()
+        }
+    }
 }

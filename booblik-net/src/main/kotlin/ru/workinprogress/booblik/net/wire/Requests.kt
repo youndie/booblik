@@ -15,9 +15,26 @@ data class RequestHeader(
 
 sealed interface Request {
     val header: RequestHeader
+}
+
+/**
+ * A request about one partition — which is every request except [MetadataRequest].
+ *
+ * Split out when METADATA arrived: `topic` and `partition` used to sit on [Request] itself, which
+ * silently asserted that every request addresses a partition. METADATA is the first one that does
+ * not, and a request type forced to invent a partition it does not have would have made the
+ * session look it up and fail on a broker that is working perfectly.
+ */
+sealed interface PartitionRequest : Request {
     val topic: TopicName
     val partition: PartitionId
 }
+
+/** Empty [topics] means "everything this broker has". */
+data class MetadataRequest(
+    override val header: RequestHeader,
+    val topics: List<TopicName>,
+) : Request
 
 data class ProduceRequest(
     override val header: RequestHeader,
@@ -25,7 +42,7 @@ data class ProduceRequest(
     override val partition: PartitionId,
     val ackPolicy: AckPolicy,
     val records: List<ByteArray>,
-) : Request
+) : PartitionRequest
 
 data class FetchRequest(
     override val header: RequestHeader,
@@ -37,7 +54,7 @@ data class FetchRequest(
     val maxWaitMillis: Int = 0,
     /** v2: do not answer until this many bytes are available. 0 and 1 both mean "anything". */
     val minBytes: Int = 0,
-) : Request
+) : PartitionRequest
 
 /** Either a request, or an error the client can be told about by correlation id. */
 sealed interface DecodeResult {
@@ -91,12 +108,19 @@ object RequestDecoder {
 
         val header = RequestHeader(apiKey, apiVersion, correlationId)
         return try {
+            // METADATA is dispatched before the topic and partition are read, because it has
+            // neither. Reading them first — as this did while every request addressed a partition —
+            // would make the decoder demand fields the frame does not contain.
+            if (apiKey == ApiKey.METADATA) {
+                return DecodeResult.Ok(decodeMetadata(header, buffer))
+            }
             val topic = TopicName(buffer.getStringChecked())
             val partition = PartitionId(buffer.getIntChecked("partitionId").requireNonNegative("partitionId"))
             DecodeResult.Ok(
                 when (apiKey) {
                     ApiKey.PRODUCE -> decodeProduce(header, topic, partition, buffer)
                     ApiKey.FETCH -> decodeFetch(header, topic, partition, buffer)
+                    ApiKey.METADATA -> error("handled above")
                 },
             )
         } catch (_: IllegalArgumentException) {
@@ -141,6 +165,23 @@ object RequestDecoder {
             records += payload
         }
         return ProduceRequest(header, topic, partition, ackPolicy, records)
+    }
+
+    private fun decodeMetadata(
+        header: RequestHeader,
+        buffer: ByteBuffer,
+    ): MetadataRequest {
+        val count = buffer.getIntChecked("topicCount")
+        if (count < 0) throw CorruptRequestException("topicCount must not be negative, got $count")
+        // Same bound as PRODUCE uses on its record count: each name needs at least its own length
+        // prefix, so a count larger than the bytes that follow cannot be honest, and the check has
+        // to happen before anything is sized from it.
+        if (count.toLong() * Short.SIZE_BYTES > buffer.remaining()) {
+            throw CorruptRequestException("topicCount $count exceeds the ${buffer.remaining()} bytes that follow")
+        }
+        val topics = ArrayList<TopicName>(count)
+        repeat(count) { topics += TopicName(buffer.getStringChecked()) }
+        return MetadataRequest(header, topics)
     }
 
     private fun decodeFetch(

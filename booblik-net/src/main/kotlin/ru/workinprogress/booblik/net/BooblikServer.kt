@@ -84,6 +84,18 @@ class PartitionRegistry(
         partition: PartitionId,
     ): PartitionHandle? = partitions[Key(topic, partition)]
 
+    /**
+     * Everything this broker has, grouped by topic and ordered.
+     *
+     * Ordered because it goes on the wire: an answer whose order depends on hash iteration makes
+     * two identical requests look different, and the first person to diff two responses would have
+     * to discover that by hand.
+     */
+    fun describe(): Map<TopicName, List<Pair<PartitionId, PartitionHandle>>> =
+        partitions.entries
+            .sortedWith(compareBy({ it.key.topic.value }, { it.key.partition.value }))
+            .groupBy({ it.key.topic }, { it.key.partition to it.value })
+
     data class Key(
         val topic: TopicName,
         val partition: PartitionId,

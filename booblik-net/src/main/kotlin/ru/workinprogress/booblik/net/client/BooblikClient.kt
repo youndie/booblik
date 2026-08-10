@@ -62,6 +62,15 @@ class BooblikClient(
         return correlationId
     }
 
+    /** Asks what exists. Empty [topics] means "everything". */
+    fun sendMetadata(topics: List<TopicName> = emptyList()): Int {
+        val correlationId = nextCorrelationId++
+        writeFully(RequestEncoder.metadata(correlationId, topics))
+        return correlationId
+    }
+
+    fun receiveMetadata(): MetadataResult = ResponseReader.metadata(ResponseReader.readFrame(channel))
+
     fun receiveProduce(): ProduceResult = ResponseReader.produce(ResponseReader.readFrame(channel))
 
     fun receiveFetch(): FetchResult = ResponseReader.fetch(ResponseReader.readFrame(channel))

@@ -48,6 +48,44 @@ object ResponseEncoder {
         }
 
     /**
+     * `[int32 topicCount]` then, per topic, `[u16 nameLength][name][int32 partitionCount]` and, per
+     * partition, `[int32 id][int64 logStartOffset][int64 highWatermark]`.
+     *
+     * Three numbers per partition, and the first two are the point. `logStartOffset` is where the
+     * **live** log begins after retention — without it "read from the beginning" would have to mean
+     * offset zero, which is `OFFSET_OUT_OF_RANGE` on any topic that has ever expired a segment.
+     * `highWatermark` answers "read only what is new" and lets a reader compute its lag without a
+     * probing FETCH.
+     */
+    fun metadata(
+        correlationId: Int,
+        topics: List<TopicMetadata>,
+    ): ByteBuffer {
+        val names = topics.map { it.name.value.toByteArray(Charsets.UTF_8) }
+        val bodyBytes =
+            Int.SIZE_BYTES +
+                topics.indices.sumOf { i ->
+                    Short.SIZE_BYTES + names[i].size + Int.SIZE_BYTES +
+                        topics[i].partitions.size * (Int.SIZE_BYTES + Long.SIZE_BYTES * 2)
+                }
+        return frame(promised = bodyBytes, inline = bodyBytes) { buffer ->
+            buffer.putInt(correlationId)
+            buffer.putShort(ErrorCode.NONE.id)
+            buffer.putInt(topics.size)
+            topics.forEachIndexed { i, topic ->
+                buffer.putShort(names[i].size.toShort())
+                buffer.put(names[i])
+                buffer.putInt(topic.partitions.size)
+                for (partition in topic.partitions) {
+                    buffer.putInt(partition.id.value)
+                    buffer.putLong(partition.logStartOffset.value)
+                    buffer.putLong(partition.highWatermark.value)
+                }
+            }
+        }
+    }
+
+    /**
      * A failure carries no body. Every error the broker can answer with fits in the code, and a
      * message would only be a second, less reliable copy of it.
      */
@@ -77,3 +115,16 @@ object ResponseEncoder {
         return buffer
     }
 }
+
+/** One partition as METADATA describes it. */
+data class PartitionMetadata(
+    val id: ru.workinprogress.booblik.PartitionId,
+    val logStartOffset: Offset,
+    val highWatermark: Offset,
+)
+
+/** One topic and its partitions, in order. */
+data class TopicMetadata(
+    val name: ru.workinprogress.booblik.TopicName,
+    val partitions: List<PartitionMetadata>,
+)

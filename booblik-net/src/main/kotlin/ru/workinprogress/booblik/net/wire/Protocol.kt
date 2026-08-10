@@ -46,7 +46,7 @@ object Protocol {
     ): Boolean =
         when (apiKey) {
             ApiKey.FETCH -> version == VERSION || version == FETCH_VERSION
-            ApiKey.PRODUCE -> version == VERSION
+            ApiKey.PRODUCE, ApiKey.METADATA -> version == VERSION
         }
 }
 
@@ -56,6 +56,16 @@ enum class ApiKey(
 ) {
     PRODUCE(1),
     FETCH(2),
+
+    /**
+     * Which topics exist and where each partition currently starts and ends.
+     *
+     * Added because a client cannot otherwise subscribe to a topic without being told its
+     * partitions by hand: the set is fixed when the broker starts and nothing on the wire ever
+     * mentioned it. This is **not** a metadata layer — there is no topic creation and no cluster
+     * to describe — it is the one question a reader has to ask before it can read.
+     */
+    METADATA(3),
     ;
 
     companion object {

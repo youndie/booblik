@@ -8,11 +8,15 @@ import ru.workinprogress.booblik.net.wire.CorruptRequestException
 import ru.workinprogress.booblik.net.wire.DecodeResult
 import ru.workinprogress.booblik.net.wire.ErrorCode
 import ru.workinprogress.booblik.net.wire.FetchRequest
+import ru.workinprogress.booblik.net.wire.MetadataRequest
+import ru.workinprogress.booblik.net.wire.PartitionMetadata
+import ru.workinprogress.booblik.net.wire.PartitionRequest
 import ru.workinprogress.booblik.net.wire.ProduceRequest
 import ru.workinprogress.booblik.net.wire.Protocol
 import ru.workinprogress.booblik.net.wire.Request
 import ru.workinprogress.booblik.net.wire.RequestDecoder
 import ru.workinprogress.booblik.net.wire.ResponseEncoder
+import ru.workinprogress.booblik.net.wire.TopicMetadata
 import java.io.EOFException
 import java.nio.ByteBuffer
 
@@ -85,16 +89,66 @@ class Session(
                 }
             }
 
-        val handle = partitions.find(request.topic, request.partition)
+        // Answered before the partition lookup, because it is the one request that does not name
+        // a partition to look up.
+        if (request is MetadataRequest) {
+            metadata(request)
+            return
+        }
+
+        val partitioned = request as PartitionRequest
+        val handle = partitions.find(partitioned.topic, partitioned.partition)
         if (handle == null) {
             respondError(request.header.correlationId, ErrorCode.UNKNOWN_TOPIC_OR_PARTITION)
             return
         }
 
-        when (request) {
-            is ProduceRequest -> produce(request, handle)
-            is FetchRequest -> fetch(request, handle)
+        when (partitioned) {
+            is ProduceRequest -> produce(partitioned, handle)
+            is FetchRequest -> fetch(partitioned, handle)
         }
+    }
+
+    /**
+     * Answers what exists and where each partition currently begins and ends.
+     *
+     * A named topic this broker does not have fails the **whole** request with
+     * `UNKNOWN_TOPIC_OR_PARTITION`, rather than being quietly left out of the answer. Omitting it
+     * would make "the topic is not here" and "the topic is here and empty" arrive as the same
+     * response, and a subscriber acting on that difference would sit reading nothing for ever.
+     * A request naming no topics asks for everything and cannot hit this.
+     */
+    private suspend fun metadata(request: MetadataRequest) {
+        val described = partitions.describe()
+        val wanted =
+            if (request.topics.isEmpty()) {
+                described
+            } else {
+                val missing = request.topics.firstOrNull { it !in described }
+                if (missing != null) {
+                    respondError(request.header.correlationId, ErrorCode.UNKNOWN_TOPIC_OR_PARTITION)
+                    return
+                }
+                described.filterKeys { it in request.topics }
+            }
+
+        val topics =
+            wanted.map { (name, handles) ->
+                TopicMetadata(
+                    name,
+                    handles.map { (id, handle) ->
+                        PartitionMetadata(
+                            id = id,
+                            logStartOffset = handle.log.logStartOffset,
+                            // Read from the log rather than from the writer's published watermark:
+                            // this is a question about what is readable now, and the log is what
+                            // answers it. The writer's `StateFlow` exists to signal *changes*.
+                            highWatermark = handle.log.nextOffset,
+                        )
+                    },
+                )
+            }
+        connection.writeFully(ResponseEncoder.metadata(request.header.correlationId, topics))
     }
 
     private suspend fun produce(

@@ -1,6 +1,8 @@
 package ru.workinprogress.booblik.net.client
 
 import ru.workinprogress.booblik.Offset
+import ru.workinprogress.booblik.PartitionId
+import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.net.wire.ErrorCode
 import ru.workinprogress.booblik.net.wire.Protocol
 import java.io.EOFException
@@ -13,6 +15,27 @@ data class ProduceResult(
     val error: ErrorCode,
     val baseOffset: Offset,
     val logEndOffset: Offset,
+)
+
+/** One partition, as the broker describes it. */
+data class PartitionInfo(
+    val partition: PartitionId,
+    /** Where the **live** log starts: retention moves this, and it is not always zero. */
+    val logStartOffset: Offset,
+    val highWatermark: Offset,
+)
+
+/** One topic and its partitions, in the order the broker listed them. */
+data class TopicInfo(
+    val topic: TopicName,
+    val partitions: List<PartitionInfo>,
+)
+
+/** What the broker answered a METADATA with. */
+data class MetadataResult(
+    val correlationId: Int,
+    val error: ErrorCode,
+    val topics: List<TopicInfo>,
 )
 
 /** What the broker answered a FETCH with. [records] are already unframed and checksum-verified. */
@@ -67,6 +90,30 @@ object ResponseReader {
         val baseOffset = Offset(body.long)
         val logEndOffset = Offset(body.long)
         return ProduceResult(correlationId, error, baseOffset, logEndOffset)
+    }
+
+    fun metadata(body: ByteBuffer): MetadataResult {
+        val correlationId = body.int
+        val error = ErrorCode.of(body.short)
+        if (error != ErrorCode.NONE) return MetadataResult(correlationId, error, emptyList())
+
+        val topicCount = body.int
+        val topics = ArrayList<TopicInfo>(topicCount)
+        repeat(topicCount) {
+            val name = ByteArray(body.short.toInt() and 0xFFFF).also { body.get(it) }
+            val partitionCount = body.int
+            val partitions = ArrayList<PartitionInfo>(partitionCount)
+            repeat(partitionCount) {
+                // Locals, in order, for the same reason `produce` uses them: three reads of the
+                // same buffer whose meaning is positional.
+                val id = PartitionId(body.int)
+                val logStartOffset = Offset(body.long)
+                val highWatermark = Offset(body.long)
+                partitions += PartitionInfo(id, logStartOffset, highWatermark)
+            }
+            topics += TopicInfo(TopicName(String(name, Charsets.UTF_8)), partitions)
+        }
+        return MetadataResult(correlationId, error, topics)
     }
 
     fun fetch(body: ByteBuffer): FetchResult {
