@@ -19,11 +19,21 @@ import java.nio.channels.FileChannel
 class FileChannelSegmentWriter(
     private val channel: FileChannel,
     override val capacity: Int,
+    initialSize: Int = channel.size().toInt(),
 ) : SegmentWriter {
     private val prefix: ByteBuffer = ByteBuffer.allocateDirect(SegmentWriter.LENGTH_PREFIX)
     private val frame = arrayOfNulls<ByteBuffer>(2)
 
-    private var written: Int = channel.size().toInt()
+    private var written: Int = initialSize
+
+    init {
+        // The channel's own position has to be moved to match, and forgetting it is silent
+        // corruption rather than an error: a gathering write has no positional overload, so it
+        // always writes wherever the channel currently is. Reopening a recovered segment left the
+        // channel at zero while `written` said otherwise, and the first append after a restart
+        // overwrote the beginning of the log. Found by `RecoveryTest`.
+        channel.position(written.toLong())
+    }
 
     override val size: Position get() = Position(written)
 
@@ -32,6 +42,7 @@ class FileChannelSegmentWriter(
         offset: Int,
         length: Int,
     ): Position {
+        require(length > 0) { "a zero-length record is the end-of-log sentinel and cannot be stored" }
         require(hasRoomFor(length)) { "segment full: $written + ${SegmentWriter.LENGTH_PREFIX + length} > $capacity" }
         val start = written
 
@@ -54,6 +65,24 @@ class FileChannelSegmentWriter(
 
         written = start + SegmentWriter.LENGTH_PREFIX + length
         return Position(start)
+    }
+
+    override fun truncateTo(position: Position) {
+        require(position.value <= written) { "truncateTo must not extend the segment: ${position.value} > $written" }
+        // The file is shortened as well as the counter: here the file length *is* the log length,
+        // so leaving stale bytes past the end would make the next recovery read them back.
+        //
+        // Skipped when nothing changes, and not out of thrift: on some JDKs truncating to the
+        // current size still touches the modification time, and retention by age reads exactly
+        // that timestamp. Recovery calls this on every open, so a segment would get younger every
+        // time the broker restarted.
+        if (position.value < written) {
+            channel.truncate(position.value.toLong())
+            written = position.value
+        }
+        // Always, even when the truncate was skipped: the channel position is where the next
+        // gathering write lands, and it must agree with `written` or the log is overwritten.
+        channel.position(written.toLong())
     }
 
     override fun force() {

@@ -41,8 +41,29 @@ class MappedSegmentWriter(
         offset: Int,
         length: Int,
     ): Position {
+        require(length > 0) { "a zero-length record is the end-of-log sentinel and cannot be stored" }
         require(hasRoomFor(length)) { "segment full: $written + ${SegmentWriter.LENGTH_PREFIX + length} > $capacity" }
         val start = written
+
+        // **Body first, length prefix last**, and the order is the whole recovery story for this
+        // path. A mapped segment's file is pre-sized to its full capacity, so its length says
+        // nothing about how much log is in it; what marks the end is a zero length prefix. Written
+        // prefix-first, a crash between the two stores would leave a plausible-looking header in
+        // front of a body that was never written, and recovery would hand that garbage back as a
+        // record. Written prefix-last, the same crash leaves a zero there and recovery stops
+        // exactly where it should.
+        //
+        // This is not a proof, and it should not be read as one: nothing orders the writeback of
+        // two pages, so a record straddling a page boundary can still be torn the wrong way round.
+        // It converts "reliably wrong" into "wrong only under page-level reordering". The actual
+        // fix is a checksum per record, which is what Kafka does — M-60.
+        MemorySegment.copy(
+            MemorySegment.ofArray(payload),
+            offset.toLong(),
+            segment,
+            (start + SegmentWriter.LENGTH_PREFIX).toLong(),
+            length.toLong(),
+        )
 
         // Two non-obvious choices in one line.
         //
@@ -56,16 +77,26 @@ class MappedSegmentWriter(
         // is big-endian, and a segment that disagreed with the wire would need a byte swap on the
         // zero-copy path, which is the one path that must not touch the bytes.
         segment.set(ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN), start.toLong(), length)
-        MemorySegment.copy(
-            MemorySegment.ofArray(payload),
-            offset.toLong(),
-            segment,
-            (start + SegmentWriter.LENGTH_PREFIX).toLong(),
-            length.toLong(),
-        )
 
         written = start + SegmentWriter.LENGTH_PREFIX + length
         return Position(start)
+    }
+
+    override fun truncateTo(position: Position) {
+        require(position.value <= written) { "truncateTo must not extend the segment: ${position.value} > $written" }
+        // The four bytes at the new end are zeroed, and that is the whole operation that makes
+        // truncation mean anything here. The file stays pre-sized to `capacity`, so shortening it
+        // is not an option; what marks the end of the log is a zero length prefix, and without
+        // this store the discarded record's own prefix would still be sitting there for the next
+        // recovery to read back as valid.
+        if (position.value + SegmentWriter.LENGTH_PREFIX <= capacity) {
+            segment.set(
+                ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.BIG_ENDIAN),
+                position.value.toLong(),
+                0,
+            )
+        }
+        written = position.value
     }
 
     override fun force() {

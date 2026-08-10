@@ -28,12 +28,27 @@ interface SegmentWriter : Closeable {
     /**
      * Appends one record, framed as `[int32 payloadSize][payload]`, and returns the position the
      * record starts at — the position a reader has to seek to, prefix included.
+     *
+     * **A zero-length payload is rejected**, and that is a storage decision rather than input
+     * validation. Recovery walks the file reading length prefixes and has to recognise where the
+     * log ends; in a mapped segment the file is pre-sized, so past the end it reads zeroes. A
+     * length of zero is therefore the end-of-log sentinel, and a legal empty record would be
+     * indistinguishable from untouched space (see [LogSegment.open]).
      */
     fun append(
         payload: ByteArray,
         offset: Int = 0,
         length: Int = payload.size,
     ): Position
+
+    /**
+     * Moves the write position back to [position], discarding everything after it.
+     *
+     * Two callers, and they look unrelated until you notice they want the same thing: recovery
+     * drops a record that was half-written when the process died, and the benchmark recycles a
+     * segment instead of unmapping and remapping a gigabyte mid-measurement.
+     */
+    fun truncateTo(position: Position)
 
     /**
      * Asks the OS to put everything written so far on the physical device.

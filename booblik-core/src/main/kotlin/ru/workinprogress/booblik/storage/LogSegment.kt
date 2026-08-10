@@ -6,8 +6,11 @@ import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.nio.channels.WritableByteChannel
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectories
 
 /** Which of the two write paths a segment uses. The default follows the benchmark, not taste. */
@@ -29,12 +32,22 @@ enum class SegmentMode { FILE_CHANNEL, MAPPED }
  */
 class LogSegment private constructor(
     val baseOffset: Offset,
+    val file: Path,
     private val writer: SegmentWriter,
     private val readChannel: FileChannel,
     private val index: SparseOffsetIndex,
-) : Closeable {
+    recoveredNextOffset: Offset,
+) : Log,
+    Closeable {
     @Volatile
-    var nextOffset: Offset = baseOffset
+    override var nextOffset: Offset = recoveredNextOffset
+        private set
+
+    private val readers = AtomicInteger(0)
+    private val closed = AtomicBoolean(false)
+
+    @Volatile
+    var retired: Boolean = false
         private set
 
     /** Bytes of live log in this segment. Readers must not look past this. */
@@ -42,13 +55,13 @@ class LogSegment private constructor(
 
     val isFull: Boolean get() = index.isFull
 
-    fun hasRoomFor(payloadSize: Int): Boolean = writer.hasRoomFor(payloadSize) && !index.isFull
+    override fun hasRoomFor(payloadSize: Int): Boolean = writer.hasRoomFor(payloadSize) && !index.isFull
 
     /** Appends one record and returns the offset it got. */
-    fun append(
+    override fun append(
         payload: ByteArray,
-        from: Int = 0,
-        length: Int = payload.size,
+        from: Int,
+        length: Int,
     ): Offset {
         val assigned = nextOffset
         val position = writer.append(payload, from, length)
@@ -58,7 +71,7 @@ class LogSegment private constructor(
         return assigned
     }
 
-    fun force() = writer.force()
+    override fun force() = writer.force()
 
     /**
      * Byte position where [offset] starts, or null if it is not in this segment.
@@ -125,9 +138,69 @@ class LogSegment private constructor(
         return readChannel.transferTo(from.value.toLong(), count, target)
     }
 
+    /**
+     * Drops [offset] and everything after it. Used by recovery for a record that was half-written
+     * when the process died, and by benchmarks that recycle a segment instead of remapping it.
+     *
+     * Order matters and is not interchangeable: `nextOffset` first, so no reader can be pointed at
+     * bytes that are about to go away, and only then the bytes themselves.
+     */
+    fun truncateTo(offset: Offset) {
+        require(offset >= baseOffset) { "cannot truncate below the base offset" }
+        if (offset >= nextOffset) return
+        val position = positionOf(offset) ?: return
+        nextOffset = offset
+        index.truncateTo(offset)
+        writer.truncateTo(position)
+    }
+
+    /**
+     * Registers a reader. Returns false if the segment has already been retired **and** nobody
+     * else is holding it — the caller must then go and look elsewhere.
+     *
+     * Segments outlive their own deletion on purpose. Retention unlinks the file while readers may
+     * still be streaming from it, which on Linux and macOS is safe: the data stays reachable
+     * through any descriptor that is already open, and the space comes back when the last one
+     * closes. What must not happen is closing those descriptors early, so the count decides when.
+     */
+    fun acquire(): Boolean {
+        if (retired) return false
+        readers.incrementAndGet()
+        // Checked again after the increment, and the second check is the one that makes this
+        // correct: `retire` may have run in between, seen a count of zero and closed the channels.
+        // Releasing here re-runs that decision with the count we just published.
+        if (retired) {
+            release()
+            return false
+        }
+        return true
+    }
+
+    /** Releases a reader. Closes the segment if it was retired while this reader held it. */
+    fun release() {
+        if (readers.decrementAndGet() == 0 && retired) closeNow()
+    }
+
+    /**
+     * Unlinks the file and stops handing the segment out to new readers. The descriptors stay open
+     * until the last current reader is gone — see [acquire].
+     */
+    fun retire() {
+        retired = true
+        Files.deleteIfExists(file)
+        if (readers.get() == 0) closeNow()
+    }
+
     override fun close() {
-        writer.close()
-        readChannel.close()
+        retired = true
+        closeNow()
+    }
+
+    private fun closeNow() {
+        if (closed.compareAndSet(false, true)) {
+            writer.close()
+            readChannel.close()
+        }
     }
 
     companion object {
@@ -135,12 +208,27 @@ class LogSegment private constructor(
 
         const val DEFAULT_CAPACITY: Int = 512 * 1024 * 1024
 
+        /** File name for [baseOffset]: zero-padded to 20 digits, Kafka's convention. */
+        fun fileName(baseOffset: Offset): String = "%020d%s".format(baseOffset.value, FILE_SUFFIX)
+
         /**
-         * Opens (creating if needed) the segment file for [baseOffset] under [dir].
+         * Opens (creating if needed) the segment file for [baseOffset] under [dir], **recovering**
+         * whatever is already in it.
          *
          * The name is the base offset zero-padded to 20 digits, same convention Kafka uses: it makes
          * lexicographic order equal numeric order, so listing the directory is already the segment
          * list in the right order.
+         *
+         * ## Recovery
+         *
+         * There is no index file, so the index is rebuilt by walking the record headers — see
+         * [recover]. That is a decision with a measured basis rather than a shortcut: M-23.
+         *
+         * A record whose declared length runs past the end of what was written is a record that was
+         * being appended when the process died. It is discarded, and the segment reopens at the last
+         * intact boundary. Everything before it is trusted **on the strength of its length prefix
+         * alone** — there are no checksums, so a torn write *inside* a record body is not
+         * detectable here. That is a known gap, not an oversight; M-60 is where it gets exercised.
          */
         fun open(
             dir: Path,
@@ -149,7 +237,7 @@ class LogSegment private constructor(
             capacity: Int = DEFAULT_CAPACITY,
         ): LogSegment {
             dir.createDirectories()
-            val file = dir.resolve("%020d%s".format(baseOffset.value, FILE_SUFFIX))
+            val file = dir.resolve(fileName(baseOffset))
 
             val writeChannel =
                 FileChannel.open(
@@ -158,13 +246,69 @@ class LogSegment private constructor(
                     StandardOpenOption.READ,
                     StandardOpenOption.WRITE,
                 )
+            val readChannel = FileChannel.open(file, StandardOpenOption.READ)
+            val index = SparseOffsetIndex(baseOffset)
+
+            // How far the data can possibly reach differs between the two write paths, and getting
+            // this wrong is silent: a mapped segment is pre-sized to its full capacity, so its file
+            // length says nothing at all about how much log is in it. There the end is marked by a
+            // zero length prefix; with a plain FileChannel the file length *is* the end.
+            val limit =
+                when (mode) {
+                    SegmentMode.FILE_CHANNEL -> minOf(readChannel.size(), capacity.toLong()).toInt()
+                    SegmentMode.MAPPED -> capacity
+                }
+            val recovered = recover(readChannel, baseOffset, limit, index)
+
             val writer =
                 when (mode) {
-                    SegmentMode.FILE_CHANNEL -> FileChannelSegmentWriter(writeChannel, capacity)
-                    SegmentMode.MAPPED -> MappedSegmentWriter(writeChannel, capacity)
+                    SegmentMode.FILE_CHANNEL -> {
+                        FileChannelSegmentWriter(writeChannel, capacity, recovered.position.value)
+                    }
+
+                    SegmentMode.MAPPED -> {
+                        MappedSegmentWriter(writeChannel, capacity, recovered.position.value)
+                    }
                 }
-            val readChannel = FileChannel.open(file, StandardOpenOption.READ)
-            return LogSegment(baseOffset, writer, readChannel, SparseOffsetIndex(baseOffset))
+            // A trailing partial record leaves bytes past the recovered position. They are dropped
+            // now rather than left to be read back by the next recovery.
+            writer.truncateTo(recovered.position)
+
+            return LogSegment(baseOffset, file, writer, readChannel, index, recovered.nextOffset)
         }
+
+        /** Walks record headers from the start of the segment, filling [index] as it goes. */
+        private fun recover(
+            channel: FileChannel,
+            baseOffset: Offset,
+            limit: Int,
+            index: SparseOffsetIndex,
+        ): Recovered {
+            val prefix = ByteBuffer.allocate(SegmentWriter.LENGTH_PREFIX)
+            var position = Position.ZERO
+            var offset = baseOffset
+
+            while (position.value + SegmentWriter.LENGTH_PREFIX <= limit) {
+                prefix.clear()
+                if (channel.read(prefix, position.value.toLong()) != SegmentWriter.LENGTH_PREFIX) break
+                prefix.flip()
+                val length = prefix.int
+                // Zero is the end-of-log sentinel in a pre-sized file; a negative length is
+                // corruption and is treated the same way — stop and keep what came before.
+                if (length <= 0) break
+                val end = position.value.toLong() + SegmentWriter.LENGTH_PREFIX + length
+                if (end > limit) break
+
+                index.append(offset, position, SegmentWriter.LENGTH_PREFIX + length)
+                position = Position(end.toInt())
+                offset = offset.inc()
+            }
+            return Recovered(position, offset)
+        }
+
+        private class Recovered(
+            val position: Position,
+            val nextOffset: Offset,
+        )
     }
 }

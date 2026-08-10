@@ -69,6 +69,21 @@ class SparseOffsetIndex(
     }
 
     /**
+     * Drops every entry at or above [offset], so the index stops describing records the segment no
+     * longer has. Called by recovery after a partial trailing record is discarded, and by a
+     * benchmark recycling a segment.
+     */
+    fun truncateTo(offset: Offset) {
+        val relative = offset - baseOffset
+        var keep = 0
+        while (keep < count && relativeOffsetAt(keep) < relative) keep += 1
+        count = keep
+        // Reset rather than recompute: the exact byte distance to the next entry is not worth
+        // reconstructing, and starting the interval afresh costs at most one extra entry.
+        bytesSinceLastEntry = 0
+    }
+
+    /**
      * Largest indexed entry whose offset is `<= target`, or null if the index has nothing at or
      * below it. The reader starts a forward scan from the returned position.
      */
