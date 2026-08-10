@@ -63,6 +63,27 @@ object SubscriptionProbe {
         // ratio it produces is an artefact of the window, not a property of the strategy.
         val maxWaitMillis = args.getOrElse(5) { "2000" }.toInt()
         val passes = args.getOrElse(6) { "3" }.toInt()
+        // `host:port` runs against a broker that is already up somewhere else, which is the whole
+        // point of M-37: with the broker in this JVM the harness shares its heap, its scheduler and
+        // its GC, and at millions of records a second that scheduling *is* what gets measured
+        // (замер 15.2 could not resolve anything because of it).
+        val remote = args.getOrElse(7) { "" }
+
+        if (remote.isNotEmpty()) {
+            val (host, port) = remote.split(":")
+            val address = InetSocketAddress(host, port.toInt())
+            println("# M-74/M-37 subscription probe: $mode against $remote")
+            println("# host JVM: ${System.getProperty("java.vm.version")}, ${System.getProperty("os.name")}")
+            println("# CLIENT ONLY — the broker is another process on another machine")
+            runBlocking {
+                when (mode) {
+                    "IDLE" -> error("IDLE needs the broker's own counters; run it in-process")
+                    "THROUGHPUT" -> remoteThroughput(address, records, passes)
+                    else -> error("mode must be IDLE or THROUGHPUT, got $mode")
+                }
+            }
+            return
+        }
 
         val dir = MeasurementDir.create("booblik-subscription")
         val scope = CoroutineScope(SupervisorJob())
@@ -162,6 +183,27 @@ object SubscriptionProbe {
         println("# partition. It stops being a source of *traffic*, which is a different resource.")
     }
 
+    /**
+     * The same three reads, against a broker this process did not start.
+     *
+     * No broker counters here on purpose: they belong to another machine, and a number this side
+     * invented about the other would be worth nothing (the same rule `RemoteLoadProbe` follows).
+     * Preloading happens over the wire like everything else.
+     */
+    private suspend fun remoteThroughput(
+        address: InetSocketAddress,
+        records: Int,
+        passes: Int,
+    ) {
+        preload(address, records)
+        println("# reading $records records of $RECORD_SIZE B back three ways, $passes passes")
+        println()
+        repeat(passes) { pass ->
+            println("# pass ${pass + 1} of $passes")
+            readThreeWays(address, records)
+        }
+    }
+
     /** Fetch requests the broker answered while [body] ran. */
     private suspend fun measure(
         server: BooblikServer,
@@ -217,12 +259,12 @@ object SubscriptionProbe {
         // masquerade as a result.
         repeat(passes) { pass ->
             println("# pass ${pass + 1} of $passes")
-            measureThreeWays(server, address, records)
+            readThreeWays(address, records)
+            println("#   fetch requests answered so far: ${server.metrics.snapshot(null).fetchRequests}")
         }
     }
 
-    private suspend fun measureThreeWays(
-        server: BooblikServer,
+    private suspend fun readThreeWays(
         address: InetSocketAddress,
         records: Int,
     ) = kotlinx.coroutines.coroutineScope {
@@ -269,7 +311,6 @@ object SubscriptionProbe {
         println()
         println("#   Flow costs %+.1f%% against the bare loop".format(100 * (byFlow - byPoll) / byPoll))
         println("#   checkpointing costs %+.1f%% on top".format(100 * (byCheckpointed - byFlow) / byFlow))
-        println("#   fetch requests answered so far: ${server.metrics.snapshot(null).fetchRequests}")
         println()
     }
 
