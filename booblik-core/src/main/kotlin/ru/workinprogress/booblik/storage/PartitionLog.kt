@@ -117,8 +117,49 @@ class PartitionLog private constructor(
     }
 
     /**
+     * A held claim on a contiguous run of bytes starting at [offset].
+     *
+     * The reason this is an object and not a pair of calls: a response has to announce how many
+     * bytes it is about to send **before** it sends them, and between announcing and sending, the
+     * segment must not be retired out from under the sender. Holding it for the whole span is the
+     * only version of that which is correct — asking twice would be a race with retention that
+     * shows up as a truncated response under load.
+     *
+     * `null` from [openFetch] means the offset is not in the log. A non-null slice with
+     * [bytes] `== 0` means the offset is valid but there is nothing past it yet.
+     */
+    class FetchSlice internal constructor(
+        val segment: LogSegment,
+        val position: Position,
+        val bytes: Int,
+    ) : Closeable {
+        override fun close() = segment.release()
+    }
+
+    /**
+     * Claims the readable bytes at [offset], capped at [maxBytes] and at the end of that offset's
+     * segment — one slice never crosses a segment boundary, because `transferTo` takes one file.
+     *
+     * The caller **must** close the slice; until then the segment cannot be closed by retention.
+     */
+    fun openFetch(
+        offset: Offset,
+        maxBytes: Int,
+    ): FetchSlice? {
+        val segment = segmentFor(offset) ?: return null
+        if (!segment.acquire()) return null
+        val position = segment.positionOf(offset)
+        if (position == null) {
+            segment.release()
+            return null
+        }
+        val available = segment.size.value - position.value
+        return FetchSlice(segment, position, minOf(maxBytes, maxOf(available, 0)))
+    }
+
+    /**
      * Streams raw framed bytes starting at [offset] into [target], never crossing a segment
-     * boundary — one call, one file, because `transferTo` takes one file.
+     * boundary.
      *
      * Returns bytes moved, which is routinely less than [maxBytes] and may be zero; see
      * [LogSegment.transferTo].
@@ -127,16 +168,10 @@ class PartitionLog private constructor(
         offset: Offset,
         maxBytes: Int,
         target: WritableByteChannel,
-    ): Long {
-        val segment = segmentFor(offset) ?: return 0
-        if (!segment.acquire()) return 0
-        return try {
-            val position = segment.positionOf(offset) ?: return 0
-            segment.transferTo(position, maxBytes, target)
-        } finally {
-            segment.release()
-        }
-    }
+    ): Long =
+        openFetch(offset, maxBytes)?.use { slice ->
+            slice.segment.transferTo(slice.position, slice.bytes, target)
+        } ?: 0
 
     /**
      * Drops whole segments until the log is at most [maxBytes] long, and never drops the active

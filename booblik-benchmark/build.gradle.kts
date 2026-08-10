@@ -8,6 +8,7 @@ plugins {
 
 dependencies {
     implementation(project(":booblik-core"))
+    implementation(project(":booblik-net"))
     // Declared here rather than inherited: `:booblik-core` keeps coroutines as `implementation`, so
     // it does not leak onto consumers' compile classpaths — which is right for a library and means
     // anything driving the writer has to ask for them itself.
@@ -68,6 +69,7 @@ val probes =
         "probeDurability" to "M-24: does msync promise what fsync promises",
         "probeStartup" to "M-23: how fast recovery scans a log",
         "probeSustainedWrite" to "M-26: throughput once the log outgrows memory",
+        "probeLoad" to "M-33/M-34: end-to-end RPS and latency percentiles over a socket",
     )
 
 probes.forEach { (task, description) ->

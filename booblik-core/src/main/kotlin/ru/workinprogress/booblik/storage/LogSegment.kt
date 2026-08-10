@@ -119,6 +119,19 @@ class LogSegment private constructor(
     }
 
     /**
+     * Reads raw framed bytes into [buffer] — the same bytes [transferTo] would stream, but through
+     * the heap.
+     *
+     * Exists to be the control in a measurement, not because anything wants it: M-35 compares the
+     * zero-copy read path against the ordinary one, and a comparison needs both halves implemented
+     * with the same care. If `transferTo` turns out not to be worth its cost, this is what stays.
+     */
+    fun readInto(
+        from: Position,
+        buffer: ByteBuffer,
+    ): Int = readChannel.read(buffer, from.value.toLong())
+
+    /**
      * Streams raw framed bytes from [from] to [target] without touching the JVM heap — `sendfile`
      * on Linux and macOS when [target] is a socket.
      *
