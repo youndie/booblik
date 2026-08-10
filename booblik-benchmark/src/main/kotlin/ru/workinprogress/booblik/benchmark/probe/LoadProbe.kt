@@ -58,7 +58,6 @@ object LoadProbe {
     private const val BATCH_SIZE = 10
     private const val FETCH_MAX_BYTES = 64 * 1024
     private const val SEGMENT_CAPACITY = 128 * 1024 * 1024
-    private const val RETAINED_BYTES = 512L * 1024 * 1024
     private const val PRELOAD_RECORDS = 200_000
 
     private enum class Workload { PRODUCE, FETCH }
@@ -71,10 +70,13 @@ object LoadProbe {
         val connections = args.getOrElse(3) { "8" }.toInt()
         val targetRate = args.getOrElse(4) { "20000" }.toInt()
         val seconds = args.getOrElse(5) { "20" }.toLong()
+        // A knob because it turned out to matter: a segment that fills during the run puts a roll
+        // inside the measurement, and a roll is visible in the tail.
+        val segmentCapacity = args.getOrElse(6) { SEGMENT_CAPACITY.toString() }.toInt()
 
         val dir = Files.createTempDirectory("booblik-load")
         val scope = CoroutineScope(SupervisorJob())
-        val log = PartitionLog.open(dir, SegmentMode.FILE_CHANNEL, SEGMENT_CAPACITY)
+        val log = PartitionLog.open(dir, SegmentMode.FILE_CHANNEL, segmentCapacity)
         val writer = PartitionWriter(log, scope)
         val server =
             BooblikServer(
@@ -86,14 +88,19 @@ object LoadProbe {
             val address = server.start()
             println("# M-33/M-34 load probe: $workload, $transport, fetch=$fetchMode")
             println("# $connections connections, target $targetRate/s total, ${seconds}s")
-            println("# records of $RECORD_SIZE B, batches of $BATCH_SIZE for PRODUCE")
+            println(
+                "# records of $RECORD_SIZE B, batches of $BATCH_SIZE; segment capacity ${segmentCapacity / 1024 / 1024} MiB",
+            )
 
             if (workload == Workload.FETCH) preload(address)
 
             val histogram = Histogram(TimeUnit.MINUTES.toNanos(1), 3)
+            val gcBefore = gcSnapshot()
             val completed = run(workload, address, connections, targetRate, seconds, histogram)
+            val gcAfter = gcSnapshot()
 
             report(workload, targetRate, seconds, completed, histogram, log.nextOffset)
+            reportGc(gcBefore, gcAfter, seconds)
         } finally {
             server.close()
             scope.cancel()
@@ -165,6 +172,12 @@ object LoadProbe {
                         start.await()
                         receiver.start()
 
+                        // Allocated once, sent every time. A harness that allocates its payload per
+                        // request is a harness that measures its own garbage: at fifteen thousand
+                        // batches a second this was nineteen megabytes per second of short-lived
+                        // arrays, in the same 64 MiB heap as the broker.
+                        val batch = List(BATCH_SIZE) { ByteArray(RECORD_SIZE) { b -> b.toByte() } }
+
                         val began = System.nanoTime()
                         val until = began + seconds * 1_000_000_000L
                         var issued = 0L
@@ -178,12 +191,7 @@ object LoadProbe {
 
                             when (workload) {
                                 Workload.PRODUCE -> {
-                                    client.sendProduce(
-                                        TOPIC,
-                                        PARTITION,
-                                        List(BATCH_SIZE) { ByteArray(RECORD_SIZE) { b -> b.toByte() } },
-                                        AckPolicy.WRITTEN,
-                                    )
+                                    client.sendProduce(TOPIC, PARTITION, batch, AckPolicy.WRITTEN)
                                 }
 
                                 Workload.FETCH -> {
@@ -239,20 +247,67 @@ object LoadProbe {
         println("#     max     %10.3f ms".format(histogram.maxValue / 1e6))
     }
 
+    /**
+     * Collections and pause time, because a latency tail with no explanation is an invitation to
+     * invent one.
+     *
+     * The broker and the load generator share this JVM and its 64 MiB heap, so a pause here stops
+     * both — the requests that came due during it are delayed, and the harness that should have
+     * been issuing them is also stopped. That is a real contaminant of these numbers and the reason
+     * it gets printed next to them rather than mentioned in a footnote. Splitting the two into
+     * separate processes is M-37.
+     */
+    private fun gcSnapshot(): Pair<Long, Long> {
+        val beans =
+            java.lang.management.ManagementFactory
+                .getGarbageCollectorMXBeans()
+        return beans.sumOf { it.collectionCount } to beans.sumOf { it.collectionTime }
+    }
+
+    private fun reportGc(
+        before: Pair<Long, Long>,
+        after: Pair<Long, Long>,
+        seconds: Long,
+    ) {
+        val collections = after.first - before.first
+        val millis = after.second - before.second
+        println("#")
+        println(
+            "#   GC during the run: %d collections, %d ms total (%.1f%% of wall clock)".format(
+                collections,
+                millis,
+                100.0 * millis / (seconds * 1000),
+            ),
+        )
+        println("#   note: the load generator shares this JVM and its heap with the broker (M-37)")
+    }
+
+    /**
+     * Waits until a request is due: parked for the bulk of it, spinning only for the last stretch.
+     *
+     * The split is the whole point, and getting it wrong cost a full round of bogus numbers. The
+     * first version spun for anything under two milliseconds — which, at eight connections and ten
+     * thousand requests a second, is *every* wait, so eight sender threads sat burning eight cores
+     * on an eight-core machine. The broker then had to be scheduled against its own load generator,
+     * and the result was a p99 of 110 ms that had nothing to do with the broker.
+     *
+     * Parking alone is not the answer either: the OS will happily oversleep a sub-millisecond park,
+     * and a sender that oversleeps stops applying the offered rate. So park until the last
+     * [SPIN_TAIL_NANOS], then spin — one core-microsecond per request instead of a whole core.
+     */
     private fun parkNanos(nanos: Long) {
-        // Sleeping for sub-millisecond intervals is not reliable on any OS, so short waits spin.
-        // A spinning sender is a sender that keeps its schedule, which is the one thing this
-        // harness must not get wrong.
-        if (nanos > SPIN_THRESHOLD_NANOS) {
-            Thread.sleep(nanos / 1_000_000, (nanos % 1_000_000).toInt())
-        } else {
-            val until = System.nanoTime() + nanos
-            while (System.nanoTime() < until) Thread.onSpinWait()
+        if (nanos > SPIN_TAIL_NANOS) {
+            java.util.concurrent.locks.LockSupport
+                .parkNanos(nanos - SPIN_TAIL_NANOS)
         }
+        val until = System.nanoTime() + minOf(nanos, SPIN_TAIL_NANOS)
+        while (System.nanoTime() < until) Thread.onSpinWait()
     }
 
     private const val MAX_IN_FLIGHT = 1024
     private const val POISON = Long.MIN_VALUE
     private const val FETCH_STRIDE = 400L
-    private const val SPIN_THRESHOLD_NANOS = 2_000_000L
+
+    /** Last 50 µs before a request is due are spun; everything before that is parked. */
+    private const val SPIN_TAIL_NANOS = 50_000L
 }
