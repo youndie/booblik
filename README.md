@@ -9,9 +9,10 @@ cluster is deliberately absent; everything that makes a log fast is reproduced a
 
 ## Status
 
-Milestone M0 is done: the storage layer (segment, sparse offset index, two write paths, handing
-bytes to a channel), a gate made of tests and ktlint, a benchmark module, and the first
-measurement. **There is no network yet** — `:booblik-net` does not exist, on purpose.
+Milestones M0, M1 and M2 are done: the storage layer end to end (segment, sparse offset index, two
+write paths, partition rolling, recovery, retention, and a batching writer actor), a gate made of
+tests and ktlint, benchmarks and probes. **There is no network yet** — `:booblik-net` does not
+exist, on purpose.
 
 ## Runtime footprint
 
