@@ -1,0 +1,27 @@
+# Every key can also come from the environment: booblik.port -> BOOBLIK_PORT.
+# Environment beats this file, this file beats the default. A value that does not parse stops the
+# broker from starting rather than falling back to a default nobody chose.
+
+booblik.data.dir=data
+booblik.port=9092
+
+# Fixed at startup. The broker does not create topics — see docs/services/booblik-app.md.
+booblik.topics=orders:3,clicks:1
+
+booblik.segment.mode=FILE_CHANNEL
+booblik.segment.capacity.bytes=536870912
+booblik.index.interval.bytes=4096
+
+# Bounds the WINDOW OF LOSS, not durability. A producer told WRITTEN was told that before any
+# barrier ran; only FORCED waits for one. Leave both unset to let the OS decide when to write back.
+#booblik.flush.every.records=10000
+#booblik.flush.every.millis=100
+
+# Nothing is deleted unless one of these is set.
+#booblik.retention.bytes=1073741824
+#booblik.retention.millis=604800000
+booblik.retention.check.millis=30000
+
+booblik.transport=SELECTOR
+booblik.fetch.mode=ZERO_COPY
+booblik.metrics.interval.millis=10000

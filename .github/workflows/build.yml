@@ -13,16 +13,17 @@ on:
 jobs:
   check:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
 
+      # 25 is the toolchain the project asks for. Gradle would provision it itself through the
+      # foojay resolver in settings.gradle.kts, but doing it here means one download the runner
+      # cache can keep rather than one it fetches every time.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          # 25, matching the toolchain. The FFM mapping the storage layer uses is not available
-          # below 22 — see docs/research §1.5.
           java-version: '25'
 
       - uses: gradle/actions/setup-gradle@v4
@@ -36,6 +37,11 @@ jobs:
       # see the host rule in docs/benchmarking.md.
       - name: Compile benchmarks
         run: ./gradlew :booblik-benchmark:assembleBenchmarks --stacktrace
+
+      # The broker has to actually start. A distribution that builds and then dies on its own
+      # config file is a thing `check` cannot see, and it is exactly what shipping means here.
+      - name: Smoke-test the packaged broker
+        run: ./ci/smoke.sh
 
       - name: Test reports
         if: always()

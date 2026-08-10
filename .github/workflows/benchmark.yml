@@ -1,0 +1,80 @@
+name: benchmark
+
+# What this can and cannot tell you
+# --------------------------------
+# It runs the benchmark suite on a shared GitHub runner and keeps the report as an artifact.
+#
+# It is **not** a regression detector, and pretending otherwise would be worse than not having it.
+# Rule 3 in docs/benchmarking.md says compare only runs from the same session, back to back — and
+# that rule was not invented for CI, it came from a control run on one laptop diverging 37 % from
+# the same configuration on a different day (M-44). A hosted runner is a different machine, a
+# different neighbour and a different disk every time; a 20 % swing between two of these runs means
+# nothing at all.
+#
+# So this job claims exactly two things:
+#
+#   1. the benchmarks still run — which the compile step in `build.yml` cannot tell you, because a
+#      benchmark can compile and then fail on its first iteration;
+#   2. nothing collapsed by an order of magnitude. The floor below is set far under the slowest
+#      plausible runner, so it catches "somebody made the write path a hundred times slower" and
+#      deliberately nothing subtler.
+#
+# Numbers you can actually reason about come from a machine you control, run back to back —
+# ci/wsl-run.sh for the Linux box, or locally. That is where docs/benchmarking.md gets its tables.
+
+on:
+  schedule:
+    # Weekly. More often would produce a longer history of numbers that still cannot be compared.
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Recorded next to the numbers, because without it a report is unattributable — and an
+      # unattributable benchmark number is the thing this project spends the most words warning
+      # about.
+      - name: Record the host
+        run: |
+          {
+            echo "date: $(date -u +%FT%TZ)"
+            echo "runner: ${{ runner.name }} / ${{ runner.os }} / ${{ runner.arch }}"
+            echo "cpu: $(nproc) x $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | xargs)"
+            echo "memory: $(free -g | awk '/^Mem:/ {print $2}') GiB"
+            echo "filesystem: $(findmnt -no FSTYPE -T .) on $(findmnt -no SOURCE -T .)"
+            echo "disk free: $(df -h . | tail -1 | awk '{print $4}')"
+            echo "commit: ${{ github.sha }}"
+          } | tee host.txt
+
+      - name: Run benchmarks
+        run: ./gradlew :booblik-benchmark:mainBenchmark --console=plain | tee benchmark.txt
+
+      # An order of magnitude, not a percentage. The floor is a tenth of what the slowest machine
+      # this has ever run on managed; anything that trips it is a collapse, not a regression.
+      - name: Fail only on a collapse
+        run: ./ci/benchmark-floor.sh benchmark.txt
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          # Retained long enough to look back at a few runs, not long enough to imply a trend line
+          # that the numbers cannot support.
+          name: benchmark-${{ github.run_number }}
+          retention-days: 90
+          path: |
+            host.txt
+            benchmark.txt
+            booblik-benchmark/build/reports/benchmarks/**
