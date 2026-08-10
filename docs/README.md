@@ -76,6 +76,7 @@
 
 **Services**
 - [booblik-core](services/booblik-core.md) — хранение: сегмент, индекс, две записи, `transferTo`.
+- [booblik-client](services/booblik-client.md) — клиент и общий кодек.
 - [booblik-net](services/booblik-net.md) — провод: селектор, кодек, сессии, два транспорта.
 - [booblik-app](services/booblik-app.md) — запуск: конфигурация, метрики, retention, дистрибутив.
 - [booblik-benchmark](services/booblik-benchmark.md) — числа: JMH и пробы.

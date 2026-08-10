@@ -15,8 +15,8 @@ tags: [client, api, draft]
 
 > **Веха M7 закрыта целиком:** METADATA (M-70), долгий FETCH (M-75), подписка и контрольные
 > точки (M-71, M-72), публикация (M-73). Код —
-> [`Subscription.kt`](../../booblik-net/src/main/kotlin/ru/workinprogress/booblik/net/client/Subscription.kt)
-> и [`Publishing.kt`](../../booblik-net/src/main/kotlin/ru/workinprogress/booblik/net/client/Publishing.kt).
+> [`Subscription.kt`](../../booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Subscription.kt)
+> и [`Publishing.kt`](../../booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Publishing.kt).
 > `Consumer.poll()` остаётся как низкоуровневый примитив под всем этим.
 > Не сделан замер M-74 — до него числа подписки неизвестны.
 

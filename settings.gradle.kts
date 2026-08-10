@@ -8,6 +8,7 @@ plugins {
 rootProject.name = "booblik"
 
 include(":booblik-core")
+include(":booblik-client")
 include(":booblik-net")
 include(":booblik-app")
 include(":booblik-benchmark")

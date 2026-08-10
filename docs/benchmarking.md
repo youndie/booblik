@@ -1196,7 +1196,7 @@ round-trip METADATA, — то есть она должна проигрыват�
 почти не влияет (16,4–16,8 млн выдач/с при батче от 1 до 100), и это ровно то, чего следовало
 ожидать: цена платится за **выдачу**, а не за запись.
 
-Отсюда прямое следствие для API — то самое, ради которого [`RecordBatch`](../booblik-net/src/main/kotlin/ru/workinprogress/booblik/net/client/Subscription.kt)
+Отсюда прямое следствие для API — то самое, ради которого [`RecordBatch`](../booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Subscription.kt)
 отдаёт батч, а не запись:
 
 | Батч | `flow { }` на запись | с `buffer()` на запись |
