@@ -43,6 +43,11 @@ public final class ru/workinprogress/booblik/app/BooblikConfig$Companion {
 	public static synthetic fun load$default (Lru/workinprogress/booblik/app/BooblikConfig$Companion;Ljava/nio/file/Path;Ljava/util/Map;ILjava/lang/Object;)Lru/workinprogress/booblik/app/BooblikConfig;
 }
 
+public final class ru/workinprogress/booblik/app/Health {
+	public static final field INSTANCE Lru/workinprogress/booblik/app/Health;
+	public static final fun main ([Ljava/lang/String;)V
+}
+
 public final class ru/workinprogress/booblik/app/MainKt {
 	public static final fun main ([Ljava/lang/String;)V
 }

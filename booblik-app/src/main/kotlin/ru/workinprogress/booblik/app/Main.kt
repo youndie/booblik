@@ -34,6 +34,13 @@ fun main(args: Array<String>) {
     val config = BooblikConfig.load(args.firstOrNull()?.let(::Path))
     println("booblik starting")
     println(config.describe().prependIndent("  "))
+    // Профиль, с которым процесс реально живёт, а не тот, который предполагается.
+    //
+    // Он зашит в стартовый скрипт дистрибутива, но `JAVA_OPTS` его перебивает, и в контейнере это
+    // делается одной строкой в чужом `Dockerfile`. Молчаливая подмена означает, что поставляется
+    // не то, что измерено (риск 7), а отличить одно от другого снаружи было нечем. Теперь есть:
+    // строка печатается всегда и попадает в логи контейнера.
+    println("  jvm: " + jvmArguments().joinToString(" ").ifEmpty { "(без аргументов — профиль не доехал)" })
 
     val broker =
         Broker.open(
@@ -135,3 +142,15 @@ private suspend fun applyRetention(
         if (removed > 0) println("booblik: retention removed $removed segment(s)")
     }
 }
+
+/**
+ * Аргументы, с которыми запущена эта JVM.
+ *
+ * Отфильтрованы до того, что задаёт профиль: `-D…` и пути тут только зашумили бы строку, ради
+ * которой всё и печатается.
+ */
+private fun jvmArguments(): List<String> =
+    java.lang.management.ManagementFactory
+        .getRuntimeMXBean()
+        .inputArguments
+        .filter { it.startsWith("-X") }
