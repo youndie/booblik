@@ -3,6 +3,34 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
+/**
+ * The runtime footprint booblik is designed to live in. Not a tuning knob — a **constraint**, and
+ * the numbers in docs/benchmarking.md are only meaningful under it.
+ *
+ * Declared once and applied to both the tests and the forked benchmark JVM, so a change cannot
+ * land in one and not the other. Two of these flags interact with the storage layer in ways worth
+ * writing down:
+ *
+ * * `-Xmx64M` and `-XX:MaxDirectMemorySize=32M` do **not** bound the mapped segment. Memory from
+ *   `FileChannel.map` is neither heap nor direct-buffer memory, so `MAPPED` can address a 512 MiB
+ *   segment inside a 64 MiB heap. That is a property of the mapping, not luck — but it also means
+ *   these two flags give no protection at all against a mapping that is too large.
+ * * `-XX:MaxDirectMemorySize=32M` does bound `FileChannelSegmentWriter`, which keeps one direct
+ *   buffer of 4 bytes per segment. Room for roughly eight million segments; not the binding
+ *   constraint, and if it ever becomes one, something else is wrong.
+ */
+val brokerJvmArgs =
+    listOf(
+        "-XX:+UseSerialGC",
+        "-XX:ReservedCodeCacheSize=32M",
+        "-XX:MaxDirectMemorySize=32M",
+        "-Xss256k",
+        "-XX:MaxMetaspaceSize=80M",
+        "-Xmx64M",
+    )
+
+extra["brokerJvmArgs"] = brokerJvmArgs
+
 // The whole point of this block: the gate is one command. `./gradlew check` must run the tests
 // AND ktlint, in every module, without anyone remembering a second line in CI.
 subprojects {
@@ -26,6 +54,9 @@ subprojects {
 
         tasks.withType<Test>().configureEach {
             useJUnitPlatform()
+            // Tests run under the production footprint on purpose: an allocation the storage layer
+            // is not supposed to make shows up here as an OOM in the gate, not in production.
+            jvmArgs(brokerJvmArgs)
             testLogging {
                 events("failed")
                 exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

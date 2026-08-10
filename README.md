@@ -13,6 +13,21 @@ Milestone M0 is done: the storage layer (segment, sparse offset index, two write
 bytes to a channel), a gate made of tests and ktlint, a benchmark module, and the first
 measurement. **There is no network yet** — `:booblik-net` does not exist, on purpose.
 
+## Runtime footprint
+
+booblik targets a deliberately small JVM, and that is a constraint rather than a tuning knob —
+tests and benchmarks both run under it, so an allocation the hot path is not supposed to make
+fails the gate instead of production:
+
+```
+-XX:+UseSerialGC -XX:ReservedCodeCacheSize=32M -XX:MaxDirectMemorySize=32M
+-Xss256k -XX:MaxMetaspaceSize=80M -Xmx64M
+```
+
+Measured cost: none worth mentioning — seven of eight benchmark rows match a default JVM within
+error. Note that `-Xmx` does **not** bound a mapped segment: `FileChannel.map` is neither heap
+nor direct-buffer memory.
+
 ## Build
 
 Requires a JDK 25 toolchain.

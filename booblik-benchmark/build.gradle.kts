@@ -12,6 +12,17 @@ dependencies {
     implementation(libs.hdrhistogram)
 }
 
+// The benchmark runs under the same footprint as everything else (see `brokerJvmArgs` in the root
+// build). JMH hands the host VM's arguments to the process it forks, so setting them here reaches
+// the JVM that is actually measured — and JMH prints them back as "# VM options:" in its header,
+// which is where to check rather than assume.
+@Suppress("UNCHECKED_CAST")
+val brokerJvmArgs = rootProject.extra["brokerJvmArgs"] as List<String>
+
+tasks.withType<JavaExec>().configureEach {
+    jvmArgs(brokerJvmArgs)
+}
+
 // JMH generates a subclass of every @State class, so those classes must not be final. Kotlin makes
 // them final by default; this is the single line that keeps the benchmarks from failing at
 // generation time with a message about a final class that reads like a compiler bug.
