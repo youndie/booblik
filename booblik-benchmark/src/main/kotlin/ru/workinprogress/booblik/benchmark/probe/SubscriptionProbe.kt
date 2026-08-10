@@ -5,7 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -50,6 +50,7 @@ object SubscriptionProbe {
     private val TOPIC = TopicName("bench")
     private const val PARTITIONS = 4
     private const val RECORD_SIZE = 128
+    private const val MAX_BYTES = 1 shl 20
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -264,54 +265,84 @@ object SubscriptionProbe {
         }
     }
 
+    /**
+     * Three reads that differ by **one thing each**, which is what M-76 had to fix.
+     *
+     * The previous version compared `Consumer.poll()` against the shipped subscription and reported
+     * the subscription as up to 120 % *faster* than the loop it wraps. A wrapper cannot be faster
+     * than what it wraps, so the comparison was wrong, and the reason turned out to be worth more
+     * than the number: `callbackFlow` puts a channel between the fetch loop and the collector, so
+     * the next request goes out while the previous batch is still being handled. The bare loop is
+     * strictly sequential. That is real concurrency the subscription has and the loop does not —
+     * not overhead, and not something a fair comparison should hide inside "the cost of Flow".
+     *
+     * So the ladder is explicit, and every rung shares the connection, the offsets and the fetch
+     * loop with the one below it:
+     *
+     * 1. **bare loop** — fetch, handle, fetch;
+     * 2. **cold `flow { }`** — the same loop, emitting instead of handling inline. No channel and
+     *    no thread hop, so this rung and the one below differ *only* by the Flow machinery;
+     * 3. **`buffer()`** — a channel between producing and collecting, which is what `callbackFlow`
+     *    gives the real subscription. The step from 2 to 3 is the decoupling, priced on its own.
+     *
+     * Setup is outside the timed region on every rung: one connection, opened once, reused.
+     */
     private suspend fun readThreeWays(
         address: InetSocketAddress,
         records: Int,
     ) = kotlinx.coroutines.coroutineScope {
-        val byPoll =
-            timed(records) {
-                BooblikConnection(address, this).use { connection ->
-                    val consumer = Consumer(connection, TOPIC, PartitionId(0))
+        BooblikConnection(address, this).use { connection ->
+            val bare =
+                timed(records) {
                     var seen = 0
+                    var position = Offset.ZERO
                     while (seen < records) {
-                        val batch = consumer.poll()
-                        if (batch.isEmpty) break
-                        seen += batch.records.size
+                        val answer = connection.fetch(TOPIC, PartitionId(0), position, MAX_BYTES)
+                        if (answer.records.isEmpty()) break
+                        seen += answer.records.size
+                        position += answer.records.size.toLong()
                     }
                     seen
                 }
-            }
 
-        val byFlow =
-            timed(records) {
-                BooblikSubscriber(address).use { subscriber ->
+            val cold =
+                timed(records) {
                     var seen = 0
-                    subscriber
-                        .replay(TOPIC, StartPosition.Earliest, listOf(PartitionId(0)))
-                        .collect { seen += it.records.size }
+                    fetchFlow(connection, records).collect { seen += it }
                     seen
                 }
-            }
 
-        val byCheckpointed =
-            timed(records) {
-                BooblikSubscriber(address).use { subscriber ->
+            val buffered =
+                timed(records) {
                     var seen = 0
-                    subscriber
-                        .replay(TOPIC, StartPosition.Earliest, listOf(PartitionId(0)))
-                        .checkpointing(NoopStore)
-                        .collect { seen += it.records.size }
+                    fetchFlow(connection, records).buffer().collect { seen += it }
                     seen
                 }
-            }
 
-        println("#   %-28s %,12.0f records/s".format("Consumer.poll() loop", byPoll))
-        println("#   %-28s %,12.0f records/s".format("replay() Flow", byFlow))
-        println("#   %-28s %,12.0f records/s".format("replay().checkpointing()", byCheckpointed))
-        println()
-        println("#   Flow costs %+.1f%% against the bare loop".format(100 * (byFlow - byPoll) / byPoll))
-        println("#   checkpointing costs %+.1f%% on top".format(100 * (byCheckpointed - byFlow) / byFlow))
-        println()
+            println("#   %-30s %,12.0f records/s".format("bare fetch loop", bare))
+            println("#   %-30s %,12.0f records/s".format("same loop in a cold flow { }", cold))
+            println("#   %-30s %,12.0f records/s".format("... plus buffer() between them", buffered))
+            println()
+            println("#   Flow machinery alone: %+.1f%%".format(100 * (cold - bare) / bare))
+            println("#   decoupling on top:    %+.1f%%".format(100 * (buffered - cold) / cold))
+            println()
+        }
+    }
+
+    /** The same fetch loop as the bare one, expressed as a cold flow of batch sizes. */
+    private fun fetchFlow(
+        connection: BooblikConnection,
+        records: Int,
+    ) = kotlinx.coroutines.flow.flow {
+        var seen = 0
+        var position = Offset.ZERO
+        while (seen < records) {
+            val answer = connection.fetch(TOPIC, PartitionId(0), position, MAX_BYTES)
+            if (answer.records.isEmpty()) break
+            seen += answer.records.size
+            position += answer.records.size.toLong()
+            emit(answer.records.size)
+        }
     }
 
     private suspend fun preload(

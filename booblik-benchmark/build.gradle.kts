@@ -71,6 +71,15 @@ benchmark {
             iterations = 10
             include("PartitionWriterBenchmark")
         }
+        // `./gradlew :booblik-benchmark:mainFlowBenchmark` — the Flow machinery with the socket
+        // taken out, which is the only way this question has an answer: over a network the
+        // pass-to-pass spread buries it (M-76).
+        register("flow") {
+            common()
+            warmups = 5
+            iterations = 10
+            include("FlowOverheadBenchmark")
+        }
         // `./gradlew :booblik-benchmark:mainQuickBenchmark` — an order of magnitude, in a minute.
         // Not for the record: too few iterations to say anything about the second digit.
         register("quick") {
