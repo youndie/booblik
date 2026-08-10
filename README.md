@@ -9,15 +9,18 @@ cluster is deliberately absent; everything that makes a log fast is reproduced a
 
 ## Status
 
-Milestones M0 through M3 are done: the storage layer end to end (segment, sparse offset index, two
+Milestones M0 through M4 are done: the storage layer end to end (segment, sparse offset index, two
 write paths, partition rolling, recovery, retention, a batching writer actor) and the network layer
-(own selector-based acceptor, binary protocol, FETCH straight from the page cache to the socket).
+(own selector-based acceptor, binary protocol, FETCH straight from the page cache to the socket),
+and a client library (pipelined connection, an accumulating producer, a consumer that keeps its own
+offset).
 
 The broker answers over TCP and sustains **267 thousand records per second** — which is exactly the
 ceiling of its own log, so the network layer costs nothing measurable.
 
-Not there yet: a real client library, multiple topics, configuration, metrics. TLS and compression
-are not coming — they are incompatible with zero-copy by construction.
+Not there yet: configuration, metrics, a runnable artifact. Topic creation is not coming either —
+the set of partitions is fixed at startup on purpose. Neither are TLS and compression: they are
+incompatible with zero-copy by construction.
 
 ## Runtime footprint
 
