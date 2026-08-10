@@ -70,6 +70,36 @@ subprojects {
             // threads that no longer pin the carrier on `synchronized` (JEP 491, 24), which is what
             // makes a thread-per-connection acceptor a fair baseline to measure against.
             jvmToolchain(25)
+
+            // Public API is checked into the repository as `api/<module>.api` and compared on every
+            // `check`. Two reasons, and the second is the one that matters here.
+            //
+            // The repository is about to be public, so a source change that quietly widens or
+            // breaks the surface someone else compiles against is a real cost. But before that:
+            // this project keeps a lot of machinery `internal` on purpose — the load driver, the
+            // measurement directory, the wire codec's helpers — and there is no way to notice when
+            // something slips out of `internal` except by reading every diff. The dump notices.
+            //
+            // This is the ABI validation built into the Kotlin plugin (`checkLegacyAbi` /
+            // `updateLegacyAbi`), not the standalone `binary-compatibility-validator`. Verified in
+            // the 2.4.10 artifact rather than assumed: `org.jetbrains.kotlin.gradle.dsl.abi.*` and
+            // `KotlinLegacyAbiCheckTask` are there, and the standalone plugin is the thing it
+            // replaced — one fewer dependency for the same `.api` format.
+            // `:booblik-benchmark` is deliberately outside: it publishes nothing, and every new
+            // probe would show up as an API change, which trains everyone to run `updateLegacyAbi`
+            // without reading the diff — the exact habit this check exists to prevent.
+            if (project.name != "booblik-benchmark") {
+                @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
+                abiValidation {
+                    // Calling the block is what enables it — there is no `enabled` flag any more,
+                    // and the dump directory moved up out of `legacyDump`. Both changed inside
+                    // 2.4.x, which is why the DSL is opt-in: it is expected to move again.
+                    referenceDumpDir.set(rootProject.layout.projectDirectory.dir("api"))
+                }
+                // The check is not wired into `check` by the plugin, and a gate nobody runs is not
+                // a gate. One command stays one command (project rule 1).
+                tasks.named("check") { dependsOn(tasks.named("checkKotlinAbi")) }
+            }
         }
 
         tasks.withType<Test>().configureEach {
