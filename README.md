@@ -9,7 +9,7 @@ cluster is deliberately absent; everything that makes a log fast is reproduced a
 
 ## Status
 
-Milestones M0 through M5 are done: the storage layer end to end (segment, sparse offset index, two
+Milestones M0 through M6 are done: the storage layer end to end (segment, sparse offset index, two
 write paths, partition rolling, recovery, retention, a batching writer actor) and the network layer
 (own selector-based acceptor, binary protocol, FETCH straight from the page cache to the socket),
 a client library (pipelined connection, an accumulating producer, a consumer that keeps its own
