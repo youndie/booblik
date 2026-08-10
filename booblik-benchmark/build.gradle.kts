@@ -81,6 +81,7 @@ val probes =
         "probeStartup" to "M-23: how fast recovery scans a log",
         "probeSustainedWrite" to "M-26: throughput once the log outgrows memory",
         "probeLoad" to "M-33/M-34: end-to-end RPS and latency percentiles over a socket",
+        "probeRemoteLoad" to "M-38: the same load against a broker on another machine",
     )
 
 probes.forEach { (task, description) ->
