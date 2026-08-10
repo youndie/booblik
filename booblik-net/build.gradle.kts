@@ -10,4 +10,6 @@ dependencies {
 
     testImplementation(kotlin("test"))
     testImplementation(libs.coroutines.test)
+    // Утверждения о Flow: подписка — это Flow, и Turbine написан ровно под это.
+    testImplementation(libs.turbine)
 }

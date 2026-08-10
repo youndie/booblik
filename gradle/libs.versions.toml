@@ -9,6 +9,9 @@ coroutines = "1.11.0"
 # The ktlint CLI and the Gradle plugin are versioned independently: the plugin only launches
 # the CLI of the requested version. 1.8.0 is the requirement for this project.
 ktlint = "1.8.0"
+# Утверждения о Flow в тестах. Транзитивно не приносит ничего нового: coroutines-core,
+# stdlib и coroutines-test в тестовом classpath уже есть.
+turbine = "1.2.1"
 ktlintGradle = "14.2.0"
 # Benchmarks. kotlinx-benchmark drives JMH; JMH itself is what actually measures.
 benchmark = "0.4.17"
@@ -24,6 +27,7 @@ asm = "9.10.1"
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 benchmark-runtime = { module = "org.jetbrains.kotlinx:kotlinx-benchmark-runtime", version.ref = "benchmark" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 hdrhistogram = { module = "org.hdrhistogram:HdrHistogram", version.ref = "hdrhistogram" }
 ktor-network = { module = "io.ktor:ktor-network", version.ref = "ktor" }
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
