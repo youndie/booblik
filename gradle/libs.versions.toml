@@ -1,0 +1,31 @@
+[versions]
+# Kotlin 2.4.10 — last stable on 2026-08-10 (2.4.20-Beta2 is a beta), checked against
+# maven-metadata.xml of org.jetbrains.kotlin:kotlin-stdlib.
+kotlin = "2.4.10"
+# Gradle wrapper is pinned to 9.6.1 and the toolchain to JDK 25 (both chosen by the author).
+# 9.7.0 exists; do not raise the wrapper alone — KGP declares a supported Gradle range and going
+# past it fails with a message about an unsupported Gradle version, not about Kotlin.
+coroutines = "1.11.0"
+# The ktlint CLI and the Gradle plugin are versioned independently: the plugin only launches
+# the CLI of the requested version. 1.8.0 is the requirement for this project.
+ktlint = "1.8.0"
+ktlintGradle = "14.2.0"
+# Benchmarks. kotlinx-benchmark drives JMH; JMH itself is what actually measures.
+benchmark = "0.4.17"
+# Latency histograms for the end-to-end load harness. Percentiles from a plain list of samples
+# would cost more memory than the payload being measured.
+hdrhistogram = "2.2.2"
+ktor = "3.5.2"
+
+[libraries]
+coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+benchmark-runtime = { module = "org.jetbrains.kotlinx:kotlinx-benchmark-runtime", version.ref = "benchmark" }
+hdrhistogram = { module = "org.hdrhistogram:HdrHistogram", version.ref = "hdrhistogram" }
+ktor-network = { module = "io.ktor:ktor-network", version.ref = "ktor" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
+benchmark = { id = "org.jetbrains.kotlinx.benchmark", version.ref = "benchmark" }

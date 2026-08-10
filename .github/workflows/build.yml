@@ -1,0 +1,46 @@
+name: build
+
+# `check` is the whole gate: tests and ktlint, in every module. ktlint has no step of its own
+# because the plugin hangs `ktlintCheck` on `check` — a separate CI line would only be able to
+# drift out of sync with what a developer runs locally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # 25, matching the toolchain. The FFM mapping the storage layer uses is not available
+          # below 22 — see docs/research §1.5.
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Check
+        run: ./gradlew check --stacktrace
+
+      # Benchmarks are compiled, never run here. Compiling them is the point: a benchmark that no
+      # ordinary build touches rots silently and is discovered the day its number is needed.
+      # Running them on a shared CI runner would produce numbers nobody may compare to anything —
+      # see the host rule in docs/benchmarking.md.
+      - name: Compile benchmarks
+        run: ./gradlew :booblik-benchmark:assembleBenchmarks --stacktrace
+
+      - name: Test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/build/test-results/**/*.xml'
+          if-no-files-found: warn
