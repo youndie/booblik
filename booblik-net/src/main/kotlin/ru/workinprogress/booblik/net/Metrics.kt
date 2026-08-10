@@ -33,6 +33,35 @@ class Metrics {
     private val errors = LongAdder()
     private val connectionsOpened = LongAdder()
     private val connectionsClosed = LongAdder()
+    private val sessionFailures = LongAdder()
+    private val connectionsAccepted = LongAdder()
+    private val acceptFailures = LongAdder()
+
+    /**
+     * The last thing that went wrong while accepting, kept so that it can be asked about.
+     *
+     * The accept loop had no error handling at all, and it is a coroutine under a `SupervisorJob`:
+     * an exception there killed the broker's ability to accept **any** further connection, silently,
+     * while the process stayed up and the port stayed bound. From outside it looks like a broker
+     * that answers no one, which is exactly how M-64 presented.
+     */
+    @Volatile
+    var lastAcceptFailure: Throwable? = null
+        private set
+
+    /**
+     * The last thing that killed a session, kept so that it can be asked about.
+     *
+     * A session ending is ordinary and gets no entry here: a client that goes away between frames
+     * leaves through the normal return path. This is only for the case where a session died
+     * *holding a request*, which from the client's side looks like a connection that dropped
+     * instead of answering — and which used to be invisible, because the handler caught the
+     * exception and discarded it. One intermittent failure in `ServerTest` then had no evidence
+     * at all attached to it (M-64).
+     */
+    @Volatile
+    var lastSessionFailure: Throwable? = null
+        private set
 
     fun onProduce() = produceRequests.increment()
 
@@ -42,6 +71,28 @@ class Metrics {
     }
 
     fun onError() = errors.increment()
+
+    /** A session died on an exception rather than on the client leaving. */
+    fun onSessionFailure(cause: Throwable) {
+        sessionFailures.increment()
+        lastSessionFailure = cause
+    }
+
+    /**
+     * A socket came off the accept queue — before anything is done with it.
+     *
+     * Separate from [onConnectionOpened] because the gap between the two is real code: the socket
+     * is configured and registered with the selector in between, and if it dies there the client
+     * sees a connection that was established and then dropped without a word. Counting only
+     * sessions made that gap invisible (M-64).
+     */
+    fun onConnectionAccepted() = connectionsAccepted.increment()
+
+    /** Accepting a connection failed. The loop survives it; this is how anyone finds out. */
+    fun onAcceptFailure(cause: Throwable) {
+        acceptFailures.increment()
+        lastAcceptFailure = cause
+    }
 
     fun onConnectionOpened() = connectionsOpened.increment()
 
@@ -53,6 +104,10 @@ class Metrics {
             fetchRequests = fetchRequests.sum(),
             fetchBytes = fetchBytes.sum(),
             errors = errors.sum(),
+            sessionFailures = sessionFailures.sum(),
+            connectionsAccepted = connectionsAccepted.sum(),
+            acceptFailures = acceptFailures.sum(),
+            connectionsOpened = connectionsOpened.sum(),
             openConnections = connectionsOpened.sum() - connectionsClosed.sum(),
             partitions =
                 broker
@@ -79,6 +134,19 @@ class Metrics {
         val fetchRequests: Long,
         val fetchBytes: Long,
         val errors: Long,
+        /** Sessions that died on an exception. Distinct from [errors], which the client was told about. */
+        val sessionFailures: Long,
+        /**
+         * Every session ever started, cumulative.
+         *
+         * [openConnections] is a difference and therefore cannot tell "nothing ever connected" from
+         * "something connected and left" — both read zero. That ambiguity is exactly what stalled
+         * M-64 for a round of guessing.
+         */
+        val connectionsAccepted: Long,
+        /** Failures inside the accept loop. Non-zero means connections were refused by accident. */
+        val acceptFailures: Long,
+        val connectionsOpened: Long,
         val openConnections: Long,
         val partitions: List<PartitionSnapshot>,
     ) {
@@ -97,7 +165,7 @@ class Metrics {
             val backlog = partitions.sumOf { it.mailboxDepth }
             return (
                 "in %.0f rec/s, %.1f MiB/s | produce %.0f/s fetch %.0f/s (%.1f MiB/s) | " +
-                    "conns %d backlog %d errors %d"
+                    "conns %d backlog %d errors %d dropped %d"
             ).format(
                 written / seconds,
                 bytes / seconds / 1024 / 1024,
@@ -107,6 +175,7 @@ class Metrics {
                 openConnections,
                 backlog,
                 errors,
+                sessionFailures,
             )
         }
     }

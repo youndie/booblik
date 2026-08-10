@@ -37,10 +37,30 @@ fun withServer(
             PartitionRegistry.Key(TOPIC, PARTITION) to PartitionHandle(log, writer),
         )
 
-    val server = BooblikServer(registry, ServerConfig(port = 0, transport = transport, fetchMode = fetchMode))
+    // Loopback explicitly, not the wildcard, and this line is the fix for M-64. With a wildcard
+    // bind the OS is free to hand out a port that another process on the machine already holds on
+    // 127.0.0.1 — `SO_REUSEADDR` is on by default, so the bind succeeds — and every connection then
+    // goes to that other process instead of to this server. It presented as a client seeing EOF
+    // from a broker that had accepted nothing, roughly once in fifteen thousand connections, and
+    // took a day to pin on a stray `kubectl port-forward`. Binding the address the client will
+    // actually dial makes the collision a startup failure instead of a mystery.
+    val server =
+        BooblikServer(
+            registry,
+            ServerConfig(port = 0, transport = transport, fetchMode = fetchMode, bindAddress = "127.0.0.1"),
+        )
     try {
         val address = server.start()
-        BooblikClient(address).use { client -> body(server, client) }
+        try {
+            BooblikClient(address).use { client -> body(server, client) }
+        } catch (e: Throwable) {
+            // Half of the evidence for a network failure is on the other side of the socket, and it
+            // is gone the moment this fixture tears the server down. A client that sees "broker
+            // closed the connection" says nothing about *why*; the session that closed it usually
+            // does. Chasing M-64 without this meant guessing.
+            server.metrics.lastSessionFailure?.let { e.addSuppressed(it) }
+            throw e
+        }
     } finally {
         server.close()
         scope.cancel()

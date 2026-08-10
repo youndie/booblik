@@ -37,6 +37,7 @@ data class BooblikConfig(
     val segmentMode: SegmentMode,
     val segmentCapacity: Int,
     val indexIntervalBytes: Int,
+    val bindAddress: String?,
     val flushPolicy: FlushPolicy,
     val retentionBytes: Long?,
     val retentionMillis: Long?,
@@ -115,6 +116,7 @@ data class BooblikConfig(
             return BooblikConfig(
                 dataDir = Path(raw("booblik.data.dir") ?: "data"),
                 port = int("booblik.port", DEFAULT_PORT),
+                bindAddress = raw("booblik.bind.address"),
                 topics = parseTopics(raw("booblik.topics") ?: DEFAULT_TOPICS),
                 segmentMode =
                     enum(

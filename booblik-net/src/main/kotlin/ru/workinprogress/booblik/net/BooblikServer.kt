@@ -44,6 +44,18 @@ enum class FetchMode {
 
 data class ServerConfig(
     val port: Int = 0,
+    /**
+     * Which address to listen on. `null` means every interface.
+     *
+     * This is not a convenience knob, it is a correctness one, and M-64 is the whole argument for
+     * it. The JDK sets `SO_REUSEADDR` on a `ServerSocketChannel` by default, and on BSD-derived
+     * systems that makes a **wildcard** bind succeed even when another process already holds the
+     * same port on a specific address — after which the more specific listener receives the
+     * connections and this broker receives none. It starts, it reports the port, it accepts
+     * nothing, and no error appears anywhere. Binding an address explicitly turns that silent
+     * theft into a bind failure at startup, which is the loud version of the same fact.
+     */
+    val bindAddress: String? = null,
     val transport: Transport = Transport.SELECTOR,
     val fetchMode: FetchMode = FetchMode.ZERO_COPY,
     /** Nagle off. A broker sends whole responses; batching them into segments adds latency only. */
@@ -108,7 +120,11 @@ class BooblikServer(
         private set
 
     fun start(): InetSocketAddress {
-        serverChannel.bind(InetSocketAddress(config.port), config.backlog)
+        val bind =
+            config.bindAddress
+                ?.let { InetSocketAddress(java.net.InetAddress.getByName(it), config.port) }
+                ?: InetSocketAddress(config.port)
+        serverChannel.bind(bind, config.backlog)
         address = serverChannel.localAddress as InetSocketAddress
 
         when (config.transport) {
@@ -125,17 +141,45 @@ class BooblikServer(
 
         scope.launch {
             while (true) {
-                val client = serverChannel.accept()
+                // The whole body is guarded, and that is the point rather than caution. This loop
+                // is the only thing that accepts connections, it is a coroutine under a
+                // `SupervisorJob`, and it used to have no error handling at all — so one exception
+                // ended it for good, silently, while the process stayed up and the port stayed
+                // bound. A broker in that state accepts TCP connections into the backlog and
+                // answers none of them, which is indistinguishable from a hung broker and is how
+                // M-64 presented.
+                val client =
+                    try {
+                        serverChannel.accept()
+                    } catch (e: java.nio.channels.ClosedChannelException) {
+                        // The ordinary way this loop ends: someone closed the server.
+                        throw e
+                    } catch (e: Exception) {
+                        // Everything else is treated as transient. Refusing one connection is
+                        // recoverable; refusing every future one is not, so the loop keeps going.
+                        metrics.onAcceptFailure(e)
+                        loop.awaitAcceptable(serverKey)
+                        continue
+                    }
                 if (client == null) {
                     loop.awaitAcceptable(serverKey)
                     continue
                 }
-                configure(client)
-                val key = loop.register(client)
-                // Each session is its own coroutine and its own failure domain: a client that
-                // sends nonsense loses its connection and nothing else. `SupervisorJob` is what
-                // makes that true — under a plain Job the first failure would take the server down.
-                scope.launch { serve(SelectorConnection(client, key, loop)) }
+                metrics.onConnectionAccepted()
+                try {
+                    configure(client)
+                    val key = loop.register(client)
+                    // Each session is its own coroutine and its own failure domain: a client that
+                    // sends nonsense loses its connection and nothing else. `SupervisorJob` is what
+                    // makes that true — under a plain Job the first failure would take the server
+                    // down.
+                    scope.launch { serve(SelectorConnection(client, key, loop)) }
+                } catch (e: Exception) {
+                    // The socket is already accepted at this point, so dropping it here would
+                    // leave the client connected to nobody until a GC noticed. Close it and say so.
+                    metrics.onAcceptFailure(e)
+                    runCatching { client.close() }
+                }
             }
         }
     }
@@ -176,10 +220,14 @@ class BooblikServer(
         metrics.onConnectionOpened()
         try {
             Session(connection, partitions, config.fetchMode, metrics).serve()
-        } catch (_: Exception) {
-            // A broken connection is the ordinary end of a session, not an event. Anything worth
-            // reporting is reported through an error code while the connection is still alive;
-            // by the time an exception gets here, there is nobody left to tell.
+        } catch (e: Exception) {
+            // Reaching here means the session died **holding a request**: a client that simply
+            // leaves between frames returns through `Session.serve` without an exception. From the
+            // client's side this is a connection that dropped instead of answering, so it is worth
+            // recording — and it used to be discarded, which left an intermittent failure in
+            // `ServerTest` with no evidence attached to it at all (M-64). There is still nobody to
+            // tell over the wire: the connection is what broke.
+            metrics.onSessionFailure(e)
             runCatching { connection.close() }
         } finally {
             metrics.onConnectionClosed()

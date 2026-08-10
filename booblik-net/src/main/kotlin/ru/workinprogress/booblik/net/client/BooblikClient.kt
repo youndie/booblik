@@ -27,6 +27,11 @@ class BooblikClient(
             setOption(StandardSocketOptions.TCP_NODELAY, true)
         }
 
+    /** Where this client is talking from and to. Diagnostics only — a connection that cannot say
+     * which socket pair it is makes every network failure a guess (M-64). */
+    val localAddress: java.net.SocketAddress? get() = runCatching { channel.localAddress }.getOrNull()
+    val remoteAddress: java.net.SocketAddress? get() = runCatching { channel.remoteAddress }.getOrNull()
+
     private var nextCorrelationId = 1
 
     /** Queues a PRODUCE. Returns the correlation id, or null with [AckPolicy.NONE] — no answer comes. */

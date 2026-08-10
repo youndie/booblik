@@ -55,6 +55,7 @@ fun main(args: Array<String>) {
             broker.registry,
             ServerConfig(
                 port = config.port,
+                bindAddress = config.bindAddress,
                 transport = config.transport,
                 fetchMode = config.fetchMode,
             ),
