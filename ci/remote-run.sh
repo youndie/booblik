@@ -67,6 +67,11 @@ esac
 
 TASKS=("$@")
 if [ ${#TASKS[@]} -eq 0 ]; then TASKS=("check"); fi
+# Каждый аргумент экранируется отдельно: удалённый bash разбирает то, что мы ему подставим, ещё
+# раз, и `-Pargs="PRODUCE SELECTOR ZERO_COPY"` без этого приезжает туда тремя аргументами Gradle.
+# Проявляется не ошибкой аргумента, а «task SELECTOR not found» — то есть выглядит как опечатка
+# в вызове, а не как поломка транспорта.
+TASKS_QUOTED="$(printf ' %q' "${TASKS[@]}")"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -95,8 +100,8 @@ cd "$REMOTE"
 # Флаг подставляется здесь, а не читается там: окружение по ssh не едет, и переменная,
 # оставленная на разбор удалённому bash, всегда пуста.
 if [ -n "${BOOBLIK_REMOTE_RAW:-}" ]; then
-    ./gradlew ${TASKS[*]} --console=plain 2>&1
+    ./gradlew$TASKS_QUOTED --console=plain 2>&1
 else
-    ./gradlew ${TASKS[*]} --console=plain 2>&1 | grep -E '^e: |FAILED|tests? completed|BUILD' | tail -20
+    ./gradlew$TASKS_QUOTED --console=plain 2>&1 | grep -E '^e: |FAILED|tests? completed|BUILD' | tail -20
 fi
 REMOTE_SCRIPT

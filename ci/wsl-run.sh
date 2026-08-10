@@ -63,6 +63,10 @@ esac
 
 TASKS=("$@")
 if [ ${#TASKS[@]} -eq 0 ]; then TASKS=("check"); fi
+# Каждый аргумент экранируется отдельно: удалённый bash разбирает подставленное ещё раз, и
+# `-Pargs="MAPPED 60"` без этого приезжает туда двумя аргументами Gradle. Проявляется как
+# «task 60 not found» — то есть похоже на опечатку в вызове, а не на поломку транспорта.
+TASKS_QUOTED="$(printf ' %q' "${TASKS[@]}")"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -87,8 +91,8 @@ cd "$REMOTE"
 # Флаг подставляется здесь, а не читается там: окружение по ssh не едет, и переменная,
 # оставленная на разбор удалённому bash, всегда пуста — то есть полный вывод не включался.
 if [ -n "${BOOBLIK_WSL_RAW:-}" ]; then
-    ./gradlew ${TASKS[*]} --console=plain 2>&1
+    ./gradlew$TASKS_QUOTED --console=plain 2>&1
 else
-    ./gradlew ${TASKS[*]} --console=plain 2>&1 | grep -E '^e: |FAILED|tests? completed|BUILD' | tail -20
+    ./gradlew$TASKS_QUOTED --console=plain 2>&1 | grep -E '^e: |FAILED|tests? completed|BUILD' | tail -20
 fi
 REMOTE_SCRIPT
