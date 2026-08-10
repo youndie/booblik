@@ -112,6 +112,16 @@ class BooblikConnection(
         return answer.await()
     }
 
+    /** Which topics exist and where each partition currently begins and ends (M-70). */
+    suspend fun metadata(topics: List<TopicName> = emptyList()): MetadataResult {
+        val correlationId = correlationIds.getAndIncrement()
+        val answer = CompletableDeferred<MetadataResult>()
+        outbound.send(
+            Outgoing(RequestEncoder.metadata(correlationId, topics), Pending.Metadata(correlationId, answer)),
+        )
+        return answer.await()
+    }
+
     /**
      * [maxWaitMillis] holds the request on the broker until records arrive, instead of answering
      * empty straight away.
@@ -186,6 +196,21 @@ class BooblikConnection(
         ) : Pending(correlationId) {
             override fun complete(frame: ByteBuffer) {
                 val result = ResponseReader.produce(frame)
+                checkOrder(result.correlationId)
+                answer.complete(result)
+            }
+
+            override fun fail(cause: Throwable) {
+                answer.completeExceptionally(cause)
+            }
+        }
+
+        class Metadata(
+            correlationId: Int,
+            private val answer: CompletableDeferred<MetadataResult>,
+        ) : Pending(correlationId) {
+            override fun complete(frame: ByteBuffer) {
+                val result = ResponseReader.metadata(frame)
                 checkOrder(result.correlationId)
                 answer.complete(result)
             }
