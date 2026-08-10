@@ -24,8 +24,19 @@ dependencies {
 @Suppress("UNCHECKED_CAST")
 val brokerJvmArgs = rootProject.extra["brokerJvmArgs"] as List<String>
 
+// Measured files go next to the build output — that is, on whatever filesystem the checkout lives
+// on — and never in `java.io.tmpdir`, which on Ubuntu 26.04 is tmpfs. `MeasurementDir` refuses to
+// run on a volatile filesystem; this only makes the location explicit and absolute, so a JMH fork
+// started from another working directory still lands on the disk that was meant (M-46).
+val measurementDir =
+    layout.buildDirectory
+        .dir("measurements")
+        .get()
+        .asFile.absolutePath
+
 tasks.withType<JavaExec>().configureEach {
     jvmArgs(brokerJvmArgs)
+    jvmArgs("-Dbooblik.bench.dir=$measurementDir")
 }
 
 // JMH generates a subclass of every @State class, so those classes must not be final. Kotlin makes

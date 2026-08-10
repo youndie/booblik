@@ -84,7 +84,9 @@ set -euo pipefail
 # сессию намертво вместо того, чтобы упасть с внятной ошибкой.
 export GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/true
 cd "$REMOTE"
-if [ -n "\${BOOBLIK_WSL_RAW:-}" ]; then
+# Флаг подставляется здесь, а не читается там: окружение по ssh не едет, и переменная,
+# оставленная на разбор удалённому bash, всегда пуста — то есть полный вывод не включался.
+if [ -n "${BOOBLIK_WSL_RAW:-}" ]; then
     ./gradlew ${TASKS[*]} --console=plain 2>&1
 else
     ./gradlew ${TASKS[*]} --console=plain 2>&1 | grep -E '^e: |FAILED|tests? completed|BUILD' | tail -20

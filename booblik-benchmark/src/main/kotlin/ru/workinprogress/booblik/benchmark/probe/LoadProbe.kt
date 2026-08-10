@@ -7,6 +7,7 @@ import org.HdrHistogram.Histogram
 import ru.workinprogress.booblik.Offset
 import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
+import ru.workinprogress.booblik.benchmark.MeasurementDir
 import ru.workinprogress.booblik.log.AckPolicy
 import ru.workinprogress.booblik.log.PartitionWriter
 import ru.workinprogress.booblik.net.BooblikServer
@@ -82,7 +83,7 @@ object LoadProbe {
         // only at the storage layer.
         val segmentMode = SegmentMode.valueOf(args.getOrElse(8) { SegmentMode.MAPPED.name })
 
-        val dir = Files.createTempDirectory("booblik-load")
+        val dir = MeasurementDir.create("booblik-load")
         val scope = CoroutineScope(SupervisorJob())
         val log = PartitionLog.open(dir, segmentMode, segmentCapacity)
         val writer = PartitionWriter(log, scope)
@@ -95,6 +96,7 @@ object LoadProbe {
         try {
             val address = server.start()
             println("# M-33/M-34 load probe: $workload, $transport, fetch=$fetchMode, segments=$segmentMode")
+            println("# storage: ${MeasurementDir.describe(dir)}")
             println(
                 "# $connections connections, target $targetRate/s total, ${seconds}s, pipeline depth $pipelineDepth",
             )

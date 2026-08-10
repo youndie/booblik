@@ -59,7 +59,7 @@ class SegmentAppendBenchmark {
     @Setup
     fun setUp() {
         RuntimeFootprint.verify()
-        dir = Files.createTempDirectory("booblik-bench")
+        dir = MeasurementDir.create("booblik-bench")
         payload = ByteArray(payloadSize) { it.toByte() }
         recycles = 0
         openSegment()

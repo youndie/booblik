@@ -70,7 +70,7 @@ class PartitionWriterBenchmark {
         policy = AckPolicy.valueOf(ackPolicy)
         batch = List(batchSize) { ByteArray(PAYLOAD_SIZE) { i -> i.toByte() } }
 
-        dir = Files.createTempDirectory("booblik-writer-bench")
+        dir = MeasurementDir.create("booblik-writer-bench")
         // A real PartitionLog, not a single segment: rolling is part of what the writer does, and
         // at these volumes it happens for real. Retention keeps the directory from growing without
         // bound — see the trim in the benchmark body.

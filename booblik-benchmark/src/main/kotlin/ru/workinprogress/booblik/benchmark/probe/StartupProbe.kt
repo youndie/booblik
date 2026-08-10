@@ -1,5 +1,6 @@
 package ru.workinprogress.booblik.benchmark.probe
 
+import ru.workinprogress.booblik.benchmark.MeasurementDir
 import ru.workinprogress.booblik.storage.PartitionLog
 import ru.workinprogress.booblik.storage.SegmentMode
 import java.nio.file.Files
@@ -27,12 +28,13 @@ object StartupProbe {
     @JvmStatic
     fun main(args: Array<String>) {
         val mode = SegmentMode.valueOf(args.getOrElse(0) { SegmentMode.FILE_CHANNEL.name })
-        val dir = Files.createTempDirectory("booblik-startup")
+        val dir = MeasurementDir.create("booblik-startup")
         try {
             val record = ByteArray(RECORD_SIZE) { it.toByte() }
             val totalBytes = SEGMENTS.toLong() * SEGMENT_CAPACITY
 
             println("# M-23 startup probe: mode=$mode, ${totalBytes / 1024 / 1024} MiB across $SEGMENTS segments")
+            println("# storage: ${MeasurementDir.describe(dir)}")
 
             var records = 0L
             val writeNanos =

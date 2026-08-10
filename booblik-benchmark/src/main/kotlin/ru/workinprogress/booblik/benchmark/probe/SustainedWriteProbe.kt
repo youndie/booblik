@@ -1,5 +1,6 @@
 package ru.workinprogress.booblik.benchmark.probe
 
+import ru.workinprogress.booblik.benchmark.MeasurementDir
 import ru.workinprogress.booblik.storage.PartitionLog
 import ru.workinprogress.booblik.storage.SegmentMode
 import java.nio.file.FileStore
@@ -47,7 +48,7 @@ object SustainedWriteProbe {
         val mode = SegmentMode.valueOf(args.getOrElse(0) { SegmentMode.MAPPED.name })
         val seconds = args.getOrElse(1) { DEFAULT_SECONDS.toString() }.toInt()
 
-        val dir = Files.createTempDirectory("booblik-sustained")
+        val dir = MeasurementDir.create("booblik-sustained")
         try {
             val store: FileStore = Files.getFileStore(dir)
             val free = store.usableSpace
@@ -60,6 +61,7 @@ object SustainedWriteProbe {
             println("# M-26 sustained write probe: mode=$mode, ${seconds}s, records of $RECORD_SIZE B")
             println("# WARNING: this saturates writeback on purpose and may make the host unresponsive")
             println("# retaining at most ${RETAINED_BYTES / 1024 / 1024} MiB on disk; ${free / 1024 / 1024} MiB free")
+            println("# storage: ${MeasurementDir.describe(dir)}")
             // The heap figure is here to be dismissed, not to be used: the page cache this probe
             // fights with is bounded by the machine's RAM, and the mapping the mapped path writes
             // through is not heap at all. `-Xmx` is the wrong number to reason with, and printing

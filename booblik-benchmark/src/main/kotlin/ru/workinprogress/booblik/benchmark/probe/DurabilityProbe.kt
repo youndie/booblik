@@ -1,5 +1,6 @@
 package ru.workinprogress.booblik.benchmark.probe
 
+import ru.workinprogress.booblik.benchmark.MeasurementDir
 import java.lang.foreign.Arena
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
@@ -43,10 +44,11 @@ object DurabilityProbe {
 
     @JvmStatic
     fun main(args: Array<String>) {
-        val dir = Files.createTempDirectory("booblik-durability")
+        val dir = MeasurementDir.create("booblik-durability")
         try {
             println("# M-24 durability probe: ${DIRTY_BYTES / 1024 / 1024} MiB dirtied per round, $ROUNDS rounds")
             println("# host JVM: ${System.getProperty("java.vm.version")}, ${System.getProperty("os.name")}")
+            println("# storage: ${MeasurementDir.describe(dir)}")
 
             val fsyncOnly = ArrayList<Long>()
             val msyncOnly = ArrayList<Long>()

@@ -62,7 +62,7 @@ class GroupCommitBenchmark {
     fun setUp() {
         RuntimeFootprint.verify()
         record = ByteArray(PAYLOAD_SIZE) { it.toByte() }
-        dir = Files.createTempDirectory("booblik-groupcommit")
+        dir = MeasurementDir.create("booblik-groupcommit")
         log = PartitionLog.open(dir, SegmentMode.valueOf(mode), segmentCapacity = SEGMENT_CAPACITY)
         scope = CoroutineScope(SupervisorJob())
         writer = PartitionWriter(log, scope)
