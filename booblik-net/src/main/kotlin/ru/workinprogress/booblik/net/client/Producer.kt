@@ -50,7 +50,7 @@ data class ProducerConfig(
  * addresses one partition, because a partition is what has one writer.
  */
 class Producer(
-    private val connection: BooblikConnection,
+    internal val connection: BooblikConnection,
     scope: CoroutineScope,
     private val config: ProducerConfig = ProducerConfig(),
 ) : AutoCloseable {
@@ -81,6 +81,29 @@ class Producer(
         val answer = CompletableDeferred<Offset>()
         mailbox.send(Command.Append(Key(topic, partition), record, answer))
         return answer
+    }
+
+    /**
+     * A handle for [topic], with its partitions taken from the broker rather than from an argument.
+     *
+     * Asking is the point: a partition count passed in by hand can disagree with the broker, and
+     * the result — records piling into some partitions while others are never written — reads as a
+     * data problem rather than as the configuration mistake it is.
+     */
+    suspend fun topic(
+        topic: TopicName,
+        partitioner: Partitioner = Partitioner.ByKeyHash,
+    ): TopicHandle {
+        val answer = connection.metadata(listOf(topic))
+        if (answer.error != ErrorCode.NONE) throw ProduceFailedException(answer.error)
+        val partitions =
+            answer.topics
+                .singleOrNull()
+                ?.partitions
+                ?.map { it.partition }
+                .orEmpty()
+        check(partitions.isNotEmpty()) { "broker has no partitions for ${topic.value}" }
+        return TopicHandle(this, topic, partitions, partitioner)
     }
 
     /** Sends everything queued and waits for the broker to answer all of it. */

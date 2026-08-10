@@ -197,6 +197,11 @@ public final class ru/workinprogress/booblik/net/Transport : java/lang/Enum {
 	public static fun values ()[Lru/workinprogress/booblik/net/Transport;
 }
 
+public final class ru/workinprogress/booblik/net/client/BatchScope {
+	public final fun add ([B)V
+	public final fun unaryPlus ([B)V
+}
+
 public final class ru/workinprogress/booblik/net/client/BooblikClient : java/io/Closeable {
 	public fun <init> (Ljava/net/InetSocketAddress;)V
 	public fun close ()V
@@ -316,6 +321,15 @@ public final class ru/workinprogress/booblik/net/client/PartitionInfo {
 	public fun toString ()Ljava/lang/String;
 }
 
+public abstract interface class ru/workinprogress/booblik/net/client/Partitioner {
+	public static final field Companion Lru/workinprogress/booblik/net/client/Partitioner$Companion;
+	public abstract fun partitionFor ([BI)I
+}
+
+public final class ru/workinprogress/booblik/net/client/Partitioner$Companion {
+	public final fun getByKeyHash ()Lru/workinprogress/booblik/net/client/Partitioner;
+}
+
 public final class ru/workinprogress/booblik/net/client/ProduceFailedException : java/lang/IllegalStateException {
 	public fun <init> (Lru/workinprogress/booblik/net/wire/ErrorCode;)V
 	public final fun getCode ()Lru/workinprogress/booblik/net/wire/ErrorCode;
@@ -344,6 +358,8 @@ public final class ru/workinprogress/booblik/net/client/Producer : java/lang/Aut
 	public fun close ()V
 	public final fun flush (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun send-73gZJe8 (Ljava/lang/String;I[BLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun topic-7zVQyJo (Ljava/lang/String;Lru/workinprogress/booblik/net/client/Partitioner;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun topic-7zVQyJo$default (Lru/workinprogress/booblik/net/client/Producer;Ljava/lang/String;Lru/workinprogress/booblik/net/client/Partitioner;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
 public final class ru/workinprogress/booblik/net/client/ProducerConfig {
@@ -361,6 +377,13 @@ public final class ru/workinprogress/booblik/net/client/ProducerConfig {
 	public final fun getMaxBatchSize ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class ru/workinprogress/booblik/net/client/PublishingKt {
+	public static final fun batch-32amf5I (Lru/workinprogress/booblik/net/client/Producer;Ljava/lang/String;ILru/workinprogress/booblik/log/AckPolicy;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun batch-32amf5I$default (Lru/workinprogress/booblik/net/client/Producer;Ljava/lang/String;ILru/workinprogress/booblik/log/AckPolicy;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public static final fun batch-6B9ZlAE (Lru/workinprogress/booblik/net/client/Producer;Lru/workinprogress/booblik/net/client/TopicHandle;ILru/workinprogress/booblik/log/AckPolicy;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun batch-6B9ZlAE$default (Lru/workinprogress/booblik/net/client/Producer;Lru/workinprogress/booblik/net/client/TopicHandle;ILru/workinprogress/booblik/log/AckPolicy;Lkotlin/jvm/functions/Function1;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
 public final class ru/workinprogress/booblik/net/client/RecordBatch {
@@ -455,6 +478,15 @@ public final class ru/workinprogress/booblik/net/client/SubscriptionConfig {
 
 public final class ru/workinprogress/booblik/net/client/SubscriptionKt {
 	public static final fun checkpointing (Lkotlinx/coroutines/flow/Flow;Lru/workinprogress/booblik/net/client/OffsetStore;)Lkotlinx/coroutines/flow/Flow;
+}
+
+public final class ru/workinprogress/booblik/net/client/TopicHandle {
+	public synthetic fun <init> (Lru/workinprogress/booblik/net/client/Producer;Ljava/lang/String;Ljava/util/List;Lru/workinprogress/booblik/net/client/Partitioner;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getPartitions ()Ljava/util/List;
+	public final fun getTopic-CPONTrc ()Ljava/lang/String;
+	public final fun partitionFor-E-KD4BY ([B)I
+	public final fun send ([B[BLkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun send$default (Lru/workinprogress/booblik/net/client/TopicHandle;[B[BLkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
 public final class ru/workinprogress/booblik/net/client/TopicInfo {
