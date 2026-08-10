@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+#
+# Прогон Gradle-задачи на Linux-машине (WSL) по **рабочему дереву**, без коммита.
+#
+# Зачем это в проекте, у которого нет линуксовых таргетов: **замеры**. Разработка идёт на macOS
+# (Apple M1, APFS, 8 ядер), а брокеры живут на Linux. Риск 4 ресёрча прямо про это, и часть
+# выводов проекта — свойства файловой системы, а не кода: соотношение `msync` и `fsync` (§1.9)
+# на ext4 может оказаться другим, и проверить это можно только здесь.
+#
+# Как это устроено, и почему не очевидно
+# --------------------------------------
+# SSH ведёт на **Windows**, а не в Ubuntu: у WSL своего слушателя нет. Команды туда попадают через
+# `wsl -d <дистрибутив> --`, и из-за этого не работают ни `scp`, ни обычный `rsync` — они кладут
+# файлы в файловую систему Windows. Спасает `--rsync-path`: им задаётся, чем именно запускать
+# rsync на той стороне, и тогда путь назначения читает уже линуксовый rsync.
+#
+# `--delete` обязателен. Синхронизация через `tar` (напрашивающийся способ) удалённые файлы
+# **не убирает**, и выглядит это как «правка не подействовала»: старый файл продолжает
+# собираться рядом с новым.
+#
+# `build/`, `.gradle/` и `.git/` не едут: каталог сборки привязан к платформе, а история там своя.
+#
+# Про JDK на той стороне: в Ubuntu стоит 21, а проекту нужен 25 (FFM-маппинг, §1.5). Ставить его
+# руками не требуется — `settings.gradle.kts` подключает foojay-резолвер, и Gradle скачивает
+# тулчейн сам. Первый прогон из-за этого длиннее.
+#
+# Использование:
+#   ./ci/wsl-run.sh                      # ./gradlew check
+#   ./ci/wsl-run.sh :booblik-benchmark:mainBenchmark
+#   BOOBLIK_WSL_RAW=1 ./ci/wsl-run.sh :booblik-benchmark:probeDurability
+#
+# Настройки — через окружение:
+#   BOOBLIK_WSL_HOST    пользователь@адрес машины с WSL (обязательно)
+#   BOOBLIK_WSL_DISTRO  имя дистрибутива, по умолчанию Ubuntu-24.04
+#   BOOBLIK_WSL_PATH    путь к чекауту внутри WSL, по умолчанию booblik
+#   BOOBLIK_WSL_RAW     непустое — печатать полный вывод (нужно для замеров)
+
+set -euo pipefail
+
+# Адрес машины задаётся окружением и в репозитории не хранится: это чужая частная
+# инфраструктура, а не настройка проекта.
+HOST="${BOOBLIK_WSL_HOST:?задайте BOOBLIK_WSL_HOST=пользователь@адрес}"
+DISTRO="${BOOBLIK_WSL_DISTRO:-Ubuntu-24.04}"
+
+# Путь **обязан** быть абсолютным линуксовым, и это главная ловушка всей затеи. Сессия внутри WSL
+# стартует в `/mnt/c/Users/<кто-то>` — то есть в файловой системе Windows, смонтированной через 9p.
+# Относительный путь назначения попадает именно туда, всё собирается и запускается, и заметить
+# это можно только по числам: для проекта, который меряет диск, 9p поверх NTFS — не «немного
+# медленнее», а другой предмет измерения. Поэтому домашний каталог спрашивается у самой WSL,
+# а не угадывается.
+if [ -z "${BOOBLIK_WSL_PATH:-}" ]; then
+    WSL_HOME="$(ssh -o ConnectTimeout=20 "$HOST" "wsl -d $DISTRO -- bash -lc 'echo \$HOME'" | tr -d '\r')"
+    [ -n "$WSL_HOME" ] || { echo "не удалось узнать \$HOME внутри WSL" >&2; exit 1; }
+    REMOTE="$WSL_HOME/booblik"
+else
+    REMOTE="$BOOBLIK_WSL_PATH"
+fi
+case "$REMOTE" in
+    /mnt/*) echo "путь $REMOTE лежит в файловой системе Windows — замеры оттуда недействительны" >&2; exit 1 ;;
+    /*) ;;
+    *) echo "путь $REMOTE должен быть абсолютным" >&2; exit 1 ;;
+esac
+
+TASKS=("$@")
+if [ ${#TASKS[@]} -eq 0 ]; then TASKS=("check"); fi
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+echo "→ синхронизация рабочего дерева в $HOST:$REMOTE"
+rsync -az --delete \
+    --exclude 'build/' \
+    --exclude '.gradle/' \
+    --exclude '.git/' \
+    --exclude '.kotlin/' \
+    --exclude '.DS_Store' \
+    --rsync-path="wsl -d $DISTRO -- rsync" \
+    "$ROOT/" "$HOST:$REMOTE/"
+
+echo "→ ${TASKS[*]}"
+
+ssh -o ConnectTimeout=20 "$HOST" "wsl -d $DISTRO -- bash -s" <<REMOTE_SCRIPT
+set -euo pipefail
+# Ничто не должно спросить пароль: интерактивного ввода на той стороне нет, и вопрос вешает
+# сессию намертво вместо того, чтобы упасть с внятной ошибкой.
+export GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/true
+cd "$REMOTE"
+if [ -n "\${BOOBLIK_WSL_RAW:-}" ]; then
+    ./gradlew ${TASKS[*]} --console=plain 2>&1
+else
+    ./gradlew ${TASKS[*]} --console=plain 2>&1 | grep -E '^e: |FAILED|tests? completed|BUILD' | tail -20
+fi
+REMOTE_SCRIPT

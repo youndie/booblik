@@ -28,13 +28,23 @@ internal object RuntimeFootprint {
     fun verify() {
         val actual = ManagementFactory.getRuntimeMXBean().inputArguments
         val missing = REQUIRED.filterNot(actual::contains)
-        require(missing.isEmpty()) {
-            "benchmark JVM is not running under the broker footprint: missing $missing. " +
-                "Actual arguments: $actual. See brokerJvmArgs in the root build.gradle.kts."
+        // `-Pbooblik.jvmArgs` deliberately replaces the profile, so the check has to step aside for
+        // it — otherwise the one run that exists to measure a *different* footprint could not
+        // start. It still prints what it actually got, which is the part that matters: the run is
+        // then labelled by its own arguments rather than by an assumption.
+        if (missing.isNotEmpty() && System.getProperty(OVERRIDE_MARKER) == null) {
+            require(missing.isEmpty()) {
+                "benchmark JVM is not running under the broker footprint: missing $missing. " +
+                    "Actual arguments: $actual. See brokerJvmArgs in the root build.gradle.kts, " +
+                    "or pass -Pbooblik.jvmArgs=... deliberately."
+            }
         }
         if (!reported) {
             reported = true
             println("# booblik runtime footprint: ${actual.joinToString(" ")}")
         }
     }
+
+    /** Set by the build when `-Pbooblik.jvmArgs` is in play. */
+    private const val OVERRIDE_MARKER = "booblik.footprintOverridden"
 }

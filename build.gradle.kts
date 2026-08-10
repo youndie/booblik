@@ -19,7 +19,7 @@ plugins {
  *   buffer of 4 bytes per segment. Room for roughly eight million segments; not the binding
  *   constraint, and if it ever becomes one, something else is wrong.
  */
-val brokerJvmArgs =
+val defaultBrokerJvmArgs =
     listOf(
         "-XX:+UseSerialGC",
         "-XX:ReservedCodeCacheSize=32M",
@@ -29,7 +29,27 @@ val brokerJvmArgs =
         "-Xmx64M",
     )
 
-extra["brokerJvmArgs"] = brokerJvmArgs
+/**
+ * `-Pbooblik.jvmArgs="-Xmx4G -XX:+UseG1GC"` replaces the whole list for one invocation.
+ *
+ * For answering "what does the footprint cost", and nothing else. It is deliberately all-or-nothing
+ * rather than a merge: a half-overridden profile is a third configuration nobody described, and the
+ * number it produces would belong to neither column of the comparison.
+ */
+val brokerJvmArgs: List<String> =
+    (project.findProperty("booblik.jvmArgs") as String?)
+        ?.split(" ")
+        ?.filter(String::isNotEmpty)
+        ?: defaultBrokerJvmArgs
+
+/**
+ * Tells [RuntimeFootprint] that the profile was replaced on purpose, so it prints what it got
+ * instead of refusing to start. Only ever set when the override was actually passed.
+ */
+val footprintOverridden = project.hasProperty("booblik.jvmArgs")
+
+extra["brokerJvmArgs"] =
+    if (footprintOverridden) brokerJvmArgs + "-Dbooblik.footprintOverridden=true" else brokerJvmArgs
 
 // The whole point of this block: the gate is one command. `./gradlew check` must run the tests
 // AND ktlint, in every module, without anyone remembering a second line in CI.
@@ -56,7 +76,7 @@ subprojects {
             useJUnitPlatform()
             // Tests run under the production footprint on purpose: an allocation the storage layer
             // is not supposed to make shows up here as an OOM in the gate, not in production.
-            jvmArgs(brokerJvmArgs)
+            jvmArgs(rootProject.extra["brokerJvmArgs"] as List<String>)
             testLogging {
                 events("failed")
                 exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

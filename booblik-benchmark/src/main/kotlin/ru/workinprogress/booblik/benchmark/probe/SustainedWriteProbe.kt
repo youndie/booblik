@@ -25,6 +25,15 @@ import kotlin.io.path.deleteRecursively
  * Retention runs in the loop and keeps the live log at [RETAINED_BYTES]; total bytes written go far
  * past that, but bytes on disk do not. The probe also refuses to start unless the filesystem has
  * several times that much free, because a benchmark that fills someone's disk is not a benchmark.
+ *
+ * ## It will, however, make the machine unpleasant to use
+ *
+ * Saturating writeback is the **point** of this probe, and a machine whose writeback is saturated
+ * stops responding to everything else. On a 16 GiB laptop with a nearly full disk this run produced
+ * about two gigabytes per second of dirty pages for a minute and left the desktop unusable until it
+ * finished; a 23 GiB server with a mostly empty ext4 volume did not notice. Run it where you are
+ * not also working, and expect the numbers from a machine you *are* working on to be worse for that
+ * reason as well.
  */
 object SustainedWriteProbe {
     private const val RECORD_SIZE = 1024
@@ -49,6 +58,7 @@ object SustainedWriteProbe {
 
             val heap = Runtime.getRuntime().maxMemory()
             println("# M-26 sustained write probe: mode=$mode, ${seconds}s, records of $RECORD_SIZE B")
+            println("# WARNING: this saturates writeback on purpose and may make the host unresponsive")
             println("# retaining at most ${RETAINED_BYTES / 1024 / 1024} MiB on disk; ${free / 1024 / 1024} MiB free")
             // The heap figure is here to be dismissed, not to be used: the page cache this probe
             // fights with is bounded by the machine's RAM, and the mapping the mapped path writes
