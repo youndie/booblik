@@ -112,17 +112,28 @@ class BooblikConnection(
         return answer.await()
     }
 
+    /**
+     * [maxWaitMillis] holds the request on the broker until records arrive, instead of answering
+     * empty straight away.
+     *
+     * **A held request blocks everything sent after it on this connection**, including a PRODUCE.
+     * That is not a defect: a session serves one request at a time, which is the ordering guarantee
+     * correlation ids rest on. It does mean a follower must own its connection rather than share
+     * one with a producer.
+     */
     suspend fun fetch(
         topic: TopicName,
         partition: PartitionId,
         fetchOffset: Offset,
         maxBytes: Int,
+        maxWaitMillis: Int = 0,
+        minBytes: Int = 0,
     ): FetchResult {
         val correlationId = correlationIds.getAndIncrement()
         val answer = CompletableDeferred<FetchResult>()
         outbound.send(
             Outgoing(
-                RequestEncoder.fetch(correlationId, topic, partition, fetchOffset, maxBytes),
+                RequestEncoder.fetch(correlationId, topic, partition, fetchOffset, maxBytes, maxWaitMillis, minBytes),
                 Pending.Fetch(correlationId, answer),
             ),
         )

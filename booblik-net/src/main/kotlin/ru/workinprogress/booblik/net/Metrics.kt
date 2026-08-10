@@ -36,6 +36,8 @@ class Metrics {
     private val sessionFailures = LongAdder()
     private val connectionsAccepted = LongAdder()
     private val acceptFailures = LongAdder()
+    private val fetchesHeld = LongAdder()
+    private val fetchesReleased = LongAdder()
 
     /**
      * The last thing that went wrong while accepting, kept so that it can be asked about.
@@ -88,6 +90,18 @@ class Metrics {
      */
     fun onConnectionAccepted() = connectionsAccepted.increment()
 
+    /**
+     * A FETCH started waiting for records that do not exist yet.
+     *
+     * Paired with [onFetchReleased] so the difference is a gauge of requests parked right now.
+     * Without it a healthy broker with a hundred subscribers reads exactly like a dead one —
+     * connections up, `produce 0/s`, `fetch 0/s` — and M-64 was a day spent on precisely that kind
+     * of indistinguishability.
+     */
+    fun onFetchHeld() = fetchesHeld.increment()
+
+    fun onFetchReleased() = fetchesReleased.increment()
+
     /** Accepting a connection failed. The loop survives it; this is how anyone finds out. */
     fun onAcceptFailure(cause: Throwable) {
         acceptFailures.increment()
@@ -107,6 +121,7 @@ class Metrics {
             sessionFailures = sessionFailures.sum(),
             connectionsAccepted = connectionsAccepted.sum(),
             acceptFailures = acceptFailures.sum(),
+            heldFetches = fetchesHeld.sum() - fetchesReleased.sum(),
             connectionsOpened = connectionsOpened.sum(),
             openConnections = connectionsOpened.sum() - connectionsClosed.sum(),
             partitions =
@@ -146,6 +161,8 @@ class Metrics {
         val connectionsAccepted: Long,
         /** Failures inside the accept loop. Non-zero means connections were refused by accident. */
         val acceptFailures: Long,
+        /** FETCH requests parked right now, waiting for records. Idle subscribers, not a backlog. */
+        val heldFetches: Long,
         val connectionsOpened: Long,
         val openConnections: Long,
         val partitions: List<PartitionSnapshot>,
@@ -165,7 +182,7 @@ class Metrics {
             val backlog = partitions.sumOf { it.mailboxDepth }
             return (
                 "in %.0f rec/s, %.1f MiB/s | produce %.0f/s fetch %.0f/s (%.1f MiB/s) | " +
-                    "conns %d backlog %d errors %d dropped %d"
+                    "conns %d backlog %d errors %d dropped %d held %d"
             ).format(
                 written / seconds,
                 bytes / seconds / 1024 / 1024,
@@ -176,6 +193,7 @@ class Metrics {
                 backlog,
                 errors,
                 sessionFailures,
+                heldFetches,
             )
         }
     }

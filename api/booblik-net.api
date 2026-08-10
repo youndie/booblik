@@ -62,6 +62,8 @@ public final class ru/workinprogress/booblik/net/Metrics {
 	public final fun onConnectionOpened ()V
 	public final fun onError ()V
 	public final fun onFetch (I)V
+	public final fun onFetchHeld ()V
+	public final fun onFetchReleased ()V
 	public final fun onProduce ()V
 	public final fun onSessionFailure (Ljava/lang/Throwable;)V
 	public final fun snapshot (Lru/workinprogress/booblik/net/Broker;)Lru/workinprogress/booblik/net/Metrics$Snapshot;
@@ -97,9 +99,10 @@ public final class ru/workinprogress/booblik/net/Metrics$PartitionSnapshot {
 }
 
 public final class ru/workinprogress/booblik/net/Metrics$Snapshot {
-	public fun <init> (JJJJJJJJJLjava/util/List;)V
+	public fun <init> (JJJJJJJJJJLjava/util/List;)V
 	public final fun component1 ()J
-	public final fun component10 ()Ljava/util/List;
+	public final fun component10 ()J
+	public final fun component11 ()Ljava/util/List;
 	public final fun component2 ()J
 	public final fun component3 ()J
 	public final fun component4 ()J
@@ -108,8 +111,8 @@ public final class ru/workinprogress/booblik/net/Metrics$Snapshot {
 	public final fun component7 ()J
 	public final fun component8 ()J
 	public final fun component9 ()J
-	public final fun copy (JJJJJJJJJLjava/util/List;)Lru/workinprogress/booblik/net/Metrics$Snapshot;
-	public static synthetic fun copy$default (Lru/workinprogress/booblik/net/Metrics$Snapshot;JJJJJJJJJLjava/util/List;ILjava/lang/Object;)Lru/workinprogress/booblik/net/Metrics$Snapshot;
+	public final fun copy (JJJJJJJJJJLjava/util/List;)Lru/workinprogress/booblik/net/Metrics$Snapshot;
+	public static synthetic fun copy$default (Lru/workinprogress/booblik/net/Metrics$Snapshot;JJJJJJJJJJLjava/util/List;ILjava/lang/Object;)Lru/workinprogress/booblik/net/Metrics$Snapshot;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAcceptFailures ()J
 	public final fun getConnectionsAccepted ()J
@@ -117,6 +120,7 @@ public final class ru/workinprogress/booblik/net/Metrics$Snapshot {
 	public final fun getErrors ()J
 	public final fun getFetchBytes ()J
 	public final fun getFetchRequests ()J
+	public final fun getHeldFetches ()J
 	public final fun getOpenConnections ()J
 	public final fun getPartitions ()Ljava/util/List;
 	public final fun getProduceRequests ()J
@@ -199,7 +203,8 @@ public final class ru/workinprogress/booblik/net/client/BooblikClient : java/io/
 	public final fun getRemoteAddress ()Ljava/net/SocketAddress;
 	public final fun receiveFetch ()Lru/workinprogress/booblik/net/client/FetchResult;
 	public final fun receiveProduce ()Lru/workinprogress/booblik/net/client/ProduceResult;
-	public final fun sendFetch-KBN7SHQ (Ljava/lang/String;IJI)I
+	public final fun sendFetch-h6PF7p0 (Ljava/lang/String;IJIII)I
+	public static synthetic fun sendFetch-h6PF7p0$default (Lru/workinprogress/booblik/net/client/BooblikClient;Ljava/lang/String;IJIIIILjava/lang/Object;)I
 	public final fun sendProduce-73gZJe8 (Ljava/lang/String;ILjava/util/List;Lru/workinprogress/booblik/log/AckPolicy;)Ljava/lang/Integer;
 	public static synthetic fun sendProduce-73gZJe8$default (Lru/workinprogress/booblik/net/client/BooblikClient;Ljava/lang/String;ILjava/util/List;Lru/workinprogress/booblik/log/AckPolicy;ILjava/lang/Object;)Ljava/lang/Integer;
 }
@@ -207,7 +212,8 @@ public final class ru/workinprogress/booblik/net/client/BooblikClient : java/io/
 public final class ru/workinprogress/booblik/net/client/BooblikConnection : java/io/Closeable {
 	public fun <init> (Ljava/net/InetSocketAddress;Lkotlinx/coroutines/CoroutineScope;)V
 	public fun close ()V
-	public final fun fetch-Q-8GX88 (Ljava/lang/String;IJILkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun fetch-BlkDnC0 (Ljava/lang/String;IJIIILkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun fetch-BlkDnC0$default (Lru/workinprogress/booblik/net/client/BooblikConnection;Ljava/lang/String;IJIIILkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun produce-iPAU26k (Ljava/lang/String;ILjava/util/List;Lru/workinprogress/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun produce-iPAU26k$default (Lru/workinprogress/booblik/net/client/BooblikConnection;Ljava/lang/String;ILjava/util/List;Lru/workinprogress/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
@@ -425,18 +431,23 @@ public final class ru/workinprogress/booblik/net/wire/ErrorCode$Companion {
 }
 
 public final class ru/workinprogress/booblik/net/wire/FetchRequest : ru/workinprogress/booblik/net/wire/Request {
-	public synthetic fun <init> (Lru/workinprogress/booblik/net/wire/RequestHeader;Ljava/lang/String;IJILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lru/workinprogress/booblik/net/wire/RequestHeader;Ljava/lang/String;IJIIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lru/workinprogress/booblik/net/wire/RequestHeader;Ljava/lang/String;IJIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Lru/workinprogress/booblik/net/wire/RequestHeader;
 	public final fun component2-CPONTrc ()Ljava/lang/String;
 	public final fun component3-6_o2rbo ()I
 	public final fun component4-SgWxkiU ()J
 	public final fun component5 ()I
-	public final fun copy-5qRytkU (Lru/workinprogress/booblik/net/wire/RequestHeader;Ljava/lang/String;IJI)Lru/workinprogress/booblik/net/wire/FetchRequest;
-	public static synthetic fun copy-5qRytkU$default (Lru/workinprogress/booblik/net/wire/FetchRequest;Lru/workinprogress/booblik/net/wire/RequestHeader;Ljava/lang/String;IJIILjava/lang/Object;)Lru/workinprogress/booblik/net/wire/FetchRequest;
+	public final fun component6 ()I
+	public final fun component7 ()I
+	public final fun copy-QyL0f9k (Lru/workinprogress/booblik/net/wire/RequestHeader;Ljava/lang/String;IJIII)Lru/workinprogress/booblik/net/wire/FetchRequest;
+	public static synthetic fun copy-QyL0f9k$default (Lru/workinprogress/booblik/net/wire/FetchRequest;Lru/workinprogress/booblik/net/wire/RequestHeader;Ljava/lang/String;IJIIIILjava/lang/Object;)Lru/workinprogress/booblik/net/wire/FetchRequest;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getFetchOffset-SgWxkiU ()J
 	public fun getHeader ()Lru/workinprogress/booblik/net/wire/RequestHeader;
 	public final fun getMaxBytes ()I
+	public final fun getMaxWaitMillis ()I
+	public final fun getMinBytes ()I
 	public fun getPartition-6_o2rbo ()I
 	public fun getTopic-CPONTrc ()Ljava/lang/String;
 	public fun hashCode ()I
@@ -463,12 +474,15 @@ public final class ru/workinprogress/booblik/net/wire/ProduceRequest : ru/workin
 }
 
 public final class ru/workinprogress/booblik/net/wire/Protocol {
+	public static final field FETCH_VERSION S
 	public static final field INSTANCE Lru/workinprogress/booblik/net/wire/Protocol;
 	public static final field LENGTH_PREFIX_BYTES I
+	public static final field MAX_FETCH_WAIT_MILLIS I
 	public static final field MAX_FRAME_BYTES I
 	public static final field REQUEST_HEADER_BYTES I
 	public static final field RESPONSE_HEADER_BYTES I
 	public static final field VERSION S
+	public final fun supports (Lru/workinprogress/booblik/net/wire/ApiKey;S)Z
 }
 
 public abstract interface class ru/workinprogress/booblik/net/wire/Request {
@@ -485,7 +499,8 @@ public final class ru/workinprogress/booblik/net/wire/RequestDecoder {
 
 public final class ru/workinprogress/booblik/net/wire/RequestEncoder {
 	public static final field INSTANCE Lru/workinprogress/booblik/net/wire/RequestEncoder;
-	public final fun fetch-5qRytkU (ILjava/lang/String;IJI)Ljava/nio/ByteBuffer;
+	public final fun fetch-QyL0f9k (ILjava/lang/String;IJIII)Ljava/nio/ByteBuffer;
+	public static synthetic fun fetch-QyL0f9k$default (Lru/workinprogress/booblik/net/wire/RequestEncoder;ILjava/lang/String;IJIIIILjava/lang/Object;)Ljava/nio/ByteBuffer;
 	public final fun produce-3yZB1oI (ILjava/lang/String;ILjava/util/List;Lru/workinprogress/booblik/log/AckPolicy;)Ljava/nio/ByteBuffer;
 }
 

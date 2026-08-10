@@ -33,6 +33,10 @@ data class FetchRequest(
     override val partition: PartitionId,
     val fetchOffset: Offset,
     val maxBytes: Int,
+    /** v2: how long the broker may hold this request when there is nothing to send. 0 = answer now. */
+    val maxWaitMillis: Int = 0,
+    /** v2: do not answer until this many bytes are available. 0 and 1 both mean "anything". */
+    val minBytes: Int = 0,
 ) : Request
 
 /** Either a request, or an error the client can be told about by correlation id. */
@@ -81,7 +85,7 @@ object RequestDecoder {
         // An unknown api key and an unknown version are the same class of problem — a client
         // speaking something this broker does not speak — and they share a code. `CORRUPT_REQUEST`
         // would be wrong: the frame is perfectly well formed, we simply do not implement it.
-        if (apiKey == null || apiVersion != Protocol.VERSION) {
+        if (apiKey == null || !Protocol.supports(apiKey, apiVersion)) {
             return DecodeResult.Failed(correlationId, ErrorCode.UNSUPPORTED_VERSION)
         }
 
@@ -149,7 +153,22 @@ object RequestDecoder {
         if (fetchOffset < 0) throw CorruptRequestException("fetchOffset must be non-negative, got $fetchOffset")
         val maxBytes = buffer.getIntChecked("maxBytes")
         if (maxBytes <= 0) throw CorruptRequestException("maxBytes must be positive, got $maxBytes")
-        return FetchRequest(header, topic, partition, Offset(fetchOffset), maxBytes)
+        if (header.apiVersion < Protocol.FETCH_VERSION) {
+            return FetchRequest(header, topic, partition, Offset(fetchOffset), maxBytes)
+        }
+
+        val maxWaitMillis = buffer.getIntChecked("maxWaitMillis")
+        if (maxWaitMillis < 0) throw CorruptRequestException("maxWaitMillis must not be negative, got $maxWaitMillis")
+        val minBytes = buffer.getIntChecked("minBytes")
+        if (minBytes < 0) throw CorruptRequestException("minBytes must not be negative, got $minBytes")
+        // Rejected here rather than in the session, because it is a property of the frame and not
+        // of the log: such a request asks not to be answered until more bytes exist than it is
+        // willing to receive, which no state of the broker can ever satisfy. Left to the session it
+        // would be a request that waits out its timeout every single time, for ever.
+        if (minBytes > maxBytes) {
+            throw CorruptRequestException("minBytes $minBytes exceeds maxBytes $maxBytes; unsatisfiable")
+        }
+        return FetchRequest(header, topic, partition, Offset(fetchOffset), maxBytes, maxWaitMillis, minBytes)
     }
 
     private fun ByteBuffer.getStringChecked(): String {

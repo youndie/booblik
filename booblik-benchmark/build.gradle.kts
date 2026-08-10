@@ -61,6 +61,16 @@ benchmark {
             warmups = 5
             iterations = 10
         }
+        // `./gradlew :booblik-benchmark:mainWriterBenchmark` — the writer actor alone, at full
+        // rigour. For A/B-ing a change to the write path against itself in one sitting, which is
+        // the only comparison rule 3 allows; the full run takes thirteen minutes and most of it
+        // measures paths the change cannot touch.
+        register("writer") {
+            common()
+            warmups = 5
+            iterations = 10
+            include("PartitionWriterBenchmark")
+        }
         // `./gradlew :booblik-benchmark:mainQuickBenchmark` — an order of magnitude, in a minute.
         // Not for the record: too few iterations to say anything about the second digit.
         register("quick") {

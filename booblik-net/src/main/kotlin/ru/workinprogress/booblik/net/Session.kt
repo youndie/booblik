@@ -1,5 +1,7 @@
 package ru.workinprogress.booblik.net
 
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.booblik.log.AckPolicy
 import ru.workinprogress.booblik.net.nio.Connection
 import ru.workinprogress.booblik.net.wire.CorruptRequestException
@@ -125,6 +127,12 @@ class Session(
         request: FetchRequest,
         handle: PartitionHandle,
     ) {
+        // Held **before** the slice is opened, never after. A slice keeps its segment alive, so
+        // waiting with one open would block retention for the whole wait — a minute of held
+        // deletion because one consumer is idle. The price is that the log can move underneath the
+        // wait, which is why every check below is made after it and not before.
+        if (request.maxWaitMillis > 0) awaitRecords(request, handle)
+
         val highWatermark = handle.log.nextOffset
         if (request.fetchOffset > highWatermark || request.fetchOffset < handle.log.logStartOffset) {
             respondError(request.header.correlationId, ErrorCode.OFFSET_OUT_OF_RANGE)
@@ -168,6 +176,53 @@ class Session(
             }
         }
     }
+
+    /**
+     * Waits until the request can be satisfied, the deadline passes, or the log moves past it.
+     *
+     * The loop waits for a **new** watermark each time rather than for one greater than the fetch
+     * offset. Those differ exactly when `minBytes` asks for more than has arrived: with the latter
+     * condition the flow would return its current value immediately and the loop would spin at full
+     * speed until the deadline, which is a busy wait wearing the costume of a suspend.
+     *
+     * Returning early on a closed or moved log is deliberate: the checks in [fetch] run afterwards
+     * and know how to answer, and duplicating them here would give two places that decide what
+     * `OFFSET_OUT_OF_RANGE` means.
+     */
+    private suspend fun awaitRecords(
+        request: FetchRequest,
+        handle: PartitionHandle,
+    ) {
+        val wait = minOf(request.maxWaitMillis, Protocol.MAX_FETCH_WAIT_MILLIS).toLong()
+        val minBytes = maxOf(request.minBytes, 1)
+        val deadline = System.nanoTime() + wait * 1_000_000
+        var seen = handle.writer.highWatermark.value
+
+        metrics.onFetchHeld()
+        try {
+            while (available(request, handle) < minBytes) {
+                val remaining = (deadline - System.nanoTime()) / 1_000_000
+                if (remaining <= 0) return
+                withTimeoutOrNull(remaining) {
+                    seen = handle.writer.highWatermark.first { it > seen }
+                } ?: return
+            }
+        } finally {
+            metrics.onFetchReleased()
+        }
+    }
+
+    /**
+     * How many bytes this request could take right now.
+     *
+     * Opens and immediately closes a slice: that is an index lookup and a subtraction, not I/O, and
+     * it is the only thing that knows about the byte boundary `minBytes` is expressed in. Holding
+     * the slice across the wait is what this must not do.
+     */
+    private fun available(
+        request: FetchRequest,
+        handle: PartitionHandle,
+    ): Int = handle.log.openFetch(request.fetchOffset, request.maxBytes)?.use { it.bytes } ?: 0
 
     private suspend fun respondError(
         correlationId: Int,

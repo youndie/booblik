@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
@@ -60,6 +62,23 @@ class PartitionWriter(
 
     /** Batches accepted but not yet written. The one number that says "the broker is behind". */
     val mailboxDepth: Int get() = queued.get()
+
+    private val watermark = MutableStateFlow(log.nextOffset)
+
+    /**
+     * The end of the log, published so a reader can wait for it to move instead of asking again.
+     *
+     * `StateFlow` and not `SharedFlow`, and the difference is not stylistic. A waiter reads the
+     * current watermark, decides there is nothing to read, and only then starts listening; with a
+     * `SharedFlow` an update landing inside that window is gone, and a lost wakeup presents as a
+     * consumer that hangs once a day. A `StateFlow` holds its current value, so
+     * `first { it > position }` cannot miss what already happened. Conflation is harmless here
+     * because the watermark only moves forward and only the latest value means anything.
+     *
+     * Published once per committed group rather than per record — the group is what makes the
+     * records visible, and per record would be a write on the hot path for no extra information.
+     */
+    val highWatermark: StateFlow<Offset> get() = watermark
 
     // Written by the writer coroutine and nobody else, so an ordinary field is both correct and
     // free; `@Volatile` is only so a reporter on another thread sees a recent value. A counter on
@@ -156,6 +175,9 @@ class PartitionWriter(
             }
             queued.addAndGet(-group.size)
             group.clear()
+            // After the acks, not before: a reader woken by this must find the records already
+            // readable, and `Log.nextOffset` is what makes them so.
+            watermark.value = log.nextOffset
         }
     }
 

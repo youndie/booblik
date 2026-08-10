@@ -214,6 +214,10 @@ class BooblikServer(
 
     private fun configure(client: SocketChannel) {
         client.setOption(StandardSocketOptions.TCP_NODELAY, config.tcpNoDelay)
+        // A held FETCH means a connection with no traffic for up to a minute, which NAT boxes and
+        // firewalls are happy to forget about. Keepalive is what makes a forgotten connection fail
+        // as a failure instead of as silence on both sides.
+        client.setOption(StandardSocketOptions.SO_KEEPALIVE, true)
     }
 
     private suspend fun serve(connection: Connection) {

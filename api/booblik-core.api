@@ -121,6 +121,7 @@ public final class ru/workinprogress/booblik/log/PartitionWriter {
 	public final fun close (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun getBytesWritten ()J
 	public final fun getFlushes ()J
+	public final fun getHighWatermark ()Lkotlinx/coroutines/flow/StateFlow;
 	public final fun getMailboxDepth ()I
 	public final fun getRecordsWritten ()J
 }

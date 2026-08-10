@@ -45,28 +45,39 @@ object RequestEncoder {
         }
     }
 
+    /**
+     * Always emits v2, including when nothing is being waited for.
+     *
+     * One code path rather than two: a client that switched versions depending on its arguments
+     * would exercise v1 only in the branch nobody debugs. The broker still decodes v1, for anyone
+     * else's client — that is what version support is for.
+     */
     fun fetch(
         correlationId: Int,
         topic: TopicName,
         partition: PartitionId,
         fetchOffset: Offset,
         maxBytes: Int,
+        maxWaitMillis: Int = 0,
+        minBytes: Int = 0,
     ): ByteBuffer {
         val topicBytes = topic.value.toByteArray(Charsets.UTF_8)
         val bodyBytes =
             Protocol.REQUEST_HEADER_BYTES + Short.SIZE_BYTES + topicBytes.size + Int.SIZE_BYTES +
-                Long.SIZE_BYTES + Int.SIZE_BYTES
+                Long.SIZE_BYTES + Int.SIZE_BYTES + Int.SIZE_BYTES + Int.SIZE_BYTES
 
         return ByteBuffer.allocate(Protocol.LENGTH_PREFIX_BYTES + bodyBytes).apply {
             putInt(bodyBytes)
             putShort(ApiKey.FETCH.id)
-            putShort(Protocol.VERSION)
+            putShort(Protocol.FETCH_VERSION)
             putInt(correlationId)
             putShort(topicBytes.size.toShort())
             put(topicBytes)
             putInt(partition.value)
             putLong(fetchOffset.value)
             putInt(maxBytes)
+            putInt(maxWaitMillis)
+            putInt(minBytes)
             flip()
         }
     }

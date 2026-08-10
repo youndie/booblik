@@ -52,9 +52,13 @@ class BooblikClient(
         partition: PartitionId,
         fetchOffset: Offset,
         maxBytes: Int,
+        maxWaitMillis: Int = 0,
+        minBytes: Int = 0,
     ): Int {
         val correlationId = nextCorrelationId++
-        writeFully(RequestEncoder.fetch(correlationId, topic, partition, fetchOffset, maxBytes))
+        writeFully(
+            RequestEncoder.fetch(correlationId, topic, partition, fetchOffset, maxBytes, maxWaitMillis, minBytes),
+        )
         return correlationId
     }
 

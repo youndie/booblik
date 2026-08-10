@@ -25,6 +25,29 @@ object Protocol {
      * by a very small one.
      */
     const val MAX_FRAME_BYTES = 8 * 1024 * 1024
+
+    /** FETCH v2 adds `maxWaitMillis` and `minBytes`; everything else still speaks v1. */
+    const val FETCH_VERSION: Short = 2
+
+    /**
+     * Ceiling on how long a FETCH may be held, whatever the client asked for.
+     *
+     * A client asking for an hour would hold a coroutine and a socket for an hour on somebody
+     * else's say-so. Clamping instead of rejecting keeps the contract simple — the client gets an
+     * earlier empty response, which it has to handle anyway — and the number is written down here
+     * rather than hidden, because a silently shortened wait is a lie about the protocol.
+     */
+    const val MAX_FETCH_WAIT_MILLIS = 60_000
+
+    /** Whether this broker speaks [version] of [apiKey]. Versions are per request, not global. */
+    fun supports(
+        apiKey: ApiKey,
+        version: Short,
+    ): Boolean =
+        when (apiKey) {
+            ApiKey.FETCH -> version == VERSION || version == FETCH_VERSION
+            ApiKey.PRODUCE -> version == VERSION
+        }
 }
 
 /** What a request asks for. Values are on the wire and must not be renumbered. */
