@@ -92,6 +92,7 @@ val probes =
         "probeSustainedWrite" to "M-26: throughput once the log outgrows memory",
         "probeLoad" to "M-33/M-34: end-to-end RPS and latency percentiles over a socket",
         "probeRemoteLoad" to "M-38: the same load against a broker on another machine",
+        "probeSubscription" to "M-74: idle traffic and what the subscription Flow costs",
     )
 
 probes.forEach { (task, description) ->
