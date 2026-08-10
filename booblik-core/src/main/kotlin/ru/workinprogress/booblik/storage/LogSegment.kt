@@ -248,6 +248,7 @@ class LogSegment private constructor(
             baseOffset: Offset,
             mode: SegmentMode = SegmentMode.FILE_CHANNEL,
             capacity: Int = DEFAULT_CAPACITY,
+            indexIntervalBytes: Int = SparseOffsetIndex.DEFAULT_INTERVAL_BYTES,
         ): LogSegment {
             dir.createDirectories()
             val file = dir.resolve(fileName(baseOffset))
@@ -260,7 +261,7 @@ class LogSegment private constructor(
                     StandardOpenOption.WRITE,
                 )
             val readChannel = FileChannel.open(file, StandardOpenOption.READ)
-            val index = SparseOffsetIndex(baseOffset)
+            val index = SparseOffsetIndex(baseOffset, indexIntervalBytes)
 
             // How far the data can possibly reach differs between the two write paths, and getting
             // this wrong is silent: a mapped segment is pre-sized to its full capacity, so its file

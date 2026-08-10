@@ -93,6 +93,7 @@ class PartitionRegistry(
 class BooblikServer(
     private val partitions: PartitionRegistry,
     private val config: ServerConfig = ServerConfig(),
+    val metrics: Metrics = Metrics(),
 ) : Closeable {
     private val serverChannel = ServerSocketChannel.open()
     private val job = SupervisorJob()
@@ -172,13 +173,16 @@ class BooblikServer(
     }
 
     private suspend fun serve(connection: Connection) {
+        metrics.onConnectionOpened()
         try {
-            Session(connection, partitions, config.fetchMode).serve()
+            Session(connection, partitions, config.fetchMode, metrics).serve()
         } catch (_: Exception) {
             // A broken connection is the ordinary end of a session, not an event. Anything worth
             // reporting is reported through an error code while the connection is still alive;
             // by the time an exception gets here, there is nobody left to tell.
             runCatching { connection.close() }
+        } finally {
+            metrics.onConnectionClosed()
         }
     }
 

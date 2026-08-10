@@ -31,6 +31,7 @@ class Session(
     private val connection: Connection,
     private val partitions: PartitionRegistry,
     private val fetchMode: FetchMode,
+    private val metrics: Metrics = Metrics(),
 ) {
     private val lengthPrefix = ByteBuffer.allocate(Protocol.LENGTH_PREFIX_BYTES)
 
@@ -104,6 +105,7 @@ class Session(
             return
         }
 
+        metrics.onProduce()
         val base = handle.writer.append(request.records, request.ackPolicy)
         // `NONE` gets no response at all — not an empty one. There is no offset to report, because
         // the offset does not exist until the writer reaches the batch, and a number the client
@@ -131,6 +133,7 @@ class Session(
         // Reading exactly at the high watermark is legal and normal: it is what a caught-up consumer
         // does. It gets an empty response rather than an error.
         if (request.fetchOffset == highWatermark) {
+            metrics.onFetch(0)
             connection.writeFully(ResponseEncoder.fetchHeader(request.header.correlationId, highWatermark, 0))
             return
         }
@@ -145,6 +148,7 @@ class Session(
         }
 
         slice.use {
+            metrics.onFetch(slice.bytes)
             connection.writeFully(
                 ResponseEncoder.fetchHeader(request.header.correlationId, highWatermark, slice.bytes),
             )
@@ -169,6 +173,7 @@ class Session(
         correlationId: Int,
         code: ErrorCode,
     ) {
+        metrics.onError()
         connection.writeFully(ResponseEncoder.error(correlationId, code))
     }
 

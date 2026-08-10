@@ -34,6 +34,7 @@ class PartitionLog private constructor(
     private val dir: Path,
     private val mode: SegmentMode,
     private val segmentCapacity: Int,
+    private val indexIntervalBytes: Int,
     initial: List<LogSegment>,
 ) : Log,
     Closeable {
@@ -79,7 +80,7 @@ class PartitionLog private constructor(
 
     /** Starts a new active segment at the current end of the log. */
     fun roll(): LogSegment {
-        val next = LogSegment.open(dir, activeSegment.nextOffset, mode, segmentCapacity)
+        val next = LogSegment.open(dir, activeSegment.nextOffset, mode, segmentCapacity, indexIntervalBytes)
         // Replaced, not mutated: a reader holding the old list keeps a consistent view of it.
         segments = segments + next
         return next
@@ -230,6 +231,7 @@ class PartitionLog private constructor(
             dir: Path,
             mode: SegmentMode = SegmentMode.FILE_CHANNEL,
             segmentCapacity: Int = LogSegment.DEFAULT_CAPACITY,
+            indexIntervalBytes: Int = SparseOffsetIndex.DEFAULT_INTERVAL_BYTES,
         ): PartitionLog {
             dir.createDirectories()
             val baseOffsets =
@@ -244,11 +246,11 @@ class PartitionLog private constructor(
 
             val segments =
                 if (baseOffsets.isEmpty()) {
-                    listOf(LogSegment.open(dir, Offset.ZERO, mode, segmentCapacity))
+                    listOf(LogSegment.open(dir, Offset.ZERO, mode, segmentCapacity, indexIntervalBytes))
                 } else {
-                    baseOffsets.map { LogSegment.open(dir, it, mode, segmentCapacity) }
+                    baseOffsets.map { LogSegment.open(dir, it, mode, segmentCapacity, indexIntervalBytes) }
                 }
-            return PartitionLog(dir, mode, segmentCapacity, segments)
+            return PartitionLog(dir, mode, segmentCapacity, indexIntervalBytes, segments)
         }
 
         private const val SEGMENT_SUFFIX = ".log"

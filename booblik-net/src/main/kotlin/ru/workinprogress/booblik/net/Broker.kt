@@ -6,10 +6,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
+import ru.workinprogress.booblik.log.FlushPolicy
 import ru.workinprogress.booblik.log.PartitionWriter
 import ru.workinprogress.booblik.storage.LogSegment
 import ru.workinprogress.booblik.storage.PartitionLog
 import ru.workinprogress.booblik.storage.SegmentMode
+import ru.workinprogress.booblik.storage.SparseOffsetIndex
 import java.io.Closeable
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -17,6 +19,8 @@ import kotlin.io.path.createDirectories
 data class BrokerConfig(
     val segmentMode: SegmentMode = SegmentMode.FILE_CHANNEL,
     val segmentCapacity: Int = LogSegment.DEFAULT_CAPACITY,
+    val indexIntervalBytes: Int = SparseOffsetIndex.DEFAULT_INTERVAL_BYTES,
+    val flushPolicy: FlushPolicy = FlushPolicy.Disabled,
     /** Total live bytes kept per partition, or null to keep everything. */
     val retainedBytesPerPartition: Long? = null,
 )
@@ -62,9 +66,18 @@ class Broker private constructor(
      * no timer in here, because a broker that deletes data on a schedule of its own making is
      * harder to test than one that is told when to.
      */
-    fun applyRetention(): Int {
-        val limit = config.retainedBytesPerPartition ?: return 0
-        return handles.values.sumOf { it.log.retainAtMost(limit) }
+    fun applyRetention(
+        maxAgeMillis: Long? = null,
+        nowMillis: Long = 0,
+    ): Int {
+        var removed = 0
+        config.retainedBytesPerPartition?.let { limit ->
+            removed += handles.values.sumOf { it.log.retainAtMost(limit) }
+        }
+        if (maxAgeMillis != null) {
+            removed += handles.values.sumOf { it.log.retainNewerThan(maxAgeMillis, nowMillis) }
+        }
+        return removed
     }
 
     override fun close() {
@@ -104,10 +117,18 @@ class Broker private constructor(
                                     dir.resolve(directoryName(topic, partition)),
                                     config.segmentMode,
                                     config.segmentCapacity,
+                                    config.indexIntervalBytes,
                                 )
                             put(
                                 PartitionRegistry.Key(topic, partition),
-                                PartitionHandle(log, PartitionWriter(log, scope)),
+                                PartitionHandle(
+                                    log,
+                                    PartitionWriter(
+                                        log,
+                                        scope,
+                                        flushPolicy = config.flushPolicy,
+                                    ),
+                                ),
                             )
                         }
                     }

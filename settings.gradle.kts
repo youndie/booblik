@@ -9,6 +9,7 @@ rootProject.name = "booblik"
 
 include(":booblik-core")
 include(":booblik-net")
+include(":booblik-app")
 include(":booblik-benchmark")
 
 dependencyResolutionManagement {
