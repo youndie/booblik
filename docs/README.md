@@ -66,6 +66,8 @@
   Веха не закрывается без строки в этом документе.
 
 **Features**
+- [feature-subscribe-and-publish](features/feature-subscribe-and-publish.md) — **черновик**: подписка
+  на топик и публикация, веха M7. Описывает целевое поведение, а не существующее.
 - [feature-append-and-fetch](features/feature-append-and-fetch.md) — записать в лог и прочитать
   по оффсету. Это весь брокер; всё остальное существует ради скорости этих двух операций.
 
