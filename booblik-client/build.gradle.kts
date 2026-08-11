@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
 }
 
+apply(from = rootProject.file("publishing.gradle.kts"))
+
 /*
  * The client and the shared codec, kept apart from the server.
  *

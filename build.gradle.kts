@@ -51,6 +51,15 @@ val footprintOverridden = project.hasProperty("booblik.jvmArgs")
 extra["brokerJvmArgs"] =
     if (footprintOverridden) brokerJvmArgs + "-Dbooblik.footprintOverridden=true" else brokerJvmArgs
 
+allprojects {
+    // `io.github.<login>` — coordinates whose ownership is proved by owning the GitHub account.
+    // A domain of one's own would need separate proof that the domain is ours.
+    group = "io.github.youndie.booblik"
+    // A default that is a snapshot on purpose: a build with no `-PVERSION` must not be able to
+    // produce something that looks like a release.
+    version = providers.gradleProperty("VERSION").getOrElse("0.1.0-SNAPSHOT")
+}
+
 // The whole point of this block: the gate is one command. `./gradlew check` must run the tests
 // AND ktlint, in every module, without anyone remembering a second line in CI.
 subprojects {

@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
 }
 
+apply(from = rootProject.file("publishing.gradle.kts"))
+
 dependencies {
     implementation(libs.coroutines.core)
 

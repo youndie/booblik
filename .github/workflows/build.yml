@@ -50,3 +50,36 @@ jobs:
           name: test-results
           path: '**/build/test-results/**/*.xml'
           if-no-files-found: warn
+
+  # The image, checked on every push rather than when somebody remembers (M-91). This is the only
+  # place the six profile flags are verified **in a live process**: they are baked into the start
+  # script, and one JAVA_OPTS line in a Dockerfile replaces them silently — after which what ships
+  # is a process nobody measured (risk 7).
+  #
+  # A job of its own, not a step in `check`: it needs a Docker daemon, and it must not be able to
+  # make the gate look red for a reason that has nothing to do with the code.
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The gate is skipped here on purpose and the script says so out loud. The `check` job above
+      # is running the same commit; paying for it twice would buy nothing but minutes.
+      - name: Build the image
+        env:
+          BOOBLIK_SKIP_GATE: '1'
+        run: ./ci/docker-build.sh booblik:ci
+
+      - name: Check the image
+        env:
+          BOOBLIK_IMAGE: booblik:ci
+        run: ./ci/docker-smoke.sh

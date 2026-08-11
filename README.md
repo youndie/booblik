@@ -90,8 +90,7 @@ docker run -d -p 9092:9092 -e BOOBLIK_TOPICS=orders:3 -v booblik-data:/var/lib/b
 runtime is the one the numbers above were measured on. Half of what the same image costs on Debian:
 `eclipse-temurin:25-jre` builds the same distribution at 364 MB. Nothing is installed into the
 image — busybox already covers what the start scripts call. Non-root under a pinned uid, data on a
-volume, and a
-`HEALTHCHECK` that asks the broker METADATA rather than opening a TCP connection: the kernel accepts
+volume, and a `HEALTHCHECK` that asks the broker METADATA rather than opening a TCP connection: the kernel accepts
 a connection into the backlog with no help from the process, so a connect cannot tell a live broker
 from a hung one.
 
@@ -108,7 +107,8 @@ at startup rather than surfacing at 3am.
 
 ## Use the client
 
-There is no Maven publication yet. Inside a Gradle build:
+Nothing is published yet — the publication is wired up and waiting for its first run, under
+`io.github.youndie.booblik`. Inside a Gradle build:
 
 ```kotlin
 dependencies {
