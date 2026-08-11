@@ -17,6 +17,7 @@ Two modes:
 """
 
 import json
+import os
 import sys
 
 
@@ -108,10 +109,34 @@ def queue() -> int:
     return 0
 
 
+def redistributed() -> int:
+    """stdin holds one surviving worker's view of the task the killed worker was holding.
+
+    Two things have to be true, and the second is the one that makes the first mean anything:
+    the task is finished, and it is no longer attributed to the worker that died. A task that is
+    merely free again proves the lease lapsed; a task that is *done* proves somebody picked it up.
+    """
+    state = json.load(sys.stdin)
+    victim = os.environ["VICTIM"]
+    task = os.environ["TASK"]
+
+    print(f"   task {task}: done={state['done']}, heldBy={state['heldBy']}")
+    if not state["done"]:
+        print(f"::error:: task {task} was never finished after {victim} was killed — nobody took it over")
+        return 1
+    if state["heldBy"] == victim:
+        print(f"::error:: task {task} is still attributed to {victim}, which no longer exists")
+        return 1
+    print(f"   {victim} died holding it; the log handed it on and it was finished")
+    return 0
+
+
 if __name__ == "__main__":
     mode = sys.argv[1]
     if mode == "split":
         sys.exit(split())
     if mode == "queue":
         sys.exit(queue())
+    if mode == "redistributed":
+        sys.exit(redistributed())
     sys.exit(resumed(int(sys.argv[2])))

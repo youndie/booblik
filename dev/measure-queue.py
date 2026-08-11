@@ -8,10 +8,17 @@ import json
 import os
 import sys
 
-won = int(os.environ["FINISHED1"]) - int(os.environ["FINISHED0"])
+won = int(os.environ["WINS1"]) - int(os.environ["WINS0"])
 attempts = int(os.environ["ATTEMPTS1"]) - int(os.environ["ATTEMPTS0"])
 window = int(os.environ["WINDOW"])
 latency = json.load(sys.stdin)["claimLatencyMicros"]
+
+# The instrument checks itself. A claim that wins is one of the claims that were made, so
+# wins above attempts is not a surprising result — it is a broken reading, and the first version of
+# this script printed one rather than stopping.
+if won > attempts:
+    print(f"::error:: {won} wins out of {attempts} attempts is impossible — the counts are misread")
+    raise SystemExit(1)
 
 lost = attempts - won
 share = 100.0 * lost / attempts if attempts else 0.0

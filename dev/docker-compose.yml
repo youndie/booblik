@@ -93,6 +93,11 @@ services:
     environment:
       WORKER_NAME: worker-0
       BOOBLIK_HOST: broker
+      # Short lease and long work only matter to check-redistribution.sh, which needs a worker to
+      # be visibly holding a task when it is killed, and the task to come free soon enough to watch.
+      WORKER_LEASE_MILLIS: ${WORKER_LEASE_MILLIS:-30000}
+      WORKER_WORK_MILLIS: ${WORKER_WORK_MILLIS:-400}
+      WORKER_PICK: ${WORKER_PICK:-random}
     ports:
       - "8091:8080"
     depends_on:
@@ -105,6 +110,11 @@ services:
     environment:
       WORKER_NAME: worker-1
       BOOBLIK_HOST: broker
+      # Short lease and long work only matter to check-redistribution.sh, which needs a worker to
+      # be visibly holding a task when it is killed, and the task to come free soon enough to watch.
+      WORKER_LEASE_MILLIS: ${WORKER_LEASE_MILLIS:-30000}
+      WORKER_WORK_MILLIS: ${WORKER_WORK_MILLIS:-400}
+      WORKER_PICK: ${WORKER_PICK:-random}
     ports:
       - "8092:8080"
     depends_on:
@@ -117,6 +127,11 @@ services:
     environment:
       WORKER_NAME: worker-2
       BOOBLIK_HOST: broker
+      # Short lease and long work only matter to check-redistribution.sh, which needs a worker to
+      # be visibly holding a task when it is killed, and the task to come free soon enough to watch.
+      WORKER_LEASE_MILLIS: ${WORKER_LEASE_MILLIS:-30000}
+      WORKER_WORK_MILLIS: ${WORKER_WORK_MILLIS:-400}
+      WORKER_PICK: ${WORKER_PICK:-random}
     ports:
       - "8093:8080"
     depends_on:
