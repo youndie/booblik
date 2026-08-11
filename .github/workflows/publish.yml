@@ -83,9 +83,21 @@ jobs:
 
           POM=$(curl -fsSL -u "$BOOBLIK_REPO_USER:$BOOBLIK_REPO_SECRET" \
             "$ROOT/booblik-client/$VERSION/booblik-client-$VERSION.pom")
-          if ! echo "$POM" | tr -d '[:space:]' | grep -q "<artifactId>booblik-core</artifactId><version>$VERSION</version>"; then
+          FLAT=$(echo "$POM" | tr -d '[:space:]')
+
+          if ! echo "$FLAT" | grep -q "<artifactId>booblik-core</artifactId><version>$VERSION</version>"; then
             echo "::error::the client POM does not depend on booblik-core $VERSION — the consumer gets an unresolvable dependency"
             echo "$POM"
             exit 1
           fi
-          echo "The client POM points at booblik-core $VERSION"
+
+          # Everything the public API mentions has to be at compile scope, and coroutines are the
+          # case that got out: `follow()` returns a `Flow` and the constructors take a
+          # `CoroutineScope`, but the dependency was declared `implementation`, so 0.1.1 published a
+          # library nobody could compile against. Found by building a consumer, not by reading.
+          if ! echo "$FLAT" | grep -q "<artifactId>kotlinx-coroutines-core-jvm</artifactId><version>[^<]*</version><scope>compile</scope>"; then
+            echo "::error::coroutines are not at compile scope in the client POM — the API mentions Flow and CoroutineScope, so a consumer cannot compile"
+            echo "$POM"
+            exit 1
+          fi
+          echo "The client POM points at booblik-core $VERSION and exposes coroutines at compile scope"

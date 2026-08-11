@@ -20,7 +20,9 @@ apply(from = rootProject.file("publishing.gradle.kts"))
  */
 dependencies {
     api(project(":booblik-core"))
-    implementation(libs.coroutines.core)
+    // Same reason as in the core: `follow()` returns a `Flow`, `send` returns a
+    // `CompletableDeferred`, and both constructors take a `CoroutineScope`.
+    api(libs.coroutines.core)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.coroutines.test)
