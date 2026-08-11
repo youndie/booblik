@@ -48,9 +48,9 @@ jobs:
       - name: Durability probe
         run: ./gradlew :booblik-benchmark:probeDurability --console=plain | tee durability.txt
 
-      - name: Does msync cost scale with the mapping or with the dirt
+      - name: Reproduce both write paths side by side
         run: |
-          cat > ForceScope.java <<'JAVA'
+          cat > Paths.java <<'JAVA'
           import java.lang.foreign.Arena;
           import java.lang.foreign.MemorySegment;
           import java.lang.foreign.ValueLayout;
@@ -61,54 +61,75 @@ jobs:
           import java.nio.file.StandardOpenOption;
           import java.util.Arrays;
 
-          public final class ForceScope {
+          /**
+           * The two append paths of booblik, in miniature, in one process on one host.
+           *
+           * Each variant writes `record` bytes at the next offset and makes them durable, exactly as
+           * SegmentAppendBenchmark does with flushEveryAppend. The variants differ only in how, so
+           * whatever separates them here is what separates them there.
+           *
+           *   mapped      MemorySegment.copy, then force() over the whole mapping, then fdatasync
+           *   mapped-nom  the same without the msync — isolates what the msync costs
+           *   channel     gathering write(), then fdatasync
+           *   channel-nof write() without any barrier — the floor of the syscall itself
+           */
+          public final class Paths {
               public static void main(String[] args) throws Exception {
                   long capacity = Long.parseLong(args[0]);
                   int iterations = Integer.parseInt(args[1]);
-                  int pageSize = Integer.parseInt(args[2]);
+                  int record = Integer.parseInt(args[2]);
+                  System.out.printf("capacity %.0f MiB, %d iterations, record %d B%n",
+                      capacity / 1024.0 / 1024, iterations, record);
 
-                  Path file = Files.createTempFile(Path.of("."), "forcescope", ".log");
-                  try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ, StandardOpenOption.WRITE);
+                  for (String mode : new String[] {"mapped", "channel", "mapped-nom", "channel-nof",
+                                                   "mapped", "channel"}) {
+                      System.out.printf("  %-12s %s%n", mode, run(mode, capacity, iterations, record));
+                  }
+              }
+
+              private static String run(String mode, long capacity, int iterations, int record)
+                      throws Exception {
+                  Path file = Files.createTempFile(Path.of("."), "paths", ".log");
+                  try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ,
+                                                              StandardOpenOption.WRITE);
                        Arena arena = Arena.ofShared()) {
                       channel.write(ByteBuffer.allocate(1), capacity - 1);
-                      MemorySegment segment = channel.map(FileChannel.MapMode.READ_WRITE, 0, capacity, arena);
-                      System.out.printf("mapping %.0f MiB, %d iterations, page %d%n",
-                          capacity / 1024.0 / 1024, iterations, pageSize);
+                      boolean mapped = mode.startsWith("mapped");
+                      MemorySegment segment = mapped
+                          ? channel.map(FileChannel.MapMode.READ_WRITE, 0, capacity, arena)
+                          : null;
+                      MemorySegment source = mapped ? MemorySegment.ofArray(new byte[record]) : null;
+                      ByteBuffer buffer = mapped ? null : ByteBuffer.allocateDirect(record);
 
-                      for (String mode : new String[] {"whole", "slice", "fsync", "whole", "slice", "fsync"}) {
-                          long[] samples = new long[iterations];
-                          long position = 0;
-                          for (int i = 0; i < iterations; i++) {
-                              segment.set(ValueLayout.JAVA_LONG_UNALIGNED, position, i);
-                              long start = System.nanoTime();
-                              switch (mode) {
-                                  case "whole" -> { segment.force(); channel.force(false); }
-                                  case "slice" -> {
-                                      long from = (position / pageSize) * pageSize;
-                                      segment.asSlice(from, Math.min(pageSize, capacity - from)).force();
-                                      channel.force(false);
-                                  }
-                                  case "fsync" -> channel.force(false);
-                                  default -> throw new IllegalStateException(mode);
-                              }
-                              samples[i] = System.nanoTime() - start;
-                              position = (position + pageSize) % (capacity - pageSize);
+                      long[] samples = new long[iterations];
+                      long position = 0;
+                      for (int i = 0; i < iterations; i++) {
+                          long start = System.nanoTime();
+                          if (mapped) {
+                              MemorySegment.copy(source, 0, segment, position, record);
+                              segment.set(ValueLayout.JAVA_INT_UNALIGNED, position, record);
+                              if (!mode.endsWith("-nom")) segment.force();
+                              channel.force(false);
+                          } else {
+                              buffer.clear();
+                              channel.write(buffer, position);
+                              if (!mode.endsWith("-nof")) channel.force(false);
                           }
-                          Arrays.sort(samples);
-                          System.out.printf("  %-6s median %8.3f ms   p90 %8.3f ms   min %8.3f ms%n",
-                              mode, samples[iterations / 2] / 1e6,
-                              samples[(int) (iterations * 0.9)] / 1e6, samples[0] / 1e6);
+                          samples[i] = System.nanoTime() - start;
+                          position += record;
                       }
+                      Arrays.sort(samples);
+                      return String.format("median %8.3f ms   p90 %8.3f ms   min %8.3f ms",
+                          samples[iterations / 2] / 1e6,
+                          samples[(int) (iterations * 0.9)] / 1e6, samples[0] / 1e6);
                   } finally {
                       Files.deleteIfExists(file);
                   }
               }
           }
           JAVA
-          # 1 GiB is what SegmentAppendBenchmark maps, and the size is the whole question here.
-          java ForceScope.java 1073741824 300 "$(getconf PAGE_SIZE)" | tee forcescope-1g.txt
-          # A small mapping for contrast: if the cost follows the mapping, this one is cheaper.
-          java ForceScope.java 16777216 300 "$(getconf PAGE_SIZE)" | tee forcescope-16m.txt
+          # 1 GiB and 64 B are what SegmentAppendBenchmark uses.
+          java Paths.java 1073741824 400 64 | tee paths.txt
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -117,5 +138,4 @@ jobs:
           path: |
             host.txt
             durability.txt
-            forcescope-1g.txt
-            forcescope-16m.txt
+            paths.txt
