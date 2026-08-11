@@ -82,8 +82,16 @@ replaces it — after which what ships is a process nobody measured.
 ## Run the broker
 
 ```bash
+docker run -d -p 9092:9092 -e BOOBLIK_TOPICS=orders:3 \
+  -v booblik-data:/var/lib/booblik ghcr.io/youndie/booblik:0.1.0
+```
+
+Or build it yourself — the script runs the gate, then `installDist`, then `docker build`, in that
+order, because the image has no build stage and a bare `docker build .` would package whatever
+happens to be sitting in `booblik-app/build/install`:
+
+```bash
 ./ci/docker-build.sh booblik:local
-docker run -d -p 9092:9092 -e BOOBLIK_TOPICS=orders:3 -v booblik-data:/var/lib/booblik booblik:local
 ```
 
 176 MB on amd64, on `bellsoft/liberica-openjre-alpine:25` — Alpine with **glibc**, not musl, so the
