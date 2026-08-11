@@ -15,6 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
+import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.net.client.BooblikConnection
 import ru.workinprogress.booblik.net.client.Producer
@@ -43,6 +44,14 @@ fun main() {
         println("publisher: ${config.topic} has ${topic.partitions.size} partition(s), every ${config.intervalMillis} ms")
 
         scope.launch { publishForever(topic, config, stats) }
+
+        // The second layer's input, when it is asked for. Tasks go into one partition on purpose:
+        // a queue exists so that any worker may take any task, and splitting them by partition
+        // would be the first layer again under another name.
+        config.tasksTopic?.let { name ->
+            scope.launch { publishTasks(producer, name, config, stats) }
+            println("publisher: also writing tasks to $name")
+        }
 
         embeddedServer(CIO, port = config.httpPort, host = "0.0.0.0") {
             install(ContentNegotiation) { json() }
@@ -96,6 +105,24 @@ private suspend fun publishForever(
     }
 }
 
+private suspend fun publishTasks(
+    producer: Producer,
+    topic: String,
+    config: PublisherConfig,
+    stats: Stats,
+) {
+    val name = TopicName(topic)
+    var number = 0L
+    while (true) {
+        producer
+            .send(name, PartitionId(0), """{"task":"resize","n":$number}""".toByteArray())
+            .await()
+        stats.task()
+        number++
+        delay(config.taskIntervalMillis)
+    }
+}
+
 private val ACTIONS = listOf("view", "click", "scroll", "purchase", "logout")
 
 private class Stats {
@@ -105,6 +132,12 @@ private class Stats {
 
     @Volatile
     private var lastUser: String? = null
+
+    private val tasks = AtomicLong()
+
+    fun task() {
+        tasks.incrementAndGet()
+    }
 
     fun record(
         partition: Int,
@@ -124,6 +157,7 @@ private class Stats {
             perPartition = perPartition.toSortedMap().mapKeys { it.key.toString() },
             lastOffset = lastOffset.toSortedMap().mapKeys { it.key.toString() },
             lastUser = lastUser,
+            tasks = tasks.get(),
         )
 }
 
@@ -134,6 +168,7 @@ private data class PublisherStats(
     val perPartition: Map<String, Long>,
     val lastOffset: Map<String, Long>,
     val lastUser: String?,
+    val tasks: Long,
 )
 
 private data class PublisherConfig(
@@ -143,6 +178,8 @@ private data class PublisherConfig(
     val intervalMillis: Long,
     val users: Int,
     val httpPort: Int,
+    val tasksTopic: String?,
+    val taskIntervalMillis: Long,
 ) {
     companion object {
         fun fromEnvironment() =
@@ -153,6 +190,8 @@ private data class PublisherConfig(
                 intervalMillis = System.getenv("PUBLISH_INTERVAL_MILLIS")?.toLong() ?: 1000,
                 users = System.getenv("PUBLISH_USERS")?.toInt() ?: 9,
                 httpPort = System.getenv("HTTP_PORT")?.toInt() ?: 8080,
+                tasksTopic = System.getenv("BOOBLIK_TASKS_TOPIC")?.takeIf(String::isNotBlank),
+                taskIntervalMillis = System.getenv("TASK_INTERVAL_MILLIS")?.toLong() ?: 700,
             )
     }
 }

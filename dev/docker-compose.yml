@@ -13,7 +13,10 @@ services:
     # instead of failing with "no matching manifest", which reads like a broken tag.
     platform: linux/amd64
     environment:
-      BOOBLIK_TOPICS: events:3
+      # `tasks` and `claims` are one partition each, and that is the design rather than
+      # thrift: the queue's arbiter is the order of a partition, and an order exists only
+      # inside one.
+      BOOBLIK_TOPICS: events:3,tasks:1,claims:1
       BOOBLIK_METRICS_INTERVAL_MILLIS: 10000
     volumes:
       - broker-data:/var/lib/booblik
@@ -26,6 +29,8 @@ services:
       BOOBLIK_HOST: broker
       BOOBLIK_TOPIC: events
       PUBLISH_INTERVAL_MILLIS: 500
+      BOOBLIK_TASKS_TOPIC: tasks
+      TASK_INTERVAL_MILLIS: 700
     ports:
       - "8080:8080"
     depends_on:
@@ -76,6 +81,42 @@ services:
       - consumer-2-state:/var/lib/consumer
     ports:
       - "8083:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  worker-0:
+    build: ./queue-worker
+    profiles: [queue]
+    environment:
+      WORKER_NAME: worker-0
+      BOOBLIK_HOST: broker
+    ports:
+      - "8091:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  worker-1:
+    build: ./queue-worker
+    profiles: [queue]
+    environment:
+      WORKER_NAME: worker-1
+      BOOBLIK_HOST: broker
+    ports:
+      - "8092:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  worker-2:
+    build: ./queue-worker
+    profiles: [queue]
+    environment:
+      WORKER_NAME: worker-2
+      BOOBLIK_HOST: broker
+    ports:
+      - "8093:8080"
     depends_on:
       broker:
         condition: service_healthy

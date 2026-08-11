@@ -57,6 +57,61 @@ def resumed(before: int) -> int:
     return 0
 
 
+def queue() -> int:
+    """stdin holds one /stats line per worker of the queue profile.
+
+    Two claims, and the second is the one that would break quietly:
+
+      * every task is won by exactly one worker. Counted against `doneTasks` — the number of
+        **distinct** tasks in the replayed log — and not against the sum of the workers' own
+        `finished` counters. An earlier version compared won against finished, and those two grow
+        together when a task is done twice, so the check would have stayed silent on exactly the
+        failure it was written for.
+      * all workers agree on how many tasks are done. They replay the same partition and decide by
+        the timestamps written into the records, never by their own clocks, so agreement is a
+        property of the protocol rather than luck. Disagreement means somebody judged a lease by a
+        local now().
+    """
+    workers = [json.loads(line) for line in sys.stdin if line.strip()]
+    won = sum(w["won"] for w in workers)
+    finished = sum(w["finished"] for w in workers)
+    held = sum(1 for w in workers if w["current"] is not None)
+    done_views = {w["doneTasks"] for w in workers}
+    attempts = sum(w["attempts"] for w in workers)
+    lost = sum(w["lost"] for w in workers)
+    failed = False
+
+    for w in workers:
+        print(f"   {w['name']}: won {w['won']}, lost {w['lost']}, finished {w['finished']}, "
+              f"holding {w['current']}, sees {w['doneTasks']} done of {w['knownTasks']}")
+
+    done = max(done_views)
+    if won != done + held:
+        print(f"::error:: {won} tasks won but only {done} distinct tasks are done and {held} held "
+              f"— a task was won more than once")
+        failed = True
+    if finished != done:
+        print(f"::error:: workers finished {finished} tasks between them but only {done} distinct "
+              f"tasks are done — the same task was worked twice")
+        failed = True
+    if len(done_views) != 1:
+        print(f"::error:: workers disagree on how many tasks are done: {sorted(done_views)}")
+        failed = True
+    if any(w["timeouts"] for w in workers):
+        print("::error:: a worker gave up waiting for its own claim to come back round the log")
+        failed = True
+
+    if failed:
+        return 1
+    print(f"   {won} tasks, each won by exactly one worker; all three agree on {done_views.pop()} done")
+    print(f"   {lost} of {attempts} attempts lost a race — the cost of having no coordinator (M-103)")
+    return 0
+
+
 if __name__ == "__main__":
     mode = sys.argv[1]
-    sys.exit(split() if mode == "split" else resumed(int(sys.argv[2])))
+    if mode == "split":
+        sys.exit(split())
+    if mode == "queue":
+        sys.exit(queue())
+    sys.exit(resumed(int(sys.argv[2])))

@@ -13,6 +13,7 @@ rootProject.name = "booblik-dev"
 
 include(":publisher")
 include(":consumer")
+include(":queue-worker")
 
 dependencyResolutionManagement {
     repositories {
