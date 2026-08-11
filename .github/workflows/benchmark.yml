@@ -19,6 +19,14 @@ name: benchmark
 #      plausible runner, so it catches "somebody made the write path a hundred times slower" and
 #      deliberately nothing subtler.
 #
+# It runs `mainCiBenchmark`, not `mainBenchmark`, and the difference is everything bounded by a
+# disk barrier: GroupCommitBenchmark, and SegmentAppendBenchmark's flush-every-append rows. Those
+# were in the report once, and they cost an investigation — the two write paths appeared to swap
+# places against M-46 until both were reproduced side by side on the same runner and turned out to
+# be indistinguishable. The durability probe run twice on runners of the same class put fsync at
+# 46.50 ms and then at 75.81 ms, swapping places with msync. A hosted runner cannot measure a
+# barrier, and a row it cannot measure does not belong in a report somebody will read (замер 19).
+#
 # Numbers you can actually reason about come from a machine you control, run back to back —
 # ci/wsl-run.sh for the Linux box, or locally. That is where docs/benchmarking.md gets its tables.
 
@@ -59,7 +67,7 @@ jobs:
           } | tee host.txt
 
       - name: Run benchmarks
-        run: ./gradlew :booblik-benchmark:mainBenchmark --console=plain | tee benchmark.txt
+        run: ./gradlew :booblik-benchmark:mainCiBenchmark --console=plain | tee benchmark.txt
 
       # An order of magnitude, not a percentage. The floor is a tenth of what the slowest machine
       # this has ever run on managed; anything that trips it is a collapse, not a regression.

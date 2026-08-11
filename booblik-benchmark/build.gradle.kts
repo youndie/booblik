@@ -80,6 +80,27 @@ benchmark {
             iterations = 10
             include("FlowOverheadBenchmark")
         }
+        // `./gradlew :booblik-benchmark:mainCiBenchmark` — what a shared runner is allowed to
+        // measure, and nothing else.
+        //
+        // Everything bounded by a disk barrier is excluded, because on a hosted runner those rows
+        // are noise wearing a tight confidence interval. Measured, not assumed (замер 19): the
+        // durability probe run twice on runners of the same class put `fsync` at 46.50 ms and then
+        // at 75.81 ms, with `msync` swapping places with it — while JMH reported ±1 % on the mapped
+        // path in the same session. The narrow interval says ten iterations agreed with each other,
+        // not that the number says anything about the code.
+        //
+        // Leaving those rows in the report cost a full investigation: the flush-every-append rows
+        // showed the two write paths swapping places against M-46, and that reading survived until
+        // both paths were reproduced side by side on the same runner and turned out to be
+        // indistinguishable.
+        register("ci") {
+            common()
+            warmups = 5
+            iterations = 10
+            exclude("GroupCommitBenchmark")
+            param("flushEveryAppend", false)
+        }
         // `./gradlew :booblik-benchmark:mainQuickBenchmark` — an order of magnitude, in a minute.
         // Not for the record: too few iterations to say anything about the second digit.
         register("quick") {
