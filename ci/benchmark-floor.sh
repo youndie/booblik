@@ -1,35 +1,35 @@
 #!/usr/bin/env bash
 #
-# Проверяет, что производительность не рухнула на порядок.
+# Checks that performance has not collapsed by an order of magnitude.
 #
-# Это **не** детектор регрессий, и важно понимать разницу. Правило 3 из docs/benchmarking.md
-# запрещает сравнивать прогоны разных сессий: контрольный замер в M-44 разошёлся с тем же
-# конфигом на той же машине на 37 % просто в другой день. На арендованном раннере, где каждый
-# прогон — другая машина и другие соседи, любой порог в процентах будет либо срабатывать
-# постоянно, либо не срабатывать никогда.
+# This is **not** a regression detector, and the difference matters. Rule 3 of docs/benchmarking.md
+# forbids comparing runs from different sessions: a control measurement in M-44 differed from the
+# same configuration on the same machine by 37 %, simply on another day. On a rented runner, where
+# every run is a different machine with different neighbours, any threshold expressed in per cent
+# would either fire constantly or never fire at all.
 #
-# Поэтому порог здесь — **на порядок ниже** самого медленного правдоподобного раннера. Он ловит
-# «кто-то сделал запись в сто раз медленнее» и сознательно не ловит ничего тоньше. Проверка,
-# которая ловит меньше, чем обещает, хуже отсутствующей: на неё начинают полагаться.
+# So the floor here is **an order of magnitude below** the slowest plausible runner. It catches
+# "somebody made writes a hundred times slower" and deliberately catches nothing finer. A check that
+# catches less than it promises is worse than no check: people start relying on it.
 #
-# Замеренные значения на реальных машинах для калибровки (docs/benchmarking.md, замер 10):
-#   FILE_CHANNEL, 64 Б, без сброса: 215 206 (Apple M1) … 2 465 259 (20 ядер, WSL2)
-#   MAPPED,       64 Б, без сброса: 13,2 млн (Apple M1) … 37,6 млн (20 ядер, WSL2)
+# Measured values from real machines, for calibration (docs/benchmarking.md, measurement 10):
+#   FILE_CHANNEL, 64 B, no flush: 215,206 (Apple M1) … 2,465,259 (20 cores, WSL2)
+#   MAPPED,       64 B, no flush: 13.2M (Apple M1) … 37.6M (20 cores, WSL2)
 
 set -euo pipefail
 
-REPORT="${1:?укажите файл с выводом бенчмарка}"
+REPORT="${1:?pass the file holding the benchmark output}"
 
-# Десятая часть от самого медленного, что видели.
+# A tenth of the slowest we have seen.
 FLOOR_FILE_CHANNEL=20000
 FLOOR_MAPPED=1000000
 
 fail=0
 
 score() {
-    # Строка вида:
+    # A line of the form:
     #   SegmentAppendBenchmark.append  N/A  N/A  false  FILE_CHANNEL  64  N/A  thrpt  10  215205.868 ± ...
-    # Берём поле перед «±». Число печатается с точкой независимо от локали — JMH так устроен.
+    # Take the field before the "±". JMH prints the number with a dot whatever the locale is.
     awk -v mode="$1" '
         /SegmentAppendBenchmark.append/ && $0 ~ mode && / false / {
             for (i = 1; i <= NF; i++) if ($(i + 1) == "±") { print $i; exit }
@@ -42,30 +42,30 @@ check() {
     local value
     value="$(score "$mode")"
     if [ -z "$value" ]; then
-        echo "✗ $label: строка не найдена в отчёте — бенчмарк не отработал"
+        echo "✗ $label: no such line in the report — the benchmark did not run"
         fail=1
         return
     fi
-    # Целая часть: bash не умеет в дробные, а точность здесь ни к чему.
+    # Integer part: bash has no fractions, and precision buys nothing at this scale.
     local whole="${value%%.*}"
     if [ "$whole" -lt "$floor" ]; then
-        echo "✗ $label: $whole записей/с — ниже порога $floor, это обвал, а не регрессия"
+        echo "✗ $label: $whole records/s — below the floor of $floor, this is a collapse, not a regression"
         fail=1
     else
-        echo "✓ $label: $whole записей/с (порог $floor)"
+        echo "✓ $label: $whole records/s (floor $floor)"
     fi
 }
 
-check "FILE_CHANNEL, 64 Б, без сброса" "FILE_CHANNEL *64 " "$FLOOR_FILE_CHANNEL"
-check "MAPPED, 64 Б, без сброса" "MAPPED *64 " "$FLOOR_MAPPED"
+check "FILE_CHANNEL, 64 B, no flush" "FILE_CHANNEL *64 " "$FLOOR_FILE_CHANNEL"
+check "MAPPED, 64 B, no flush" "MAPPED *64 " "$FLOOR_MAPPED"
 
 if [ "$fail" -ne 0 ]; then
     echo
-    echo "Порог — десятая часть самого медленного из измеренных хостов. Если он сработал,"
-    echo "смотрите не на проценты, а на то, что сломалось: числа между прогонами CI"
-    echo "несравнимы в принципе (docs/benchmarking.md, правило 3)."
+    echo "The floor is a tenth of the slowest host measured. If it fired, look at what broke"
+    echo "rather than at percentages: numbers from different CI runs are not comparable at all"
+    echo "(docs/benchmarking.md, rule 3)."
     exit 1
 fi
 
-echo "Порог пройден. Это значит только «ничего не рухнуло»: сравнивать эти числа"
-echo "с прошлым прогоном CI нельзя — другая машина."
+echo "Floor passed. That means only 'nothing collapsed': these numbers cannot be compared"
+echo "with the previous CI run — different machine."

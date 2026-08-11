@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
-# Проверяет **образ**, а не сборку.
+# Checks the **image**, not the build.
 #
-# `ci/smoke.sh` проверяет дистрибутив: что он стартует, обслуживает и переживает рестарт. Между
-# дистрибутивом и образом помещается ещё один класс поломок, которого не видит ни то, ни другое:
-# не тот пользователь и нет прав на том, конфигурация не доехала из окружения, healthcheck зовёт
-# несуществующий путь, и — главное — профиль рантайма перебит `JAVA_OPTS`, после чего поставляется
-# процесс, который никто не мерил (риск 7).
+# `ci/smoke.sh` checks the distribution: that it starts, serves and survives a restart. One more
+# class of failures lives between the distribution and the image, and neither of those checks sees
+# it: the wrong user and no rights on the volume, configuration that never arrived from the
+# environment, a health check pointing at a path that does not exist, and above all a runtime
+# profile overridden by `JAVA_OPTS` — after which what ships is a process nobody measured (risk 7).
 #
-# Использование:
-#   ./ci/docker-smoke.sh              # соберёт образ booblik:smoke и проверит его
-#   BOOBLIK_IMAGE=booblik:1.0 ./ci/docker-smoke.sh   # проверит готовый образ, не собирая
+# Usage:
+#   ./ci/docker-smoke.sh              # builds booblik:smoke and checks it
+#   BOOBLIK_IMAGE=booblik:1.0 ./ci/docker-smoke.sh   # checks an existing image, builds nothing
 
 set -euo pipefail
 
@@ -24,62 +24,75 @@ cleanup() {
 }
 trap cleanup EXIT
 
+logs() {
+    docker logs "$NAME" 2>&1
+}
+
+# Every assertion about the log waits for its line instead of reading once. `docker logs` is not
+# synchronous with the container's stdout: a run of this script reported BOOBLIK_TOPICS as not
+# applied and then printed the log with the line in it, one command later. Waiting for the last
+# startup line is not enough either — that is exactly what the failing run did.
+await_log() {
+    local pattern="$1" tries="${2:-60}"
+    for _ in $(seq 1 "$tries"); do
+        logs | grep -q "$pattern" && return 0
+        sleep 0.5
+    done
+    return 1
+}
+
 if [ -z "${BOOBLIK_IMAGE:-}" ]; then
-    echo "→ сборка образа $IMAGE"
+    echo "→ building image $IMAGE"
     docker build -t "$IMAGE" "$ROOT" >/dev/null
 fi
 
-echo "→ запуск"
+echo "→ starting"
 docker run -d --name "$NAME" -p "$PORT:9092" -e BOOBLIK_TOPICS=smoke:2 "$IMAGE" >/dev/null
-for _ in $(seq 1 60); do
-    docker logs "$NAME" 2>&1 | grep -q "booblik listening" && break
-    sleep 0.5
-done
-docker logs "$NAME" 2>&1 | grep -q "booblik listening" || {
-    echo "брокер в контейнере не поднялся:"; docker logs "$NAME" 2>&1 | tail -20; exit 1
+await_log "booblik listening" || {
+    echo "the broker in the container did not come up:"; logs | tail -20; exit 1
 }
 
-echo "→ конфигурация доехала из окружения"
-docker logs "$NAME" 2>&1 | grep -q "topics=smoke:2" || {
-    echo "BOOBLIK_TOPICS не применился:"; docker logs "$NAME" 2>&1 | head -10; exit 1
+echo "→ configuration arrived from the environment"
+await_log "topics=smoke:2" 20 || {
+    echo "BOOBLIK_TOPICS was not applied:"; logs | head -10; exit 1
 }
-echo "   topics=smoke:2 из BOOBLIK_TOPICS"
+echo "   topics=smoke:2 from BOOBLIK_TOPICS"
 
-# M-84. Профиль зашит в стартовый скрипт, но `JAVA_OPTS` в чужом `Dockerfile` перебивает его
-# одной строкой, и заметить это снаружи было нечем. Брокер печатает свои аргументы при старте
-# именно ради этой проверки.
-echo "→ профиль рантайма доехал до процесса"
-JVM_LINE="$(docker logs "$NAME" 2>&1 | grep -m1 'jvm:' || true)"
-[ -n "$JVM_LINE" ] || { echo "брокер не напечатал строку jvm:"; exit 1; }
+# M-84. The profile is baked into the start script, but one `JAVA_OPTS` line in somebody else's
+# `Dockerfile` overrides it, and from the outside there was no way to notice. The broker prints its
+# own arguments at startup for exactly this check.
+echo "→ the runtime profile reached the process"
+await_log "jvm:" 20 || { echo "the broker printed no jvm: line"; logs | head -10; exit 1; }
+JVM_LINE="$(logs | grep -m1 'jvm:')"
 for flag in -XX:+UseSerialGC -XX:ReservedCodeCacheSize=32M -XX:MaxDirectMemorySize=32M \
             -Xss256k -XX:MaxMetaspaceSize=80M -Xmx64M; do
     case "$JVM_LINE" in
         *"$flag"*) ;;
-        *) echo "в образе нет флага $flag; процесс запущен не с тем профилем, под которым сняты замеры"
-           echo "  фактически: $JVM_LINE"; exit 1 ;;
+        *) echo "flag $flag is missing; the process runs under a different profile than the one measured"
+           echo "  actual: $JVM_LINE"; exit 1 ;;
     esac
 done
-echo "   все шесть флагов на месте"
+echo "   all six flags present"
 
-echo "→ healthcheck отвечает через METADATA"
+echo "→ the health check answers over METADATA"
 docker exec "$NAME" /opt/booblik/bin/booblik-health 127.0.0.1 9092
 docker exec "$NAME" /opt/booblik/bin/booblik-health 127.0.0.1 9999 >/dev/null 2>&1 && {
-    echo "healthcheck сказал 'здоров' про порт, где никого нет"; exit 1
+    echo "the health check called a port with nobody on it healthy"; exit 1
 }
-echo "   и отличает живой порт от мёртвого"
+echo "   and tells a live port from a dead one"
 
-echo "→ процесс не root"
+echo "→ the process is not root"
 WHO="$(docker exec "$NAME" id -un)"
-[ "$WHO" = "booblik" ] || { echo "процесс работает под $WHO, ожидался booblik"; exit 1; }
-echo "   пользователь $WHO"
+[ "$WHO" = "booblik" ] || { echo "the process runs as $WHO, expected booblik"; exit 1; }
+echo "   user $WHO"
 
-echo "→ данные пишутся на том, и сегмент разрежён"
+echo "→ data lands on the volume, and the segment is sparse"
 docker exec "$NAME" /opt/booblik/bin/booblik-health 127.0.0.1 9092 >/dev/null
 SEG="$(docker exec "$NAME" sh -c 'ls /var/lib/booblik/smoke-0/*.log 2>/dev/null | head -1' || true)"
 if [ -n "$SEG" ]; then
     read -r APPARENT BLOCKS <<<"$(docker exec "$NAME" stat -c '%s %b' "$SEG")"
-    echo "   сегмент: видимый $APPARENT Б, занято $((BLOCKS / 2)) КиБ"
-    [ "$BLOCKS" -lt 2048 ] || { echo "сегмент материализовался целиком — разрежённость потеряна"; exit 1; }
+    echo "   segment: $APPARENT B apparent, $((BLOCKS / 2)) KiB occupied"
+    [ "$BLOCKS" -lt 2048 ] || { echo "the segment materialised in full — sparseness is gone"; exit 1; }
 fi
 
-echo "✓ образ стартует под нужным пользователем, с нужным профилем и отвечает на METADATA"
+echo "✓ the image starts as the right user, under the right profile, and answers METADATA"

@@ -67,7 +67,7 @@ object SubscriptionProbe {
         // `host:port` runs against a broker that is already up somewhere else, which is the whole
         // point of M-37: with the broker in this JVM the harness shares its heap, its scheduler and
         // its GC, and at millions of records a second that scheduling *is* what gets measured
-        // (замер 15.2 could not resolve anything because of it).
+        // (measurement 15.2 could not resolve anything because of it).
         val remote = args.getOrElse(7) { "" }
 
         if (remote.isNotEmpty()) {

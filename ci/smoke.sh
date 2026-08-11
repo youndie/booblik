@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# Запускает собранный брокер и разговаривает с ним по сокету.
+# Starts the built broker and talks to it over a socket.
 #
-# Зачем отдельно от тестов: `check` проверяет код, а это проверяет **поставку**. Между ними
-# помещается целый класс поломок — конфигурация не читается, `main` падает на старте, скрипт
-# запуска ссылается на несуществующий класс, — и ни одну из них тесты не видят, потому что тесты
-# поднимают сервер из кода, а не из дистрибутива.
+# Why this exists next to the tests: `check` checks the code, this checks the **delivery**. A whole
+# class of failures lives between the two — configuration is not read, `main` dies at startup, the
+# start script names a class that is not there — and the tests see none of them, because they bring
+# a server up from code rather than from the distribution.
 #
-# Этим же способом был найден единственный настоящий баг M5: писатель терял батч, если таймер
-# сброса срабатывал одновременно с приходом сообщения. Юнит-тест его не воспроизводил, а вот
-# продюсер по сокету честно завис.
+# This is also how the one real bug of M5 was found: the writer lost a batch when the flush timer
+# fired at the same moment a message arrived. No unit test reproduced it; a producer over a socket
+# simply hung.
 
 set -euo pipefail
 
@@ -27,23 +27,23 @@ booblik.flush.every.millis=100
 booblik.metrics.interval.millis=1000
 EOF
 
-echo "→ сборка дистрибутива"
+echo "→ building the distribution"
 "$ROOT/gradlew" -p "$ROOT" :booblik-app:installDist --console=plain -q
 
-echo "→ старт"
+echo "→ starting"
 "$ROOT/booblik-app/build/install/booblik-app/bin/booblik-app" "$WORK/broker.properties" > "$WORK/broker.log" 2>&1 &
 BROKER=$!
-# Убить брокер надо в любом случае, включая падение проверки ниже: иначе CI-джоба висит до
-# таймаута, а локальный запуск оставляет процесс на порту.
+# The broker has to be killed whatever happens below, failed check included: otherwise a CI job
+# hangs until its timeout and a local run leaves a process sitting on the port.
 trap 'kill "$BROKER" 2>/dev/null || true; rm -rf "$WORK"' EXIT
 
 for _ in $(seq 1 50); do
     grep -q "booblik listening" "$WORK/broker.log" && break
     sleep 0.2
 done
-grep -q "booblik listening" "$WORK/broker.log" || { echo "брокер не поднялся:"; cat "$WORK/broker.log"; exit 1; }
+grep -q "booblik listening" "$WORK/broker.log" || { echo "the broker did not come up:"; cat "$WORK/broker.log"; exit 1; }
 
-echo "→ PRODUCE и FETCH по проводу"
+echo "→ PRODUCE and FETCH over the wire"
 python3 - "$PORT" <<'PY'
 import socket, struct, sys
 
@@ -124,10 +124,10 @@ for index, (record, crc) in enumerate(read):
     expected = crc32c(record)
     assert expected == crc, f"record {index} checksum {crc} does not match {expected}"
 sock.close()
-print(f"   {len(records)} записей записаны, прочитаны побайтово и сошлись по контрольной сумме")
+print(f"   {len(records)} records written, read back byte for byte and matched their checksums")
 PY
 
-echo "→ рестарт: лог должен пережить остановку"
+echo "→ restart: the log has to survive a stop"
 kill "$BROKER"
 wait "$BROKER" 2>/dev/null || true
 "$ROOT/booblik-app/build/install/booblik-app/bin/booblik-app" "$WORK/broker.properties" > "$WORK/broker2.log" 2>&1 &
@@ -137,8 +137,8 @@ for _ in $(seq 1 50); do
     sleep 0.2
 done
 grep -q "smoke-0: offsets 0..64" "$WORK/broker2.log" || {
-    echo "после рестарта лог не восстановился:"; cat "$WORK/broker2.log"; exit 1
+    echo "the log did not come back after the restart:"; cat "$WORK/broker2.log"; exit 1
 }
-echo "   восстановлено 64 записи"
+echo "   64 records recovered"
 
-echo "✓ дистрибутив запускается, обслуживает и переживает рестарт"
+echo "✓ the distribution starts, serves and survives a restart"

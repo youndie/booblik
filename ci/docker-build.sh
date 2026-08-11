@@ -1,37 +1,36 @@
 #!/usr/bin/env bash
 #
-# Собирает образ из дистрибутива, который **прошёл гейт**.
+# Builds the image from a distribution that **passed the gate**.
 #
-# Это единственное отличие от прямого `docker build .`, и оно существенное: в образе нет
-# сборочной стадии, поэтому сам по себе `docker build` возьмёт то, что лежит в
-# `booblik-app/build/install` прямо сейчас — хоть месячной давности, хоть от ветки, где падают
-# тесты. Порядок здесь и есть гарантия.
+# That is the only difference from a plain `docker build .`, and it matters: the image has no build
+# stage, so `docker build` on its own takes whatever is sitting in `booblik-app/build/install` right
+# now — a month old, or from a branch with failing tests. The order here is the guarantee.
 #
-# Использование:
+# Usage:
 #   ./ci/docker-build.sh                 # booblik:local
-#   ./ci/docker-build.sh booblik:1.0     # своё имя
-#   BOOBLIK_SKIP_GATE=1 ./ci/docker-build.sh   # только для отладки самого образа
+#   ./ci/docker-build.sh booblik:1.0     # a name of your own
+#   BOOBLIK_SKIP_GATE=1 ./ci/docker-build.sh   # for debugging the image itself, nothing else
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IMAGE="${1:-booblik:local}"
 
-GATED="из дистрибутива, прошедшего гейт"
+GATED="from a distribution that passed the gate"
 if [ -z "${BOOBLIK_SKIP_GATE:-}" ]; then
-    echo "→ гейт"
+    echo "→ gate"
     "$ROOT/gradlew" -p "$ROOT" check --console=plain -q
 else
-    echo "! гейт пропущен по BOOBLIK_SKIP_GATE"
-    GATED="БЕЗ ГЕЙТА — из непроверенного кода"
+    echo "! gate skipped through BOOBLIK_SKIP_GATE"
+    GATED="WITHOUT THE GATE — from unchecked code"
 fi
 
-echo "→ дистрибутив"
+echo "→ distribution"
 "$ROOT/gradlew" -p "$ROOT" :booblik-app:installDist --console=plain -q
 
-echo "→ образ $IMAGE"
+echo "→ image $IMAGE"
 docker build -t "$IMAGE" "$ROOT"
 docker images --format '   {{.Repository}}:{{.Tag}}  {{.Size}}' "$IMAGE" | head -1
-# Итоговая строка обязана говорить правду о том, что произошло: раньше она печатала «прошедшего
-# гейт» и при пропущенном гейте тоже.
-echo "✓ собран $GATED"
+# The closing line has to tell the truth about what happened: it used to say "passed the gate"
+# even when the gate had been skipped.
+echo "✓ built $GATED"

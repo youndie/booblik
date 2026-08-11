@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
  * be deleted after it flakes twice.
  */
 class LongFetchTest {
-    /** «Догнавший потребитель ждёт, а не опрашивает» + «истёкшее ожидание — пустой ответ». */
+    /** Scenarios "a caught-up consumer waits instead of polling" and "an expired wait is an empty answer". */
     @Test
     fun `a caught-up fetch is held for its wait and then answered empty`() =
         withServer { server, client ->
@@ -48,7 +48,7 @@ class LongFetchTest {
             }
         }
 
-    /** «Запись во время ожидания будит немедленно, а не по таймауту». */
+    /** Scenario "a record written during the wait wakes it immediately, not on the timeout". */
     @Test
     fun `a record arriving during the wait answers immediately`() =
         withServer { _, client ->
@@ -79,7 +79,7 @@ class LongFetchTest {
             }
         }
 
-    /** «minBytes больше maxBytes отвергается кадром, соединение остаётся открытым». */
+    /** Scenario "minBytes larger than maxBytes is refused by the frame, and the connection stays open". */
     @Test
     fun `minBytes larger than maxBytes is refused without closing the connection`() =
         withServer { _, client ->
@@ -93,7 +93,7 @@ class LongFetchTest {
             }
         }
 
-    /** «Удержание не задерживает чужие запросы» — и его обратная сторона на одном соединении. */
+    /** Scenario "a held request does not delay anybody else" — and its flip side on one connection. */
     @Test
     fun `a held fetch blocks its own connection but not another`() =
         withServer { server, follower ->

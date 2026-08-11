@@ -65,8 +65,6 @@ class MappedSegmentWriter(
             length.toLong(),
         )
 
-        // Two non-obvious choices in one line.
-        //
         // `JAVA_INT_UNALIGNED`, not `JAVA_INT`: the FFM API enforces the layout's alignment and
         // throws `IllegalArgumentException("Target offset N is incompatible with alignment
         // constraint 4")` when a record does not happen to start on a 4-byte boundary — which, with
@@ -76,6 +74,7 @@ class MappedSegmentWriter(
         // Big-endian on purpose: everything that leaves this process — the wire protocol included —
         // is big-endian, and a segment that disagreed with the wire would need a byte swap on the
         // zero-copy path, which is the one path that must not touch the bytes.
+        //
         // Checksum before length, length last. The length is what recovery reads first, so it is
         // the field that must appear last: a record whose length is visible has, by construction,
         // had everything else stored already.

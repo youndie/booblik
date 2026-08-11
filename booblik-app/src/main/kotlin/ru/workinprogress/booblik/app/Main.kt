@@ -34,13 +34,14 @@ fun main(args: Array<String>) {
     val config = BooblikConfig.load(args.firstOrNull()?.let(::Path))
     println("booblik starting")
     println(config.describe().prependIndent("  "))
-    // Профиль, с которым процесс реально живёт, а не тот, который предполагается.
+    // The profile the process actually lives under, rather than the one it is assumed to have.
     //
-    // Он зашит в стартовый скрипт дистрибутива, но `JAVA_OPTS` его перебивает, и в контейнере это
-    // делается одной строкой в чужом `Dockerfile`. Молчаливая подмена означает, что поставляется
-    // не то, что измерено (риск 7), а отличить одно от другого снаружи было нечем. Теперь есть:
-    // строка печатается всегда и попадает в логи контейнера.
-    println("  jvm: " + jvmArguments().joinToString(" ").ifEmpty { "(без аргументов — профиль не доехал)" })
+    // It is baked into the distribution's start script, but `JAVA_OPTS` overrides it, and inside a
+    // container that is one line in somebody else's `Dockerfile`. A silent substitution means
+    // shipping something other than what was measured (risk 7), and from the outside there was no
+    // way to tell the two apart. Now there is: the line is always printed and ends up in the
+    // container log.
+    println("  jvm: " + jvmArguments().joinToString(" ").ifEmpty { "(no arguments — the profile did not arrive)" })
 
     val broker =
         Broker.open(
@@ -144,10 +145,10 @@ private suspend fun applyRetention(
 }
 
 /**
- * Аргументы, с которыми запущена эта JVM.
+ * The arguments this JVM was started with.
  *
- * Отфильтрованы до того, что задаёт профиль: `-D…` и пути тут только зашумили бы строку, ради
- * которой всё и печатается.
+ * Filtered down to what the profile sets: `-D…` and paths would only clutter the one line this
+ * exists to print.
  */
 private fun jvmArguments(): List<String> =
     java.lang.management.ManagementFactory

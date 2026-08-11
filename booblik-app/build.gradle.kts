@@ -19,12 +19,12 @@ application {
 }
 
 /*
- * Второй скрипт в том же дистрибутиве — проверка здоровья (M-82).
+ * A second script in the same distribution — the health check (M-82).
  *
- * Отдельный запуск, а не флаг у `booblik-app`: перепутать «запусти брокер» и «спроси брокер»
- * должно быть невозможно, а `HEALTHCHECK` в образе всё равно вызывает команду, а не аргумент.
- * Профиль рантайма ему не нужен и не даётся: это короткоживущий процесс, которому 64 МиБ кучи
- * брокера ничего не говорят.
+ * Its own entry point rather than a flag on `booblik-app`: confusing "start the broker" with "ask
+ * the broker" has to be impossible, and `HEALTHCHECK` in the image invokes a command anyway, not an
+ * argument. It neither needs nor gets the runtime profile: this is a short-lived process, and the
+ * broker's 64 MiB heap means nothing to it.
  */
 val healthScripts =
     tasks.register<CreateStartScripts>("healthStartScripts") {
