@@ -107,14 +107,23 @@ at startup rather than surfacing at 3am.
 
 ## Use the client
 
-Nothing is published yet — the publication is wired up and waiting for its first run, under
-`io.github.youndie.booblik`. Inside a Gradle build:
-
 ```kotlin
+repositories {
+    mavenCentral()
+    maven {
+        name = "WipSnapshots"
+        url = uri("https://reposilite.kotlin.website/snapshots")
+    }
+}
+
 dependencies {
-    implementation(project(":booblik-client"))
+    implementation("io.github.youndie.booblik:booblik-client:0.1.2")
 }
 ```
+
+Snapshots only for now. The client pulls `booblik-core` and coroutines with it — the API hands out
+`Flow` and takes a `CoroutineScope`, so both are compile-scope dependencies rather than details
+behind the module.
 
 Publishing, with the accumulator doing the work — the unit of a write is worth 54×, more than any
 other decision in this project:
