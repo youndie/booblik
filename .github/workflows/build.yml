@@ -83,3 +83,27 @@ jobs:
         env:
           BOOBLIK_IMAGE: booblik:ci
         run: ./ci/docker-smoke.sh
+
+  # The sample, built against the **published** client rather than against this checkout.
+  #
+  # That is the point of the job. Everything else here compiles the modules together, where a
+  # packaging mistake is invisible: 0.1.1 went out with coroutines at runtime scope, so it resolved
+  # and then would not compile, and nothing in this file could have noticed. This job is that
+  # discovery made permanent — it fails the same way a stranger's build would.
+  sample:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Build the sample
+        working-directory: dev
+        run: ./gradlew build --stacktrace

@@ -1,0 +1,87 @@
+# The sample: one publisher, three consumers, one broker.
+#
+# The broker comes from GHCR rather than from this checkout — the sample runs against what was
+# published, which is the only way it can notice a packaging mistake.
+#
+# Build the service distributions before `docker compose up`, or use ./run.sh which does both:
+#   ./gradlew installDist
+
+services:
+  broker:
+    image: ghcr.io/youndie/booblik:0.1.0
+    # Published for amd64 only. Named explicitly so an arm64 host emulates it with a warning
+    # instead of failing with "no matching manifest", which reads like a broken tag.
+    platform: linux/amd64
+    environment:
+      BOOBLIK_TOPICS: events:3
+      BOOBLIK_METRICS_INTERVAL_MILLIS: 10000
+    volumes:
+      - broker-data:/var/lib/booblik
+    ports:
+      - "9092:9092"
+
+  publisher:
+    build: ./publisher
+    environment:
+      BOOBLIK_HOST: broker
+      BOOBLIK_TOPIC: events
+      PUBLISH_INTERVAL_MILLIS: 500
+    ports:
+      - "8080:8080"
+    depends_on:
+      # The broker image carries a HEALTHCHECK that asks METADATA, so this waits for a broker that
+      # answers rather than for a port that accepts. The kernel accepts a connection into the
+      # backlog with no help from the process — a TCP check would pass on a hung broker.
+      broker:
+        condition: service_healthy
+
+  consumer-0:
+    build: ./consumer
+    environment:
+      CONSUMER_NAME: consumer-0
+      BOOBLIK_HOST: broker
+      BOOBLIK_TOPIC: events
+      BOOBLIK_PARTITION: 0
+    volumes:
+      - consumer-0-state:/var/lib/consumer
+    ports:
+      - "8081:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  consumer-1:
+    build: ./consumer
+    environment:
+      CONSUMER_NAME: consumer-1
+      BOOBLIK_HOST: broker
+      BOOBLIK_TOPIC: events
+      BOOBLIK_PARTITION: 1
+    volumes:
+      - consumer-1-state:/var/lib/consumer
+    ports:
+      - "8082:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  consumer-2:
+    build: ./consumer
+    environment:
+      CONSUMER_NAME: consumer-2
+      BOOBLIK_HOST: broker
+      BOOBLIK_TOPIC: events
+      BOOBLIK_PARTITION: 2
+    volumes:
+      - consumer-2-state:/var/lib/consumer
+    ports:
+      - "8083:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+
+volumes:
+  broker-data:
+  consumer-0-state:
+  consumer-1-state:
+  consumer-2-state:

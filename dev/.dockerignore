@@ -1,0 +1,6 @@
+# Everything except the one distribution each image exists to package. Without the negation COPY
+# fails with "not found" while the directory is plainly there.
+build/
+!build/install
+!build/install/**
+.gradle/
