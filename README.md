@@ -86,10 +86,11 @@ replaces it — after which what ships is a process nobody measured.
 docker run -d -p 9092:9092 -e BOOBLIK_TOPICS=orders:3 -v booblik-data:/var/lib/booblik booblik:local
 ```
 
-`bellsoft/liberica-openjre-alpine:25` — Alpine with **glibc**, not musl, so the runtime is the one
-the numbers above were measured on. 240 MB built on amd64, 158 MB on arm64. Nothing is installed
-into the image: busybox already covers what the start scripts call. Non-root under a pinned uid,
-data on a volume, and a
+176 MB on amd64, on `bellsoft/liberica-openjre-alpine:25` — Alpine with **glibc**, not musl, so the
+runtime is the one the numbers above were measured on. Half of what the same image costs on Debian:
+`eclipse-temurin:25-jre` builds the same distribution at 364 MB. Nothing is installed into the
+image — busybox already covers what the start scripts call. Non-root under a pinned uid, data on a
+volume, and a
 `HEALTHCHECK` that asks the broker METADATA rather than opening a TCP connection: the kernel accepts
 a connection into the backlog with no help from the process, so a connect cannot tell a live broker
 from a hung one.
