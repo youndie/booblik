@@ -1,0 +1,121 @@
+name: investigate
+
+# A one-off: why does the ranking of the two write paths under durability flip on this runner?
+#
+# The scheduled benchmark measured, within one run, that FILE_CHANNEL beats MAPPED by 1.5x when
+# every append is flushed — the opposite of what M-46 measured on a rented machine. Two mechanisms
+# would explain it and they have different consequences:
+#
+#   * the barrier here is cheap (~0.2 ms against 11.36 ms), so MAPPED's **second** barrier —
+#     force() calls msync and then fsync — stops being lost in the noise. A property of the host.
+#   * msync walks the whole mapping, and the benchmark maps 1 GiB per segment, so the cost is paid
+#     per append no matter how few bytes are dirty. A defect in our code, fixable by syncing only
+#     the range that was written.
+#
+# probeDurability decomposes the barrier; the inline probe compares force() over the whole mapping
+# against force() over the written page. Delete this workflow once the answer is recorded.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  investigate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Record the host
+        run: |
+          {
+            echo "runner: ${{ runner.name }} / ${{ runner.arch }}"
+            echo "cpu: $(nproc) x $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2- | xargs)"
+            echo "filesystem: $(findmnt -no FSTYPE -T .) on $(findmnt -no SOURCE -T .)"
+            echo "page size: $(getconf PAGE_SIZE)"
+            echo "rotational: $(cat /sys/block/$(lsblk -no PKNAME "$(findmnt -no SOURCE -T .)" | head -1)/queue/rotational 2>/dev/null || echo '?')"
+          } | tee host.txt
+
+      # Decomposes the barrier: msync alone, fsync alone, and both on the same file — which is what
+      # MappedSegmentWriter.force() actually does.
+      - name: Durability probe
+        run: ./gradlew :booblik-benchmark:probeDurability --console=plain | tee durability.txt
+
+      - name: Does msync cost scale with the mapping or with the dirt
+        run: |
+          cat > ForceScope.java <<'JAVA'
+          import java.lang.foreign.Arena;
+          import java.lang.foreign.MemorySegment;
+          import java.lang.foreign.ValueLayout;
+          import java.nio.ByteBuffer;
+          import java.nio.channels.FileChannel;
+          import java.nio.file.Files;
+          import java.nio.file.Path;
+          import java.nio.file.StandardOpenOption;
+          import java.util.Arrays;
+
+          public final class ForceScope {
+              public static void main(String[] args) throws Exception {
+                  long capacity = Long.parseLong(args[0]);
+                  int iterations = Integer.parseInt(args[1]);
+                  int pageSize = Integer.parseInt(args[2]);
+
+                  Path file = Files.createTempFile(Path.of("."), "forcescope", ".log");
+                  try (FileChannel channel = FileChannel.open(file, StandardOpenOption.READ, StandardOpenOption.WRITE);
+                       Arena arena = Arena.ofShared()) {
+                      channel.write(ByteBuffer.allocate(1), capacity - 1);
+                      MemorySegment segment = channel.map(FileChannel.MapMode.READ_WRITE, 0, capacity, arena);
+                      System.out.printf("mapping %.0f MiB, %d iterations, page %d%n",
+                          capacity / 1024.0 / 1024, iterations, pageSize);
+
+                      for (String mode : new String[] {"whole", "slice", "fsync", "whole", "slice", "fsync"}) {
+                          long[] samples = new long[iterations];
+                          long position = 0;
+                          for (int i = 0; i < iterations; i++) {
+                              segment.set(ValueLayout.JAVA_LONG_UNALIGNED, position, i);
+                              long start = System.nanoTime();
+                              switch (mode) {
+                                  case "whole" -> { segment.force(); channel.force(false); }
+                                  case "slice" -> {
+                                      long from = (position / pageSize) * pageSize;
+                                      segment.asSlice(from, Math.min(pageSize, capacity - from)).force();
+                                      channel.force(false);
+                                  }
+                                  case "fsync" -> channel.force(false);
+                                  default -> throw new IllegalStateException(mode);
+                              }
+                              samples[i] = System.nanoTime() - start;
+                              position = (position + pageSize) % (capacity - pageSize);
+                          }
+                          Arrays.sort(samples);
+                          System.out.printf("  %-6s median %8.3f ms   p90 %8.3f ms   min %8.3f ms%n",
+                              mode, samples[iterations / 2] / 1e6,
+                              samples[(int) (iterations * 0.9)] / 1e6, samples[0] / 1e6);
+                      }
+                  } finally {
+                      Files.deleteIfExists(file);
+                  }
+              }
+          }
+          JAVA
+          # 1 GiB is what SegmentAppendBenchmark maps, and the size is the whole question here.
+          java ForceScope.java 1073741824 300 "$(getconf PAGE_SIZE)" | tee forcescope-1g.txt
+          # A small mapping for contrast: if the cost follows the mapping, this one is cheaper.
+          java ForceScope.java 16777216 300 "$(getconf PAGE_SIZE)" | tee forcescope-16m.txt
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: investigation
+          path: |
+            host.txt
+            durability.txt
+            forcescope-1g.txt
+            forcescope-16m.txt
