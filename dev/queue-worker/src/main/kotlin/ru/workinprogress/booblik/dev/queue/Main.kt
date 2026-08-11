@@ -70,6 +70,28 @@ fun main() {
             routing {
                 get("/health") { call.respondText("ok") }
                 get("/stats") { call.respond(stats.snapshot(config, claims.value, tasks.value.size)) }
+                // One task, as this worker's replay of the claims log sees it. The redistribution
+                // check needs to ask about a **particular** task rather than about a count: after a
+                // worker is killed, the question is whether the task it was holding got finished by
+                // somebody else, and a counter cannot answer that.
+                get("/task/{offset}") {
+                    val offset = call.parameters["offset"]?.toLongOrNull()
+                    val state = claims.value
+                    if (offset == null) {
+                        call.respondText("offset must be a number", status = io.ktor.http.HttpStatusCode.BadRequest)
+                    } else {
+                        val lease = state.leases[offset]
+                        call.respond(
+                            TaskState(
+                                task = offset,
+                                done = offset in state.done,
+                                heldBy = lease?.worker,
+                                heldAt = lease?.at,
+                                known = offset in tasks.value,
+                            ),
+                        )
+                    }
+                }
             }
         }.start(wait = true)
     }
@@ -139,7 +161,12 @@ private suspend fun work(
 
     while (true) {
         val now = System.currentTimeMillis()
-        val candidate = claims.value.claimable(tasks.value.keys.sorted(), now).firstOrNull()
+        // `first` is the obvious choice and the expensive one: every idle worker sees the same
+        // free task at the head of the queue and claims it at the same moment, so attempts per task
+        // climb towards the number of workers. `random` spreads the attention, at the cost of
+        // giving up the order tasks were published in. M-103 measures both.
+        val claimable = claims.value.claimable(tasks.value.keys.sorted(), now)
+        val candidate = if (config.pickRandom) claimable.randomOrNull() else claimable.firstOrNull()
         if (candidate == null) {
             delay(config.idleMillis)
             continue
@@ -154,6 +181,9 @@ private suspend fun work(
 
         // Read our own claim back before deciding anything. Until it has come round, the log has
         // not answered — and the log is the only thing entitled to answer.
+        // The round trip that taking a task costs: the claim is written, and nothing may be decided
+        // until it has come back round the log. This is the number M-103 exists for.
+        val began = System.nanoTime()
         val settled =
             withTimeoutOrNull(config.settleTimeoutMillis) {
                 claims.first { it.consumedUpTo > offset.value }
@@ -162,6 +192,7 @@ private suspend fun work(
             stats.timeouts.incrementAndGet()
             continue
         }
+        stats.observeClaimLatency((System.nanoTime() - began) / 1_000)
 
         if (!settled.holds(config.name, candidate, now)) {
             stats.lost.incrementAndGet()
@@ -189,6 +220,21 @@ private class Stats {
     @Volatile
     var current: Long? = null
 
+    // Bounded on purpose: a sample that runs for days must not grow a list until it is the
+    // interesting part of its own memory profile.
+    private val claimLatenciesMicros = java.util.concurrent.ConcurrentLinkedDeque<Long>()
+
+    fun observeClaimLatency(micros: Long) {
+        claimLatenciesMicros.addLast(micros)
+        while (claimLatenciesMicros.size > 10_000) claimLatenciesMicros.pollFirst()
+    }
+
+    private fun percentile(share: Double): Long {
+        val sorted = claimLatenciesMicros.toLongArray().sortedArray()
+        if (sorted.isEmpty()) return 0
+        return sorted[((sorted.size - 1) * share).toInt()]
+    }
+
     fun snapshot(
         config: WorkerConfig,
         state: ClaimState,
@@ -204,6 +250,13 @@ private class Stats {
         knownTasks = knownTasks,
         doneTasks = state.done.size,
         heldByAnyone = state.leases.size,
+        claimLatencyMicros =
+            Percentiles(
+                p50 = percentile(0.50),
+                p90 = percentile(0.90),
+                p99 = percentile(0.99),
+                samples = claimLatenciesMicros.size,
+            ),
     )
 }
 
@@ -219,6 +272,24 @@ private data class WorkerStats(
     val knownTasks: Int,
     val doneTasks: Int,
     val heldByAnyone: Int,
+    val claimLatencyMicros: Percentiles,
+)
+
+@Serializable
+private data class Percentiles(
+    val p50: Long,
+    val p90: Long,
+    val p99: Long,
+    val samples: Int,
+)
+
+@Serializable
+private data class TaskState(
+    val task: Long,
+    val done: Boolean,
+    val heldBy: String?,
+    val heldAt: Long?,
+    val known: Boolean,
 )
 
 private data class WorkerConfig(
@@ -232,11 +303,16 @@ private data class WorkerConfig(
     val idleMillis: Long,
     val settleTimeoutMillis: Long,
     val httpPort: Int,
+    val pickRandom: Boolean,
 ) {
     companion object {
         fun fromEnvironment() =
             WorkerConfig(
-                name = System.getenv("WORKER_NAME") ?: "worker",
+                // Falls back to the container id, not to a constant. Ownership of a claim is
+                // (worker, timestamp), so two workers sharing a name could both believe they hold
+                // the same task — which is exactly what `docker compose --scale` would produce,
+                // silently, and only under the load the measurement is about.
+                name = System.getenv("WORKER_NAME") ?: System.getenv("HOSTNAME") ?: "worker",
                 brokerHost = System.getenv("BOOBLIK_HOST") ?: "127.0.0.1",
                 brokerPort = System.getenv("BOOBLIK_PORT")?.toInt() ?: 9092,
                 tasksTopic = System.getenv("BOOBLIK_TASKS_TOPIC") ?: "tasks",
@@ -248,6 +324,7 @@ private data class WorkerConfig(
                 idleMillis = System.getenv("WORKER_IDLE_MILLIS")?.toLong() ?: 200,
                 settleTimeoutMillis = System.getenv("WORKER_SETTLE_TIMEOUT_MILLIS")?.toLong() ?: 10_000,
                 httpPort = System.getenv("HTTP_PORT")?.toInt() ?: 8080,
+                pickRandom = System.getenv("WORKER_PICK")?.equals("random", ignoreCase = true) == true,
             )
     }
 }

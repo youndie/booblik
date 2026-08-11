@@ -2,10 +2,12 @@ package ru.workinprogress.booblik.net.client
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.selects.onTimeout
+import kotlinx.coroutines.selects.select
 import ru.workinprogress.booblik.Offset
 import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
@@ -117,6 +119,7 @@ class Producer(
         mailbox.close()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private suspend fun runLoop() {
         for (first in mailbox) {
             when (first) {
@@ -137,7 +140,22 @@ class Producer(
             while (!isAnyBatchFull()) {
                 val remaining = (deadline - System.nanoTime()) / 1_000_000
                 if (remaining <= 0) break
-                val next = withTimeoutOrNull(remaining) { mailbox.receive() } ?: break
+                // `select`, not `withTimeoutOrNull(mailbox.receive())`. A timeout **cancels** the
+                // receive, and a cancelled receive can take an element off the channel and then
+                // drop it — after which the caller waiting on that record's `CompletableDeferred`
+                // waits for ever while the accumulator carries on serving everybody else.
+                //
+                // The broker's own writer had this exact bug and it is written up in
+                // `PartitionWriter.awaitCommand`; the client kept it a year longer because nothing
+                // drove two topics through one producer at different rates. The sample did, and the
+                // publisher stopped after a single task while still sending events happily.
+                //
+                // `select` either takes the element or takes the timeout. Never both, never neither.
+                val next =
+                    select<Command?> {
+                        mailbox.onReceiveCatching { it.getOrNull() }
+                        onTimeout(remaining) { null }
+                    } ?: break
                 when (next) {
                     is Command.Append -> {
                         accumulate(next)
