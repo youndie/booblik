@@ -30,7 +30,12 @@ echo "→ distribution"
 
 echo "→ image $IMAGE"
 docker build -t "$IMAGE" "$ROOT"
-docker images --format '   {{.Repository}}:{{.Tag}}  {{.Size}}' "$IMAGE" | head -1
+# Not `docker images ... | head -1`: under `set -o pipefail` a reader that exits early makes the
+# pipeline report the writer's SIGPIPE as a failure. It happens to be safe here — one image, one
+# line — but the same shape cost two red runs in ci/docker-smoke.sh, and it is not worth keeping
+# a second copy of it around to find out.
+SIZES="$(docker images --format '   {{.Repository}}:{{.Tag}}  {{.Size}}' "$IMAGE")"
+head -1 <<<"$SIZES"
 # The closing line has to tell the truth about what happened: it used to say "passed the gate"
 # even when the gate had been skipped.
 echo "✓ built $GATED"

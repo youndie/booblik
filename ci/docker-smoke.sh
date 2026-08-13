@@ -28,14 +28,23 @@ logs() {
     docker logs "$NAME" 2>&1
 }
 
-# Every assertion about the log waits for its line instead of reading once. `docker logs` is not
-# synchronous with the container's stdout: a run of this script reported BOOBLIK_TOPICS as not
-# applied and then printed the log with the line in it, one command later. Waiting for the last
-# startup line is not enough either — that is exactly what the failing run did.
+# Every assertion about the log waits for its line instead of reading once, and every one of them
+# reads the log into a **variable** before matching. Both halves were paid for.
+#
+# `docker logs` is not synchronous with the container's stdout, so reading once and asserting races:
+# a run reported BOOBLIK_TOPICS as not applied and printed the log with the line in it one command
+# later. Hence the waiting.
+#
+# And piping `docker logs` into `grep -q` or `grep -m1` is a trap under `set -o pipefail`: grep
+# exits at the first match, `docker logs` takes SIGPIPE, and the pipeline reports 141 — **a failure
+# on a successful match**. That cost two red runs, and in between I proposed this exact mechanism
+# and talked myself out of it because an interactive shell happened not to reproduce it. A here-
+# string has no pipe and no writer to kill.
 await_log() {
-    local pattern="$1" tries="${2:-60}"
+    local pattern="$1" tries="${2:-60}" out
     for _ in $(seq 1 "$tries"); do
-        logs | grep -q "$pattern" && return 0
+        out="$(logs)"
+        grep -q "$pattern" <<<"$out" && return 0
         sleep 0.5
     done
     return 1
@@ -63,7 +72,7 @@ echo "   topics=smoke:2 from BOOBLIK_TOPICS"
 # own arguments at startup for exactly this check.
 echo "→ the runtime profile reached the process"
 await_log "jvm:" 20 || { echo "the broker printed no jvm: line"; logs | head -10; exit 1; }
-JVM_LINE="$(logs | grep -m1 'jvm:')"
+JVM_LINE="$(grep -m1 'jvm:' <<<"$(logs)")"
 for flag in -XX:+UseSerialGC -XX:ReservedCodeCacheSize=32M -XX:MaxDirectMemorySize=32M \
             -Xss256k -XX:MaxMetaspaceSize=80M -Xmx64M; do
     case "$JVM_LINE" in
