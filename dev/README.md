@@ -1,119 +1,119 @@
-# dev — booblik в сервисах
+# dev — booblik in services
 
-Образец: паблишер пишет события, три сервиса их разбирают, всё в `docker compose`. Брокер берётся
-**из GHCR**, клиент — **из reposilite**, а не из соседнего каталога: образец собирается ровно так,
-как собрался бы у постороннего человека.
+Services in `docker compose`: a publisher writes events, consumers take them apart. The broker comes
+**from GHCR** and the client **from reposilite**, not from the directory next door — the sample is
+built exactly the way a stranger would build it.
 
 ```bash
-./run.sh          # дистрибутивы, образы, compose, ожидание готовности
-./check.sh        # проверить утверждения образца снаружи, по HTTP
+./run.sh          # distributions, images, compose, wait until they answer
+./check.sh        # assert what the sample claims, from outside, over HTTP
 docker compose down -v
 ```
 
-Четыре слоя, каждый со своим профилем: базовый — раздача партиций и позиция у потребителя,
-`--profile queue` — очередь задач, `--profile projection` — read model, `--profile relay` — мост
-в Kafka и обратно.
+Four layers, one profile each: the base one is partition-per-consumer with the position kept by the
+consumer, `--profile queue` is a task queue, `--profile projection` a read model, `--profile relay`
+a bridge into Kafka and back.
 
-## Слой 1: события расходятся по партициям, позицию хранит потребитель
+## Layer 1: events spread across partitions, the consumer keeps its position
 
-**Ключ выбирает партицию, и делает это клиент.** Каждое событие принадлежит пользователю, ключ —
-идентификатор пользователя. `TopicHandle` хеширует его и отправляет брокеру **номер партиции**;
-сам ключ на провод не уходит. Отсюда следствие, ради которого это и сделано: все события одного
-пользователя лежат в одной партиции, то есть обрабатываются одним сервисом и по порядку.
+**The key picks the partition, and the client does it.** Every event belongs to a user, and the key
+is that user. `TopicHandle` hashes it and sends the broker a **partition number**; the key itself
+never reaches the wire. The consequence is the reason for doing it: one user's events all sit in one
+partition, so one service handles them, in order.
 
-**Каждый потребитель читает свою партицию.** Назначение статическое, из переменной окружения. Это
-же, минус автоматическая переразача, даёт группа потребителей в Kafka: партицию в группе читает
-ровно один потребитель. Чего здесь нет — подхвата партиции **умершего** сервиса; этим занимается
-второй слой ниже, и он строится протоколом поверх лога, а не фичей брокера
-([research-usecases](../docs/research/research-usecases.md)).
+**Each consumer reads its own partition.** The assignment is static, from the environment. That is
+also — minus the automatic reassignment — what a Kafka consumer group gives you: a partition in a
+group is read by exactly one consumer. What is missing here is taking over the partition of a
+**failed** service; the second layer does that, as a protocol on top of the log rather than a
+feature of the broker ([research-usecases](../docs/research/research-usecases.md)).
 
-**Позицию хранит потребитель, и она переживает перезапуск.** `FileOffsetStore` — первая настоящая
-реализация `OffsetStore` в проекте: файл на томе, запись через временный файл и атомарный `move`.
-Половина сохранённой позиции хуже отсутствующей: `"12"`, обрезанное до `"1"`, разбирается без
-ошибки и молча переигрывает одиннадцать записей.
+**The position belongs to the consumer and outlives the process.** `FileOffsetStore` is the first
+real implementation of `OffsetStore` in the project: a file on a volume, written through a temporary
+file and an atomic move. Half a saved position is worse than none — `"12"` truncated to `"1"` parses
+without complaint and silently replays eleven records.
 
-**Гарантия — at-least-once, и это видно в коде.** `checkpointing` сохраняет оффсет **после** того,
-как коллектор отработал батч. Остановка между обработкой и сохранением переиграет батч; сохранение
-вперёд обработки — пропустило бы его. Поэтому `check.sh` считает законным продолжение чуть **позади**
-последней виденной позиции и ловит только старт с начала лога.
+**The guarantee is at-least-once, and it is visible in the code.** `checkpointing` saves the offset
+**after** the collector has handled the batch. A stop between handling and saving replays the batch;
+saving first would skip it. That is why `check.sh` treats resuming slightly **behind** the last
+position seen as legal, and fails only on a start from the beginning of the log.
 
-### Что отдают сервисы первого слоя
+### What the first layer's services answer
 
 | | |
 |---|---|
-| `localhost:8080/stats` | паблишер: сколько отправлено, раскладка по партициям, последний оффсет |
-| `localhost:8081/stats` | consumer-0, партиция 0 |
-| `localhost:8082/stats` | consumer-1, партиция 1 |
-| `localhost:8083/stats` | consumer-2, партиция 2 |
+| `localhost:8080/stats` | publisher: how much was sent, the split across partitions, last offset |
+| `localhost:8081/stats` | consumer-0, partition 0 |
+| `localhost:8082/stats` | consumer-1, partition 1 |
+| `localhost:8083/stats` | consumer-2, partition 2 |
 
-Порт паблишера переопределяется `PUBLISHER_PORT` — 8080 занят чаще любого другого, и образец
-не должен быть тем, что из-за этого не стартует.
+The publisher's port is overridable with `PUBLISHER_PORT` — 8080 is taken more often than any other
+port, and the sample should not be the thing that refuses to start because of it.
 
-У потребителя в `/stats` есть `resumedFrom` — с какой позиции он стартовал. После первого запуска
-там `null`, после перезапуска — число, и это самое интересное поле в образце.
+A consumer's `/stats` carries `resumedFrom` — where it started. `null` after a first run, a number
+after a restart, and the most interesting field in the sample.
 
-## Слой 2: очередь задач, у которой нет координатора
+## Layer 2: a task queue with no coordinator
 
 ```bash
 docker compose --profile queue up --build -d
 ./check-queue.sh
-curl -s localhost:8091/stats    # worker-0, дальше 8092 и 8093
+curl -s localhost:8091/stats    # worker-0, then 8092 and 8093
 ```
 
-Три воркера разбирают один поток задач: каждую берёт ровно один, а если взявший умрёт, задача
-уйдёт другому. В брокере для этого нет ничего — ни блокировки записи, ни подтверждения, ни
-переотправки, и это решение, а не пробел
+Three workers share one stream of tasks: each task is taken by exactly one, and if its worker dies
+the task goes to somebody else. The broker contributes nothing to this — no per-record lock, no
+acknowledgement, no redelivery — and that is a decision rather than a gap
 ([research-usecases](../docs/research/research-usecases.md), Р11).
 
-**Арбитр — порядок в логе.** Воркеры пишут заявки в одну партицию топика `claims`, и выигрывает
-та, что оказалась в логе раньше. Партиция — тотальный порядок, все читают один и тот же, поэтому
-спрашивать не у кого и незачем.
+**The arbiter is the order of the log.** Workers append claims to one partition of a `claims` topic,
+and the claim that landed first wins. A partition is a total order and everyone reads the same one,
+so there is nobody to ask and no need to ask.
 
-**Вердикт — чистая функция от лога, и это главное решение здесь.** Истечение аренды считается
-по времени, **записанному в саму заявку**, а не по часам читающего. Поэтому два воркера, проиграв
-один и тот же лог, приходят к одному ответу даже при разошедшихся часах: расхождение часов меняет,
-кто и когда **попробует** взять задачу, но не то, кто **выиграл**. Судить по своему `now()` выглядит
-эквивалентно и не является им — двое, прочитавшие лог с разницей в секунду, разошлись бы во мнении
-об истёкшей аренде, и оба сочли бы задачу своей.
+**The verdict is a pure function of the log, and that is the decision here.** A lease expires by the
+timestamp written **into the claim being examined**, never by the reader's clock. Two workers
+replaying the same records therefore reach the same answer even when their clocks disagree: skew
+changes who *tries* to take a task and when, not who *won*. Judging by a local `now()` looks
+equivalent and is not — two workers reading a second apart would disagree about a lapsed lease, and
+both would believe the task was theirs.
 
-Взятие задачи стоит круга: записать заявку и дочитать лог до неё. Своя заявка опознаётся
-по оффсету, который вернул `send` — то есть по тому же числу, которым лог адресует запись.
+Taking a task costs a round trip: write the claim, then read the log until it comes back. A worker
+recognises its own claim by the offset `send` returned — the same number the log uses to address the
+record.
 
-### Что эта очередь не даёт
+### What this queue does not give
 
-* **at-least-once, не exactly-once.** Зависший дольше аренды воркер очнётся и доделает задачу,
-  которую уже забрал другой. Ограждения (fencing) нет: чтобы отвергнуть опоздавший результат,
-  нужен тот, кто знает текущего арендатора, — то есть координатор, ради отсутствия которого всё
-  и затевалось.
-* **Лог заявок растёт** — две записи на задачу — и держится только на retention. Retention короче
-  аренды это тихая поломка: заявка исчезает, задача выглядит свободной, и её берёт второй воркер
-  при живом первом.
-* **Каждый воркер читает все заявки.** Трафик — воркеры × задачи. На трёх нормально, на трёхстах
-  нет.
-* **Аренда не продлевается.** Работа дольше аренды означает дубль; в образце аренда 30 с
-  при работе 400 мс.
+* **at-least-once, not exactly-once.** A worker stalled past its lease wakes up and finishes a task
+  somebody else has taken. There is no fencing: rejecting the late result would need a party that
+  knows which lease is current, which is the coordinator this design exists to avoid.
+* **The claims log grows** — two records per task — and lives on retention alone. Retention shorter
+  than a lease is a silent bug: the claim disappears, the task looks free, and a second worker takes
+  it while the first is still working.
+* **Every worker reads every claim.** Traffic is workers × tasks. Fine for three, not for three
+  hundred.
+* **Leases are not renewed.** Work longer than the lease means a duplicate; here the lease is 30 s
+  against 400 ms of work.
 
-### Что это стоит (замер 20)
+### What it costs (measurement 20)
 
 ```bash
-./measure-queue.sh random 3 60      # стратегия, воркеров, окно в секундах
-./check-redistribution.sh           # убить держателя задачи и увидеть переразачу
+./measure-queue.sh random 3 60      # strategy, workers, window in seconds
+./check-redistribution.sh           # kill the holder of a task and watch it move
 ```
 
-**Круг по логу дёшев — p50 около полумиллисекунды.** Дороги столкновения, и убирает их одна
-строка: брать **случайную** доступную задачу вместо первой. На трёх воркерах с заделом в очереди
-это 1,00 попытки на задачу и 0 % потерь против 8–27 % у `first`, при той же пропускной способности
-на потолке. Умолчание в `docker-compose.yml` поэтому `random`.
+**The round trip through the log is cheap — p50 around half a millisecond.** What is expensive is
+collisions, and one line removes them: take a **random** claimable task instead of the first. With
+three workers and a backlog that is 1.00 attempts per task and no lost races, against 8–27 % for
+`first`, at the same ceiling throughput. The compose default is `random` for that reason.
 
-Помогает это только при **заделе**. В пустой очереди доступная задача обычно одна, и выбор
-случайной из списка длины один — это тот же `first`; доля потерь тогда описывает отношение
-прихода задач к числу воркеров, а не протокол.
+It only helps **with a backlog**. On an idle queue there is usually one claimable task, and choosing
+at random from a list of one is `first`; the loss rate then describes the arrival rate against the
+worker count rather than the protocol.
 
-Тридцать воркеров на этом стенде не измеряются: прогон даёт 0 задач за 60 с — тридцать один
-контейнер в виртуалке не отвечает на вопрос о конкуренции. Записано числом в замере 20.3
-и оставлено машине посильнее.
+Thirty workers are not measured on this stand: the run produces zero tasks in sixty seconds —
+thirty-one containers in a VM do not answer a question about contention. That is recorded as a
+number in measurement 20.3 and left to a stronger machine.
 
-## Слой 3: проекция — состояние как функция лога
+## Layer 3: a projection — state as a function of the log
 
 ```bash
 docker compose --profile projection up -d --build
@@ -123,98 +123,99 @@ curl -s "localhost:8096/top?n=3"
 curl -s localhost:8096/user/user-3
 ```
 
-Сервис не хранит **ничего**. Его состояние — свёртка лога, запросы отвечают по ней, а перезапуск
-собирает всё заново проигрыванием. Это тот сценарий, ради которого лог и существует, и
-единственный слой, использующий обе половины подписки по назначению:
+The service stores **nothing**. Its state is a fold over the log, queries answer from it, and a
+restart rebuilds everything by replaying. This is what a log is actually for, and it is the only
+layer that uses both halves of the subscription for what they are:
 
-* **`replay()` кончается** — на верхней отметке, какой она была в момент старта, — и это тот
-  момент, когда вид догнал историю и может отвечать на запросы;
-* **`follow()` не кончается**, и с этого момента вид остаётся текущим.
+* **`replay()` ends** — at the high watermark as it was when it started — which is the moment the
+  view has caught up with history and can answer queries;
+* **`follow()` does not**, so from then on the view stays current.
 
-Склеить их без дырки позволяет `RecordBatch.nextOffset`: реплей сообщает, где остановилась каждая
-партиция, а слежение стартует оттуда. Не `Latest` — он пропустил бы всё, что пришло, пока вид
-строился; и не `Earliest` — он посчитал бы историю дважды.
+`RecordBatch.nextOffset` is what joins them without a gap: the replay reports where each partition
+stopped and the tail starts there. Not `Latest`, which would skip whatever arrived while the view
+was building, and not `Earliest`, which would count history twice.
 
-**Позиция не сохраняется, и это решение, а не лень.** Сохранить позицию, не сохранив состояние, —
-тихая порча: перезапуск продолжит с позднего оффсета с пустым видом, и дальше сервис будет
-уверенно отвечать по данным, в которых нет ничего до этого оффсета. Ничего не упадёт и никто
-не скажет. Сохранять надо либо оба, либо ни одного; здесь — ни одного.
+**The position is deliberately not stored.** Persisting a position without the state it belongs to
+is a silent corruption: the restart resumes at a late offset with an empty view, and from then on
+the service answers confidently from data missing everything before that offset. Nothing crashes and
+nothing says so. Persist both or neither; this one persists neither.
 
-Проверка ловит именно это: после перезапуска требуется, чтобы **реплей вернул не меньше**, чем
-было до него. Подставленный ответ «вернулось 3 события вместо 228» отвергается.
+The check asserts exactly that: after a restart the replay must return **at least** what was there
+before. A hand-made "3 events back against 228" is rejected.
 
-**Порядок нужен только внутри партиции — и его хватает из-за того, что делает паблишер.** Ключ
-события это пользователь, поэтому все события одного пользователя лежат в одной партиции и приходят
-по порядку. Убрать ключ — и проекция всё так же правильно посчитает суммы, а `lastAction` начнёт
-показывать случайное. Это единственный слой, который **потребляет** то, что первый демонстрировал.
+**Order matters only inside a partition — and that is enough here because of what the publisher
+does.** The key is the user, so one user's events share a partition and arrive in order. Take the key
+away and the projection still counts correctly while `lastAction` starts reporting whichever event
+happened to arrive last. This is the only layer that **consumes** what the first one demonstrates.
 
-## Слой 4: ретранслятор Kafka ↔ booblik
+## Layer 4: a relay between Kafka and booblik
 
 ```bash
 docker compose --profile relay up -d --build
-./check-relay.sh                 # Kafka → booblik → Kafka, круг целиком
-curl -s localhost:8094/stats     # relay-in, дальше 8095 — relay-out
+./check-relay.sh                 # Kafka → booblik → Kafka, the whole round trip
+curl -s localhost:8094/stats     # relay-in; 8095 is relay-out
 ```
 
-booblik не говорит по протоколу Kafka и не будет: у Kafka `baseOffset` и CRC лежат **внутри
-хранимых байтов**, поэтому заговорить по-кафковски значит хранить по-кафковски и потерять
-`transferTo` собственных байтов ([research-usecases](../docs/research/research-usecases.md), Р14).
-Ретранслятор ставит booblik **рядом** с экосистемой: две библиотеки по краям, оба формата целы,
-трансляция платится один раз в пользовательском коде.
+booblik does not speak the Kafka protocol and is not going to: Kafka's `baseOffset` and CRC live
+**inside the stored bytes**, so speaking Kafka means storing Kafka and giving up `transferTo` of our
+own ([research-usecases](../docs/research/research-usecases.md), Р14). A relay puts booblik
+**beside** the ecosystem: two libraries at the edges, both formats intact, the translation paid once
+in user space.
 
-**Один модуль на оба направления**, направление в переменной окружения. Конфигурация, HTTP, батчинг
-и переподключение у них общие; различаются они главным образом тем, **где живёт позиция**, и это
-как раз то, что стоит видеть рядом:
+**One module for both directions**, the direction in the environment. Configuration, HTTP, batching
+and reconnection are shared; what differs is mostly **where the position lives**, and that is the
+part worth seeing side by side:
 
-| Направление | Кто помнит позицию |
+| Direction | Who remembers the position |
 |---|---|
-| Kafka → booblik | Kafka, consumer group. Auto-commit **выключен**: порядок «сначала запись в booblik, потом commit» и есть гарантия at-least-once |
-| booblik → Kafka | никто, кроме нас: `FileOffsetStore` на томе — тот же, что у потребителя первого слоя |
+| Kafka → booblik | Kafka, in a consumer group. Auto-commit is **off**: the order "write to booblik, then commit" is the at-least-once guarantee |
+| booblik → Kafka | nobody but us: `FileOffsetStore` on a volume — the same one the first layer's consumer uses |
 
-**Ключ Kafka не переживает переход.** По дороге в booblik он ещё делает свою работу — выбирает
-партицию, порядок по ключу сохраняется, — но не сохраняется сам: на проводе booblik поля для него
-нет. Обратно ключ не восстановить. Заворачивать его в конверт значило бы заставить любого другого
-потребителя booblik разбирать конверт, которого он не просил.
+**A Kafka key does not survive the crossing.** On the way into booblik it still does its job — it
+picks the partition, so per-key ordering is preserved — but it is not itself stored: booblik's wire
+has no field for it, and it cannot be recovered on the way back. Wrapping it in an envelope would
+force every other booblik consumer to parse an envelope it never asked for.
 
-**Дубли законны.** Обе стороны двигают позицию только после подтверждения на дальней стороне,
-поэтому `check-relay.sh` требует полноты множества и **считает** повторы, а не заваливает прогон.
+**Duplicates are legal.** Both sides move the position only after the far side acknowledged, so
+`check-relay.sh` demands a complete set and **counts** repeats rather than failing on them.
 
-### Грабли, стоившие прогона
+### Traps that cost a run
 
-Официальный образ Kafka в KRaft стартует **без единой настройки** — и ровно до появления второго
-контейнера. По умолчанию он анонсирует себя как `localhost:9092`, поэтому клиент подключается,
-получает в метаданных этот адрес и идёт в собственный localhost. В логах —
-`NoAvailableBrokersException`, в `docker compose ps` — всё здоровое. Лечится
-`KAFKA_ADVERTISED_LISTENERS`, и в compose это записано.
+The official Kafka image starts in KRaft mode with **no configuration at all** — and stays usable
+exactly until a second container shows up. By default it advertises itself as `localhost:9092`, so a
+client connects, is told in the metadata where the broker "really" is, and dials its own localhost.
+The logs say `NoAvailableBrokersException` while `docker compose ps` shows everything healthy. The
+cure is `KAFKA_ADVERTISED_LISTENERS`, and it is in the compose file.
 
-Вторую половину той же истории сделал я сам: первая версия `check-relay.sh` глушила вывод продюсера
-в `/dev/null`, и отличить «ретранслятор сломан» от «записи не доехали до Kafka» было нечем. Теперь
-скрипт спрашивает Kafka, сколько записей она держит, до того как чего-то ждать.
+The other half of that story was mine: the first version of `check-relay.sh` sent the producer's
+output to `/dev/null`, leaving no way to tell a broken relay from records that never reached Kafka.
+It now asks Kafka how many records it holds before waiting on anything.
 
-## Грабли, общие для всего образца
+## Traps common to the whole sample
 
-**`repositories { }` в `subprojects` перекрывает объявленные в `settings.gradle.kts`.** Режим по
-умолчанию — `PREFER_PROJECT`, и проектные репозитории не добавляются к настроечным, а **заменяют**
-их. Падает это как `Could not find io.github.youndie.booblik:booblik-client`, то есть выглядит как
-отсутствующий артефакт, а не как потерянный репозиторий.
+**`repositories { }` in `subprojects` overrides the ones from `settings.gradle.kts`.** The default
+`repositoriesMode` is `PREFER_PROJECT`, and project repositories do not add to the settings ones —
+they **replace** them. It fails as `Could not find io.github.youndie.booblik:booblik-client`, which
+reads like a missing artefact rather than a lost repository.
 
-**Round-robin у `partitionFor(null)` двигает счётчик.** Спросить партицию «чтобы показать» и
-отправить запись — это два хода счётчика, и записи начнут прыгать через партицию. С ключом такого
-нет: `ByKeyHash` — чистая функция. Поэтому образец публикует с ключом, и это не только про порядок.
+**Round-robin in `partitionFor(null)` advances a counter.** Asking which partition a record will go
+to and then sending it is two turns of that counter, and the records start skipping partitions. With
+a key there is no such thing: `ByKeyHash` is a pure function. That is another reason the sample
+publishes with a key.
 
-**Образ брокера собран под amd64.** В `docker-compose.yml` это записано явным `platform`, иначе на
-arm64 получаешь `no matching manifest` — сообщение, которое читается как сломанный тег.
+**The broker image is built for amd64.** The compose file names `platform` explicitly, because
+otherwise an arm64 host reports `no matching manifest`, which reads like a broken tag.
 
-## Что этот образец нашёл в самом booblik
+## What this sample found in booblik itself
 
-Два дефекта поставки, и оба невидимы сборке, где модули компилируются вместе.
+Two delivery defects, both invisible to a build that compiles the modules together.
 
-**`0.1.1` — библиотека, против которой нельзя скомпилироваться.** Корутины стоят в публичном ABI,
-а объявлены были `implementation`, то есть в POM уезжали в `runtime`.
+**`0.1.1` — a library nothing could be compiled against.** Coroutines are in the public ABI and were
+declared `implementation`, so the POM put them at runtime scope.
 
-**`0.1.2` — аккумулятор терял запись.** `Producer` ждал следующую запись через
-`withTimeoutOrNull { mailbox.receive() }`, а отмена `receive` может снять элемент с канала
-и выбросить: вызывающий ждёт вечно, остальные обслуживаются как обычно. Паблишер образца встал
-после первой задачи и продолжал слать события. Это **та же ошибка, что уже была найдена и починена
-на серверной стороне** — клиент пронёс её мимо всех тестов, потому что ни один не гнал два топика
-с разной частотой через один аккумулятор. Исправлено в `0.1.3`.
+**`0.1.2` — the accumulator lost a record.** `Producer` waited for the next record with
+`withTimeoutOrNull { mailbox.receive() }`, and cancelling a `receive` can take an element off the
+channel and drop it: the caller waits for ever while everybody else is served as usual. The sample's
+publisher stopped after a single task and carried on publishing events. This is **the same mistake
+that had already been found and fixed on the server side** — the client carried it past every test
+because none of them drove two topics at different rates through one accumulator. Fixed in `0.1.3`.

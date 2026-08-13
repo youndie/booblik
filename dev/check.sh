@@ -11,8 +11,31 @@ cd "$(dirname "$0")"
 
 PUBLISHER="${PUBLISHER_URL:-http://127.0.0.1:8080}"
 CONSUMERS="${CONSUMER_URLS:-http://127.0.0.1:8081 http://127.0.0.1:8082 http://127.0.0.1:8083}"
-RESTARTED="${RESTARTED_CONSUMER:-consumer-1}"
-RESTARTED_URL="${RESTARTED_CONSUMER_URL:-http://127.0.0.1:8082}"
+ENOUGH="${ENOUGH_RECORDS:-15}"
+
+# The checks below need something to have happened. On a machine that has just brought the stack up
+# — CI, most of all — a partition can legitimately hold nothing yet, and then "the position did not
+# survive the restart" is a true statement about a consumer that never had one. A check has to
+# establish its own preconditions rather than assume them.
+echo "→ waiting until every consumer has a position to lose"
+for _ in $(seq 1 120); do
+    ready=1
+    for url in $CONSUMERS; do
+        position=$(curl -fsS "$url/stats" 2>/dev/null |
+            python3 -c 'import json,sys; print(json.load(sys.stdin)["position"])' 2>/dev/null || echo 0)
+        [ "${position:-0}" -gt 0 ] || ready=0
+    done
+    [ "$ready" = "1" ] && break
+    sleep 2
+done
+[ "$ready" = "1" ] || { echo "::error:: some consumer never read anything — nothing to assert about"; exit 1; }
+
+# Enough traffic that the split across partitions means something rather than being three ones.
+for _ in $(seq 1 60); do
+    sent=$(curl -fsS "$PUBLISHER/stats" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sent"])')
+    [ "${sent:-0}" -ge "$ENOUGH" ] && break
+    sleep 1
+done
 
 echo "→ every record reaches exactly one consumer"
 {
@@ -26,7 +49,18 @@ echo "→ every record reaches exactly one consumer"
 
 echo
 echo "→ a restarted consumer carries on rather than replaying"
-BEFORE=$(curl -fsS "$RESTARTED_URL/stats" | python3 -c 'import json,sys; print(json.load(sys.stdin)["position"])')
+# Whichever consumer has got furthest, rather than a name fixed in advance: the point is that a
+# saved position survives, and any consumer that has one can demonstrate it.
+read -r RESTARTED RESTARTED_URL BEFORE <<<"$(
+    for url in $CONSUMERS; do
+        curl -fsS "$url/stats" | URL="$url" python3 -c '
+import json, os, sys
+stats = json.load(sys.stdin)
+print(stats["name"], os.environ["URL"], stats["position"])
+'
+    done | sort -k3 -n -r | head -1
+)"
+echo "   $RESTARTED is furthest along, at $BEFORE"
 docker compose stop "$RESTARTED" >/dev/null
 # Long enough that the publisher writes records the stopped consumer will have to catch up on —
 # without a backlog the check would pass on a consumer that resumed at the end of the log.
