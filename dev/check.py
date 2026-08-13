@@ -158,12 +158,78 @@ def roundtrip() -> int:
     return 0
 
 
+def projection() -> int:
+    """stdin holds the projection's /stats.
+
+    The view has to agree with its own inputs: every event it applied is counted against exactly one
+    user, so the per-user totals must sum to `applied`. A mismatch means the fold lost or
+    double-counted something, which no query would ever reveal on its own.
+    """
+    stats = json.load(sys.stdin)
+    print(f"   {stats['applied']} events applied ({stats['fromReplay']} replayed, "
+          f"{stats['fromFollow']} followed), {stats['users']} users, {stats['skipped']} unreadable")
+
+    if stats["eventsAcrossUsers"] != stats["applied"]:
+        print(f"::error:: the view holds {stats['eventsAcrossUsers']} events across users but applied "
+              f"{stats['applied']} — the fold does not agree with its input")
+        return 1
+    # Nothing is asserted about the replay being non-empty here: a projection started against a
+    # topic that has no history legitimately replays nothing. Whether history is re-read is the
+    # subject of `rebuilt`, where there is history to re-read.
+    print(f"   per-user totals sum to {stats['applied']}")
+    return 0
+
+
+def rebuilt() -> int:
+    """stdin holds /stats after the service was restarted; APPLIED is what it had before.
+
+    A projection that stores nothing must come back with everything, by replaying. Coming back with
+    *less* is the failure this layer exists to make visible: it is what a service would do if it had
+    persisted its position and not its state, and no query would ever say so.
+    """
+    stats = json.load(sys.stdin)
+    before = int(os.environ["APPLIED"])
+
+    print(f"   rebuilt {stats['applied']} events for {stats['users']} users "
+          f"({stats['fromReplay']} of them from the replay)")
+    if stats["applied"] < before:
+        print(f"::error:: only {stats['applied']} events after the restart against {before} before — "
+              f"the view came back incomplete")
+        return 1
+    if stats["fromReplay"] < before:
+        print(f"::error:: the replay produced {stats['fromReplay']} events but there were {before} "
+              f"before the restart — history was not re-read")
+        return 1
+    if stats["eventsAcrossUsers"] != stats["applied"]:
+        print("::error:: the rebuilt view does not agree with its own input")
+        return 1
+    print(f"   all {before} came back, and the tail is running again")
+    return 0
+
+
+def user() -> int:
+    """stdin holds one /user/{id} answer: the per-action counts must add up to the user's total."""
+    view = json.load(sys.stdin)
+    total = sum(view["actions"].values())
+    print(f"   {view['user']}: {view['events']} events, actions {view['actions']}")
+    if total != view["events"]:
+        print(f"::error:: per-action counts sum to {total} but the user has {view['events']} events")
+        return 1
+    return 0
+
+
 if __name__ == "__main__":
     mode = sys.argv[1]
     if mode == "split":
         sys.exit(split())
     if mode == "roundtrip":
         sys.exit(roundtrip())
+    if mode == "user":
+        sys.exit(user())
+    if mode == "projection":
+        sys.exit(projection())
+    if mode == "rebuilt":
+        sys.exit(rebuilt())
     if mode == "queue":
         sys.exit(queue())
     if mode == "redistributed":

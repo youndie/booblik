@@ -15,6 +15,7 @@ include(":common")
 include(":publisher")
 include(":consumer")
 include(":queue-worker")
+include(":projection")
 include(":relay")
 
 dependencyResolutionManagement {

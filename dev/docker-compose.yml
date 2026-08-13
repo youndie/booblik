@@ -34,7 +34,9 @@ services:
       BOOBLIK_TASKS_TOPIC: tasks
       TASK_INTERVAL_MILLIS: ${TASK_INTERVAL_MILLIS:-700}
     ports:
-      - "8080:8080"
+      # Overridable because 8080 is the most contested port there is, and on a machine that runs
+      # anything else the sample should not be the thing that refuses to start.
+      - "${PUBLISHER_PORT:-8080}:8080"
     depends_on:
       # The broker image carries a HEALTHCHECK that asks METADATA, so this waits for a broker that
       # answers rather than for a port that accepts. The kernel accepts a connection into the
@@ -149,6 +151,21 @@ services:
       # `first` or `random` — which claimable task a worker goes for. The measurement in M-103 is
       # about the difference, so it has to be settable from outside the file.
       WORKER_PICK: ${WORKER_PICK:-first}
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  # The read model: state derived from the log, nothing stored, queries over HTTP. No volume on
+  # purpose — a projection that persisted its position but not its state would resume at a late
+  # offset with an empty view and answer confidently from it.
+  projection:
+    build: ./projection
+    profiles: [projection]
+    environment:
+      BOOBLIK_HOST: broker
+      BOOBLIK_TOPIC: events
+    ports:
+      - "8096:8080"
     depends_on:
       broker:
         condition: service_healthy
