@@ -83,7 +83,7 @@ replaces it — after which what ships is a process nobody measured.
 
 ```bash
 docker run -d -p 9092:9092 -e BOOBLIK_TOPICS=orders:3 \
-  -v booblik-data:/var/lib/booblik ghcr.io/youndie/booblik:0.1.0
+  -v booblik-data:/var/lib/booblik ghcr.io/youndie/booblik:0.2.0
 ```
 
 Or build it yourself — the script runs the gate, then `installDist`, then `docker build`, in that
@@ -127,7 +127,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.youndie.booblik:booblik-client:0.1.3")
+    implementation("io.github.youndie.booblik:booblik-client:0.2.0")
 }
 ```
 

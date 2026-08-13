@@ -57,7 +57,7 @@ allprojects {
     group = "io.github.youndie.booblik"
     // A default that is a snapshot on purpose: a build with no `-PVERSION` must not be able to
     // produce something that looks like a release.
-    version = providers.gradleProperty("VERSION").getOrElse("0.1.0-SNAPSHOT")
+    version = providers.gradleProperty("VERSION").getOrElse("0.2.1-SNAPSHOT")
 }
 
 // The whole point of this block: the gate is one command. `./gradlew check` must run the tests
