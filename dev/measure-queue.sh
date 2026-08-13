@@ -21,6 +21,12 @@ cd "$(dirname "$0")"
 PICK="${1:-first}"
 WORKERS="${2:-3}"
 WINDOW="${3:-60}"
+# Where the broker is relative to the workers, and it travels with the numbers on purpose.
+# `docker compose` puts everything on one host, and M-37 measured what that costs when the load and
+# the broker share a machine: 9.2x on the median and 19 % of the ceiling. On such a stand the ratio
+# between two strategies is still worth having — it is a comparison inside one run — while the
+# latency is not, and a number copied out of this output should carry that with it.
+STAND="${STAND:-colocated}"
 export WORKER_PICK="$PICK"
 export TASK_INTERVAL_MILLIS="${TASK_INTERVAL_MILLIS:-10}"
 
@@ -56,5 +62,5 @@ read -r WINS1 ATTEMPTS1 <<<"$(report)"
 LATENCY=$(docker compose exec -T worker sh -c 'wget -qO- localhost:8080/stats' 2>/dev/null)
 
 WINS0="$WINS0" WINS1="$WINS1" ATTEMPTS0="$ATTEMPTS0" ATTEMPTS1="$ATTEMPTS1" \
-    PICK="$PICK" WORKERS="$WORKERS" WINDOW="$WINDOW" \
+    PICK="$PICK" WORKERS="$WORKERS" WINDOW="$WINDOW" STAND="$STAND" \
     python3 measure-queue.py <<<"$LATENCY"

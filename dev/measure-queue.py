@@ -29,5 +29,13 @@ print(f"  workers            {os.environ['WORKERS']}, pick={os.environ['PICK']}"
 print(f"  tasks won          {won} in {window}s = {won / window:.1f}/s")
 print(f"  claim attempts     {attempts} = {per_task:.2f} per task")
 print(f"  attempts lost      {lost} ({share:.1f} %)")
+stand = os.environ.get("STAND", "colocated")
 print(f"  claim round trip   p50 {latency['p50'] / 1000:.2f} ms, "
       f"p90 {latency['p90'] / 1000:.2f} ms, p99 {latency['p99'] / 1000:.2f} ms")
+print(f"  stand              {stand}")
+if stand == "colocated":
+    # Printed next to the number rather than left to the reader's memory. This is the same failure
+    # the project keeps meeting: a figure travels out of the run that produced it and loses the
+    # conditions that made it mean something.
+    print("  ^ workers share a host with the broker: the ratio above is comparable within this run,")
+    print("    the latency is not comparable with anything and does not belong in a table (M-37)")
