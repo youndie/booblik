@@ -131,10 +131,39 @@ def redistributed() -> int:
     return 0
 
 
+def roundtrip() -> int:
+    """stdin holds whatever came out of the far Kafka topic; COUNT says how many went in.
+
+    The set has to be complete. Duplicates are allowed and counted rather than failed: both relays
+    move the position only after the far side acknowledged, so a restart repeats a batch by design.
+    Anything *extra* that is not one of the inputs would be a different bug and is reported too.
+    """
+    expected = {f"order-{n}" for n in range(1, int(os.environ["COUNT"]) + 1)}
+    seen = [line.strip() for line in sys.stdin if line.strip()]
+    got = set(seen)
+
+    missing = expected - got
+    unexpected = got - expected
+    duplicates = len(seen) - len(got)
+
+    print(f"   {len(seen)} records out, {len(got)} distinct, {duplicates} repeated")
+    if missing:
+        print(f"::error:: {len(missing)} records never came back, e.g. {sorted(missing)[:5]}")
+        return 1
+    if unexpected:
+        print(f"::error:: {len(unexpected)} records came back that were never sent: {sorted(unexpected)[:5]}")
+        return 1
+    print(f"   all {len(expected)} made the round trip"
+          + (f"; {duplicates} arrived twice, which at-least-once permits" if duplicates else ""))
+    return 0
+
+
 if __name__ == "__main__":
     mode = sys.argv[1]
     if mode == "split":
         sys.exit(split())
+    if mode == "roundtrip":
+        sys.exit(roundtrip())
     if mode == "queue":
         sys.exit(queue())
     if mode == "redistributed":
