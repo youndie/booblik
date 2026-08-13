@@ -254,6 +254,11 @@ private class Stats {
         timeouts = timeouts.get(),
         current = current,
         knownTasks = knownTasks,
+        // How far this worker has replayed the claims log. Two workers at different positions are
+        // *expected* to report different counts — the protocol promises the same verdict on the
+        // same prefix, not the same instant — so a check needs this to tell a lag from a
+        // disagreement.
+        consumedUpTo = state.consumedUpTo,
         doneTasks = state.done.size,
         heldByAnyone = state.leases.size,
         claimLatencyMicros =
@@ -276,6 +281,7 @@ private data class WorkerStats(
     val timeouts: Long,
     val current: Long?,
     val knownTasks: Int,
+    val consumedUpTo: Long,
     val doneTasks: Int,
     val heldByAnyone: Int,
     val claimLatencyMicros: Percentiles,

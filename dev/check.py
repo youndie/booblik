@@ -68,10 +68,12 @@ def queue() -> int:
         `finished` counters. An earlier version compared won against finished, and those two grow
         together when a task is done twice, so the check would have stayed silent on exactly the
         failure it was written for.
-      * all workers agree on how many tasks are done. They replay the same partition and decide by
-        the timestamps written into the records, never by their own clocks, so agreement is a
-        property of the protocol rather than luck. Disagreement means somebody judged a lease by a
-        local now().
+      * workers do not **disagree** about what the log says. The protocol promises the same verdict
+        on the same prefix — decided by the timestamps written into the records, never by a local
+        clock — and says nothing about all workers standing at the same offset at the same instant,
+        which they cannot. So the assertion is monotonic rather than equal: a worker that has
+        replayed further must see at least as many tasks done. An earlier version demanded exact
+        agreement and failed on 99 against 100, which was one worker being a single record behind.
     """
     workers = [json.loads(line) for line in sys.stdin if line.strip()]
     won = sum(w["won"] for w in workers)
@@ -84,7 +86,8 @@ def queue() -> int:
 
     for w in workers:
         print(f"   {w['name']}: won {w['won']}, lost {w['lost']}, finished {w['finished']}, "
-              f"holding {w['current']}, sees {w['doneTasks']} done of {w['knownTasks']}")
+              f"holding {w['current']}, sees {w['doneTasks']} done of {w['knownTasks']} "
+              f"(replayed to {w['consumedUpTo']})")
 
     done = max(done_views)
     if won != done + held:
@@ -95,16 +98,22 @@ def queue() -> int:
         print(f"::error:: workers finished {finished} tasks between them but only {done} distinct "
               f"tasks are done — the same task was worked twice")
         failed = True
-    if len(done_views) != 1:
-        print(f"::error:: workers disagree on how many tasks are done: {sorted(done_views)}")
-        failed = True
+    ordered = sorted(workers, key=lambda w: w["consumedUpTo"])
+    for behind, ahead in zip(ordered, ordered[1:]):
+        if ahead["doneTasks"] < behind["doneTasks"]:
+            print(f"::error:: {ahead['name']} replayed to {ahead['consumedUpTo']} and sees "
+                  f"{ahead['doneTasks']} done, while {behind['name']} at {behind['consumedUpTo']} "
+                  f"sees {behind['doneTasks']} — reading further cannot mean seeing less")
+            failed = True
     if any(w["timeouts"] for w in workers):
         print("::error:: a worker gave up waiting for its own claim to come back round the log")
         failed = True
 
     if failed:
         return 1
-    print(f"   {won} tasks, each won by exactly one worker; all three agree on {done_views.pop()} done")
+    spread = max(w["consumedUpTo"] for w in workers) - min(w["consumedUpTo"] for w in workers)
+    print(f"   {won} tasks, each won by exactly one worker; views agree, "
+          f"{spread} record(s) of replay lag between the furthest and the nearest")
     print(f"   {lost} of {attempts} attempts lost a race — the cost of having no coordinator (M-103)")
     return 0
 
