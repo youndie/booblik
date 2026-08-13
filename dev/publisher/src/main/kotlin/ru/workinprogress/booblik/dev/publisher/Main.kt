@@ -41,7 +41,9 @@ fun main() {
         val connection = openConnection(config)
         val producer = Producer(connection, scope)
         val topic = producer.topic(TopicName(config.topic))
-        println("publisher: ${config.topic} has ${topic.partitions.size} partition(s), every ${config.intervalMillis} ms")
+        println(
+            "publisher: ${config.topic} has ${topic.partitions.size} partition(s), every ${config.intervalMillis} ms",
+        )
 
         scope.launch { publishForever(topic, config, stats) }
 

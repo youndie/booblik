@@ -104,6 +104,48 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      # `build` includes the sample's own gate now: ktlint, and the unit tests of the queue's
+      # arbiter. The arbiter is pure logic whose correctness argument was previously made only by
+      # an end-to-end run that needs Docker, a broker and three workers.
       - name: Build the sample
         working-directory: dev
         run: ./gradlew build --stacktrace
+
+      # And then it is actually run. Six scripts in dev/ assert real behaviour — the partition
+      # split, a position that outlives its process, a task won by exactly one worker, a view
+      # rebuilt by replaying — and until now they ran when somebody remembered. That is the same
+      # gap the image job was created to close, one level up.
+      #
+      # This is also the only job that exercises the **published** client against the **published**
+      # image, which is the combination a stranger gets.
+      - name: Run the sample and check what it claims
+        working-directory: dev
+        run: ./run.sh
+
+      - name: Layer 1 — partitions and positions
+        working-directory: dev
+        run: ./check.sh
+
+      - name: Layer 2 — the task queue
+        working-directory: dev
+        run: |
+          docker compose --profile queue up -d --build
+          # The queue needs tasks to have gone round before anything can be asserted about them.
+          sleep 45
+          ./check-queue.sh
+
+      - name: Layer 3 — the read model
+        working-directory: dev
+        run: |
+          docker compose --profile projection up -d --build
+          ./check-projection.sh
+
+      - name: What the services were saying
+        if: failure()
+        working-directory: dev
+        run: docker compose --profile queue --profile projection logs --tail 40
+
+      - name: Down
+        if: always()
+        working-directory: dev
+        run: docker compose --profile queue --profile projection down -v

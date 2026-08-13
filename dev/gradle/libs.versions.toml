@@ -3,6 +3,10 @@ kotlin = "2.4.10"
 ktor = "3.5.2"
 logback = "1.6.1"
 kafka = "4.3.1"
+# Same formatter version as the broker repository, pinned for the same reason: otherwise the style
+# shifts when the plugin is bumped, which is exactly when nobody is reading the diff.
+ktlint = "1.8.0"
+ktlintGradle = "14.2.0"
 # The published client, from reposilite snapshots. Two earlier versions are skipped on purpose:
 # 0.1.1 declared coroutines as `implementation`, so it resolves and then will not compile, and
 # 0.1.2 carried the accumulator that drops a record when its flush timer fires as one arrives —
@@ -20,3 +24,4 @@ kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafk
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }

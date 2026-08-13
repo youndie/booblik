@@ -64,12 +64,13 @@ data class ClaimState(
         nextOffset: Long,
     ): ClaimState =
         when (record.type) {
-            ClaimRecord.DONE ->
+            ClaimRecord.DONE -> {
                 copy(
                     consumedUpTo = nextOffset,
                     done = done + record.task,
                     leases = leases - record.task,
                 )
+            }
 
             ClaimRecord.CLAIM -> {
                 val current = leases[record.task]
@@ -84,7 +85,9 @@ data class ClaimState(
                 }
             }
 
-            else -> copy(consumedUpTo = nextOffset)
+            else -> {
+                copy(consumedUpTo = nextOffset)
+            }
         }
 
     /** Whether [worker] holds [task] under the claim it wrote at [at]. */

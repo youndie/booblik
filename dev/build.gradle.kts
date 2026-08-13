@@ -1,12 +1,22 @@
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.ktlint)
 }
 
 subprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
     apply(plugin = "application")
+    apply(plugin = "org.jlleitschuh.gradle.ktlint")
+
+    // The sample is held to the same style as the broker it demonstrates. Without this the one
+    // directory a stranger reads first is the one nothing checks.
+    extensions.configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
+        version.set(rootProject.libs.versions.ktlint)
+    }
+
+    dependencies { add("testImplementation", kotlin("test")) }
 
     // No `repositories { }` here on purpose. Declaring them per project **replaces** the ones from
     // `settings.gradle.kts` — the default `repositoriesMode` is `PREFER_PROJECT` — and the failure

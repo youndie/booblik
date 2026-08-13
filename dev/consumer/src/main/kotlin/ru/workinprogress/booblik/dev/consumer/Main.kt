@@ -17,12 +17,12 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
+import ru.workinprogress.booblik.dev.common.FileOffsetStore
 import ru.workinprogress.booblik.net.client.BooblikSubscriber
 import ru.workinprogress.booblik.net.client.StartPosition
 import ru.workinprogress.booblik.net.client.checkpointing
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicLong
-import ru.workinprogress.booblik.dev.common.FileOffsetStore
 import kotlin.io.path.Path
 
 /**
@@ -67,7 +67,9 @@ private suspend fun consumeForever(
     val saved = store.load(topic, partition)
     val start = saved?.let { StartPosition.At(it) } ?: StartPosition.Earliest
     stats.resumedFrom = saved?.value
-    println("consumer ${config.name}: partition ${config.partition}, starting from ${saved?.value ?: "the beginning of the live log"}")
+    println(
+        "consumer ${config.name}: partition ${config.partition}, starting from ${saved?.value ?: "the beginning of the live log"}",
+    )
 
     val address = InetSocketAddress(config.brokerHost, config.brokerPort)
     while (true) {

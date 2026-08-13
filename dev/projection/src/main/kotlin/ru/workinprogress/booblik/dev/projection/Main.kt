@@ -88,7 +88,9 @@ private suspend fun build(
         try {
             BooblikSubscriber(address).use { subscriber ->
                 val partitions = subscriber.partitionsOf(topic)
-                println("projection: rebuilding ${config.topic} from the beginning of the live log, ${partitions.size} partition(s)")
+                println(
+                    "projection: rebuilding ${config.topic} from the beginning of the live log, ${partitions.size} partition(s)",
+                )
 
                 // History first. This flow completes, and that completion is the signal the query
                 // surface waits for.

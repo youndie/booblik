@@ -38,7 +38,11 @@ class FileOffsetStore(
         withContext(Dispatchers.IO) {
             val file = fileFor(topic, partition)
             if (!Files.exists(file)) return@withContext null
-            Files.readString(file).trim().toLongOrNull()?.let(::Offset)
+            Files
+                .readString(file)
+                .trim()
+                .toLongOrNull()
+                ?.let(::Offset)
         }
 
     override suspend fun save(

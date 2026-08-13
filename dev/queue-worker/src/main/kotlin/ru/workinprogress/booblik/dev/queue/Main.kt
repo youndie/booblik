@@ -203,8 +203,11 @@ private suspend fun work(
         stats.current = candidate
         delay(config.workMillis)
         producer
-            .send(claimsTopic, PartitionId(0), ClaimRecord.encode(ClaimRecord(ClaimRecord.DONE, config.name, candidate)))
-            .await()
+            .send(
+                claimsTopic,
+                PartitionId(0),
+                ClaimRecord.encode(ClaimRecord(ClaimRecord.DONE, config.name, candidate)),
+            ).await()
         stats.current = null
         stats.finished.incrementAndGet()
     }

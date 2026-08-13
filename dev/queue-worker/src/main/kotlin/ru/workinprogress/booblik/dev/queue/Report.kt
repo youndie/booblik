@@ -84,13 +84,21 @@ object Report {
             println("claims that won         $wins")
             println("attempts that lost      $wasted  (${"%.1f".format(share)} % of all attempts)")
 
-            val distribution = attemptsPerTask.values.groupingBy { it }.eachCount().toSortedMap()
-            println("attempts per task       " + distribution.entries.joinToString(", ") { "${it.key}→${it.value} tasks" })
+            val distribution =
+                attemptsPerTask.values
+                    .groupingBy { it }
+                    .eachCount()
+                    .toSortedMap()
+            println(
+                "attempts per task       " + distribution.entries.joinToString(", ") { "${it.key}→${it.value} tasks" },
+            )
 
             // Completions must equal finished tasks. More means the same task was worked twice,
             // which is the failure the whole protocol exists to prevent.
             if (completions != state.done.size) {
-                println("::error:: $completions completions for ${state.done.size} distinct tasks — a task was worked twice")
+                println(
+                    "::error:: $completions completions for ${state.done.size} distinct tasks — a task was worked twice",
+                )
                 kotlin.system.exitProcess(1)
             }
             println("verdict                 every finished task was completed exactly once ($wonPerWorker)")
