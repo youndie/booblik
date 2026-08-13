@@ -46,8 +46,20 @@ import kotlin.io.path.deleteRecursively
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 class GroupCommitBenchmark {
-    @Param("1", "8", "64")
+    @Param("1", "2", "4", "8", "64")
     var producers: Int = 1
+
+    /**
+     * How long the writer holds a group open, in milliseconds. `0` is the shipped default — take
+     * whatever is already queued and go.
+     *
+     * The two values exist to answer open question 3, which predicted the win would be small at 64
+     * producers, where groups are large anyway, and noticeable at 2–4. `2` is the small end of
+     * "units of milliseconds" from that hypothesis, and it is on the same order as the barrier
+     * itself, which is what makes the trade a real one.
+     */
+    @Param("0", "2")
+    var groupWindowMillis: Long = 0
 
     @Param("FILE_CHANNEL", "MAPPED")
     var mode: String = "FILE_CHANNEL"
@@ -65,7 +77,7 @@ class GroupCommitBenchmark {
         dir = MeasurementDir.create("booblik-groupcommit")
         log = PartitionLog.open(dir, SegmentMode.valueOf(mode), segmentCapacity = SEGMENT_CAPACITY)
         scope = CoroutineScope(SupervisorJob())
-        writer = PartitionWriter(log, scope)
+        writer = PartitionWriter(log, scope, groupWindowMillis = groupWindowMillis)
     }
 
     @TearDown

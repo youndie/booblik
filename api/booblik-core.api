@@ -112,8 +112,8 @@ public final class ru/workinprogress/booblik/log/FlushPolicy$Companion {
 public final class ru/workinprogress/booblik/log/PartitionWriter {
 	public static final field Companion Lru/workinprogress/booblik/log/PartitionWriter$Companion;
 	public static final field DEFAULT_MAILBOX_CAPACITY I
-	public fun <init> (Lru/workinprogress/booblik/storage/Log;Lkotlinx/coroutines/CoroutineScope;ILru/workinprogress/booblik/log/FlushPolicy;)V
-	public synthetic fun <init> (Lru/workinprogress/booblik/storage/Log;Lkotlinx/coroutines/CoroutineScope;ILru/workinprogress/booblik/log/FlushPolicy;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lru/workinprogress/booblik/storage/Log;Lkotlinx/coroutines/CoroutineScope;ILru/workinprogress/booblik/log/FlushPolicy;J)V
+	public synthetic fun <init> (Lru/workinprogress/booblik/storage/Log;Lkotlinx/coroutines/CoroutineScope;ILru/workinprogress/booblik/log/FlushPolicy;JILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun append-YokPrsk (Ljava/util/List;Lru/workinprogress/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun append-YokPrsk ([BLru/workinprogress/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public static synthetic fun append-YokPrsk$default (Lru/workinprogress/booblik/log/PartitionWriter;Ljava/util/List;Lru/workinprogress/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;

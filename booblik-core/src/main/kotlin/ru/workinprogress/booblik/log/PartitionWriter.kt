@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -46,6 +47,19 @@ class PartitionWriter(
     scope: CoroutineScope,
     mailboxCapacity: Int = DEFAULT_MAILBOX_CAPACITY,
     private val flushPolicy: FlushPolicy = FlushPolicy.Disabled,
+    /**
+     * How long a group may wait for company before the barrier runs, in milliseconds.
+     *
+     * Zero — the default — is the behaviour this writer has always had: a group is whatever is
+     * already in the mailbox, and nobody waits. A non-zero window trades a bounded amount of
+     * latency for a larger group, which matters only under [AckPolicy.FORCED], where the barrier is
+     * the cost and everyone in the group pays for one.
+     *
+     * Opening this as a knob rather than choosing a default is deliberate: which side of that trade
+     * is right depends on the number of producers a deployment actually has, and that is not
+     * something the broker can know. What it costs is measured (замер 22).
+     */
+    private val groupWindowMillis: Long = 0,
 ) {
     private val mailbox = Channel<WriteCommand>(mailboxCapacity)
 
@@ -152,13 +166,14 @@ class PartitionWriter(
             val first = awaitCommand() ?: break
             group.add(first)
             // Drain without suspending. Everything already in the mailbox joins this group and
-            // shares one barrier; anything that arrives later waits for the next round. No timer,
-            // no configured window: the group size self-adjusts to the load, because a slow
-            // barrier lets more messages accumulate behind it.
+            // shares one barrier; anything that arrives later waits for the next round. With no
+            // window the group size still self-adjusts to the load, because a slow barrier lets
+            // more messages accumulate behind it.
             while (true) {
                 val more = mailbox.tryReceive().getOrNull() ?: break
                 group.add(more)
             }
+            if (groupWindowMillis > 0) collectDuring(group)
 
             var needsForce = false
             for (command in group) {
@@ -178,6 +193,31 @@ class PartitionWriter(
             // After the acks, not before: a reader woken by this must find the records already
             // readable, and `Log.nextOffset` is what makes them so.
             watermark.value = log.nextOffset
+        }
+    }
+
+    /**
+     * Holds the group open for [groupWindowMillis], taking whatever else arrives.
+     *
+     * The window is measured from the moment the **first** command of the group arrived, not
+     * extended on every arrival: a steady stream would otherwise hold the barrier off for ever,
+     * which is the same trap the client's accumulator has on its linger.
+     *
+     * `select`, not `withTimeoutOrNull(receive)`, for the reason written at [awaitCommand]: a
+     * cancelled receive can swallow a command, and the producer waiting on it never hears back.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private suspend fun collectDuring(group: MutableList<WriteCommand>) {
+        val deadline = System.nanoTime() + groupWindowMillis * 1_000_000
+        while (true) {
+            val remaining = (deadline - System.nanoTime()) / 1_000_000
+            if (remaining <= 0) return
+            val received =
+                select<ChannelResult<WriteCommand>?> {
+                    mailbox.onReceiveCatching { it }
+                    onTimeout(remaining) { null }
+                } ?: return
+            group.add(received.getOrNull() ?: return)
         }
     }
 
