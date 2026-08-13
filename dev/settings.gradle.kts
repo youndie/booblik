@@ -11,9 +11,11 @@ plugins {
 
 rootProject.name = "booblik-dev"
 
+include(":common")
 include(":publisher")
 include(":consumer")
 include(":queue-worker")
+include(":relay")
 
 dependencyResolutionManagement {
     repositories {

@@ -18,7 +18,7 @@ services:
       # `tasks` and `claims` are one partition each, and that is the design rather than
       # thrift: the queue's arbiter is the order of a partition, and an order exists only
       # inside one.
-      BOOBLIK_TOPICS: events:3,tasks:1,claims:1
+      BOOBLIK_TOPICS: events:3,tasks:1,claims:1,mirrored:3,roundtrip:1
       BOOBLIK_METRICS_INTERVAL_MILLIS: 10000
     volumes:
       - broker-data:/var/lib/booblik
@@ -153,8 +153,54 @@ services:
       broker:
         condition: service_healthy
 
+  # Kafka, as itself, so the relay is checked against the real protocol rather than a stand-in.
+  # The official image needs no configuration at all in KRaft mode.
+  kafka:
+    image: apache/kafka:4.1.1
+    profiles: [relay]
+    ports:
+      - "19092:9092"
+
+  # Kafka -> booblik. The position lives in Kafka, named by a consumer group.
+  relay-in:
+    build: ./relay
+    profiles: [relay]
+    environment:
+      RELAY_NAME: relay-in
+      RELAY_DIRECTION: KAFKA_TO_BOOBLIK
+      BOOBLIK_HOST: broker
+      BOOBLIK_TOPIC: mirrored
+      KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_TOPIC: orders
+    ports:
+      - "8094:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+
+  # booblik -> Kafka. Nothing on the broker remembers a reader, so this one keeps a file on a
+  # volume — the same FileOffsetStore the consumer uses.
+  relay-out:
+    build: ./relay
+    profiles: [relay]
+    environment:
+      RELAY_NAME: relay-out
+      RELAY_DIRECTION: BOOBLIK_TO_KAFKA
+      BOOBLIK_HOST: broker
+      BOOBLIK_TOPIC: mirrored
+      KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_TOPIC: mirrored-back
+    volumes:
+      - relay-out-state:/var/lib/relay
+    ports:
+      - "8095:8080"
+    depends_on:
+      broker:
+        condition: service_healthy
+
 volumes:
   broker-data:
   consumer-0-state:
   consumer-1-state:
   consumer-2-state:
+  relay-out-state:

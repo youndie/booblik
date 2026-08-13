@@ -94,9 +94,11 @@ happens to be sitting in `booblik-app/build/install`:
 ./ci/docker-build.sh booblik:local
 ```
 
-176 MB on amd64, on `bellsoft/liberica-openjre-alpine:25` — Alpine with **glibc**, not musl, so the
-runtime is the one the numbers above were measured on. Half of what the same image costs on Debian:
-`eclipse-temurin:25-jre` builds the same distribution at 364 MB. Nothing is installed into the
+**62 MB to pull**, on `bellsoft/liberica-openjre-alpine:25` — Alpine with **glibc**, not musl, so
+the runtime is the one the numbers above were measured on. Unpacked it is 240 MB as Linux docker
+reports it and 176 MB as Docker Desktop does, which is a fact about `docker images` rather than
+about the image; the ratio is the portable part, and it is **half** of the same distribution on
+`eclipse-temurin:25-jre` (514 MB against 240 on the same host). Nothing is installed into the
 image — busybox already covers what the start scripts call. Non-root under a pinned uid, data on a
 volume, and a `HEALTHCHECK` that asks the broker METADATA rather than opening a TCP connection: the kernel accepts
 a connection into the backlog with no help from the process, so a connect cannot tell a live broker
@@ -125,7 +127,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.youndie.booblik:booblik-client:0.1.2")
+    implementation("io.github.youndie.booblik:booblik-client:0.1.3")
 }
 ```
 

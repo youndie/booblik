@@ -22,6 +22,7 @@ import ru.workinprogress.booblik.net.client.StartPosition
 import ru.workinprogress.booblik.net.client.checkpointing
 import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicLong
+import ru.workinprogress.booblik.dev.common.FileOffsetStore
 import kotlin.io.path.Path
 
 /**

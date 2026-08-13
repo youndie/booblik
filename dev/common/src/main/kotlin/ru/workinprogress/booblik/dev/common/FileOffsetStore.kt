@@ -1,4 +1,4 @@
-package ru.workinprogress.booblik.dev.consumer
+package ru.workinprogress.booblik.dev.common
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,6 +16,9 @@ import java.nio.file.StandardCopyOption
  * `OffsetStore` ships declared and not implemented, and that is deliberate: where a position lives
  * — a file, a row, the same transaction as the work — is a decision about a system the library
  * knows nothing about. This is what the simplest of those decisions looks like.
+ *
+ * Shared by the consumer and by the relay, which is why it is here rather than in either: both need
+ * a position that outlives the process, and neither is entitled to own the other's copy.
  *
  * Written through a temporary file and an atomic move. A position saved half-way is worse than no
  * position at all: `"12"` truncated to `"1"` parses fine and silently replays eleven records, which
