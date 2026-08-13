@@ -109,9 +109,12 @@ It only helps **with a backlog**. On an idle queue there is usually one claimabl
 at random from a list of one is `first`; the loss rate then describes the arrival rate against the
 worker count rather than the protocol.
 
-Thirty workers are not measured on this stand: the run produces zero tasks in sixty seconds —
-thirty-one containers in a VM do not answer a question about contention. That is recorded as a
-number in measurement 20.3 and left to a stronger machine.
+**Collisions come from workers being in step, not from there being many of them.** Thirty workers
+with a backlog collide *less* than three — 1.6–3.7 % of attempts against 8–27 % — because 400 ms of
+work finishes at different moments and they look at the head of the queue one at a time. Idle
+workers, by contrast, all wake on the same arriving task. At thirty the wasted attempts cost nothing
+in throughput either: all four runs sat at the arithmetic ceiling of 73.6 tasks/s
+(measurement 21).
 
 ## Layer 3: a projection — state as a function of the log
 

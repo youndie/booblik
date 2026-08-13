@@ -161,10 +161,13 @@ private suspend fun work(
 
     while (true) {
         val now = System.currentTimeMillis()
-        // `first` is the obvious choice and the expensive one: every idle worker sees the same
-        // free task at the head of the queue and claims it at the same moment, so attempts per task
-        // climb towards the number of workers. `random` spreads the attention, at the cost of
-        // giving up the order tasks were published in. M-103 measures both.
+        // `first` is the obvious choice and the more expensive one, though not for the reason
+        // written here first. Collisions come from workers being **in step**, not from there being
+        // many of them: idle workers all wake on the same arriving task, while busy ones finish at
+        // different moments and look at the head one at a time. Measured (замер 21): thirty workers
+        // with a backlog collide *less* than three — 1.6–3.7 % of attempts against 8–27 % — because
+        // 400 ms of work spreads them out. `random` costs nothing and holds at 1.00 attempts per
+        // task at every scale tried, at the price of giving up the order tasks were published in.
         val claimable = claims.value.claimable(tasks.value.keys.sorted(), now)
         val candidate = if (config.pickRandom) claimable.randomOrNull() else claimable.firstOrNull()
         if (candidate == null) {
