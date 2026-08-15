@@ -3,7 +3,7 @@
 [![ktlint](https://img.shields.io/badge/ktlint%20code--style-%E2%9D%A4-FF4081.svg)](https://ktlint.github.io/)
 [![kotlin](https://img.shields.io/badge/Kotlin-2.4.10-blue?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![jvm](https://img.shields.io/badge/JVM-25-blue?logoColor=white)](https://openjdk.org/projects/jdk/25/)
-[![license](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A message broker in Kotlin/JVM built on an append-only log: a topic splits into partitions, a
 partition into segments, and a consumer reads by a numeric offset it keeps itself.
