@@ -9,6 +9,10 @@ plugins {
 dependencies {
     implementation(project(":booblik-core"))
     implementation(project(":booblik-net"))
+    // For M-140 alone: the two FETCH decoders live one in each of these, and the question is which
+    // one a JVM reader should be left with.
+    implementation(project(":booblik-client"))
+    implementation(project(":booblik-protocol"))
     // Declared here rather than inherited: `:booblik-core` keeps coroutines as `implementation`, so
     // it does not leak onto consumers' compile classpaths — which is right for a library and means
     // anything driving the writer has to ask for them itself.
@@ -79,6 +83,16 @@ benchmark {
             warmups = 5
             iterations = 10
             include("FlowOverheadBenchmark")
+        }
+        // `./gradlew :booblik-benchmark:mainDecodeBenchmark` — M-140: the two FETCH decoders side
+        // by side, which is the only comparison that decides whether merging them costs the JVM
+        // anything. Nothing else in the suite touches the read path's decoding, so running the rest
+        // would measure paths this question cannot reach.
+        register("decode") {
+            common()
+            warmups = 5
+            iterations = 10
+            include("FetchDecodeBenchmark")
         }
         // `./gradlew :booblik-benchmark:mainCiBenchmark` — what a shared runner is allowed to
         // measure, and nothing else.
