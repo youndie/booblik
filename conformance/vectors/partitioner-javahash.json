@@ -1,0 +1,152 @@
+{
+  "algorithm": "java.util.Arrays.hashCode over the key as signed bytes, then Math.floorMod by the partition count",
+  "note": "Signed at both ends. 0x80 must enter the sum as -128; a language with unsigned bytes must cast.",
+  "offsetBasis": null,
+  "prime": null,
+  "specification": "docs/api/protocol-wire.md §7",
+  "vectors": [
+    {
+      "name": "empty",
+      "keyHex": "",
+      "hash": 1,
+      "partition": {
+        "1": 0,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "16": 1,
+        "64": 1
+      }
+    },
+    {
+      "name": "zero byte",
+      "keyHex": "00",
+      "hash": 31,
+      "partition": {
+        "1": 0,
+        "2": 1,
+        "3": 1,
+        "4": 3,
+        "16": 15,
+        "64": 31
+      }
+    },
+    {
+      "name": "0x7f — last byte a signed reading gets right",
+      "keyHex": "7f",
+      "hash": 158,
+      "partition": {
+        "1": 0,
+        "2": 0,
+        "3": 2,
+        "4": 2,
+        "16": 14,
+        "64": 30
+      }
+    },
+    {
+      "name": "0x80 — first byte a signed reading gets wrong",
+      "keyHex": "80",
+      "hash": 4294967199,
+      "partition": {
+        "1": 0,
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        "16": 15,
+        "64": 31
+      }
+    },
+    {
+      "name": "0xff",
+      "keyHex": "ff",
+      "hash": 30,
+      "partition": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 2,
+        "16": 14,
+        "64": 30
+      }
+    },
+    {
+      "name": "ascii",
+      "keyHex": "757365722d31",
+      "hash": 51471856,
+      "partition": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 0,
+        "16": 0,
+        "64": 48
+      }
+    },
+    {
+      "name": "ascii, one bit apart from the previous",
+      "keyHex": "757365722d32",
+      "hash": 51471857,
+      "partition": {
+        "1": 0,
+        "2": 1,
+        "3": 2,
+        "4": 1,
+        "16": 1,
+        "64": 49
+      }
+    },
+    {
+      "name": "utf-8 cyrillic",
+      "keyHex": "d0b7d0b0d0bad0b0d0b72d37",
+      "hash": 2638328739,
+      "partition": {
+        "1": 0,
+        "2": 1,
+        "3": 2,
+        "4": 3,
+        "16": 3,
+        "64": 35
+      }
+    },
+    {
+      "name": "utf-8 emoji",
+      "keyHex": "6f726465722df09f9a80",
+      "hash": 3204116213,
+      "partition": {
+        "1": 0,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "16": 5,
+        "64": 53
+      }
+    },
+    {
+      "name": "every byte value",
+      "keyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+      "hash": 3530875009,
+      "partition": {
+        "1": 0,
+        "2": 1,
+        "3": 0,
+        "4": 1,
+        "16": 1,
+        "64": 1
+      }
+    },
+    {
+      "name": "long",
+      "keyHex": "637573746f6d65722f3939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939",
+      "hash": 3919041968,
+      "partition": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 0,
+        "16": 0,
+        "64": 48
+      }
+    }
+  ]
+}

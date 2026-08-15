@@ -1,0 +1,88 @@
+name: client-python
+
+# One workflow per client, because GitHub applies `paths:` to a whole workflow rather than to a job.
+#
+# `conformance/**` is in the list as well as the client's own directory, and that is not padding:
+# the kit and the golden vectors are shared, so a change to either has to re-run every client rather
+# than only the one whose files moved.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'clients/python/**'
+      - 'clients/python-asyncio/**'
+      - 'conformance/**'
+      - '.github/workflows/client-python.yml'
+  pull_request:
+    paths:
+      - 'clients/python/**'
+      - 'clients/python-asyncio/**'
+      - 'conformance/**'
+      - '.github/workflows/client-python.yml'
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      # unittest against a fake broker that decodes what the client encoded. No
+      # install step: this client and its tests have no dependencies at all.
+      - name: Gate
+        run: ./clients/python/gate.sh
+
+      # The asyncio client shares this package and its codec, so it shares this workflow — but it
+      # gets its own step, because a red run has to say which of the two broke.
+      - name: Gate — asyncio
+        run: ./clients/python-asyncio/gate.sh
+
+  conformance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # A job of its own because it needs a broker in Docker, and the gate above must not be able to
+      # go red for a reason that has nothing to do with this client's code.
+      #
+      # The gate is skipped inside the image build: nothing here changed the JVM side, and the
+      # `build` workflow runs it on the same commit anyway.
+      - name: Build the image
+        env:
+          BOOBLIK_SKIP_GATE: '1'
+        run: ./ci/docker-build.sh booblik:ci
+
+      # The only check that can catch a client which is wrong self-consistently — most of all a
+      # partitioner that disagrees with the specification, which no unit test of this client alone
+      # would ever notice.
+      - name: Conformance
+        env:
+          BOOBLIK_IMAGE: booblik:ci
+        run: ./conformance/run.sh clients/python/conformance-client.sh
+
+      # Separately, because it is a different socket implementation answering the same contract —
+      # the shared codec is exactly the part this cannot tell you about.
+      - name: Conformance — asyncio
+        env:
+          BOOBLIK_IMAGE: booblik:ci
+        run: ./conformance/run.sh clients/python-asyncio/conformance-client.sh

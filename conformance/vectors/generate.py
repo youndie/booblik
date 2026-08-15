@@ -1,0 +1,150 @@
+"""Generates the golden vectors every booblik client is checked against.
+
+The algorithms live in `conformance/harness/algorithms.py` and are a **second** implementation, in
+another language, rather than a dump of what the Kotlin client produces. A dump would prove only
+that the Kotlin client is self-consistent, which was never in doubt; two implementations agreeing
+is the property that matters, and it is the property every future client has to have.
+
+Both are pinned in `docs/api/protocol-wire.md` §7. Run this only to add vectors — regenerating to
+make a failing test pass is backwards, and the test says so.
+
+    python3 conformance/vectors/generate.py
+"""
+
+import json
+import pathlib
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "harness"))
+
+from algorithms import (  # noqa: E402
+    FNV_OFFSET_BASIS,
+    FNV_PRIME,
+    crc32c,
+    fnv1a32,
+    java_array_hash,
+    partition_fnv1a,
+    partition_java_array_hash,
+)
+
+PARTITION_COUNTS = [1, 2, 3, 4, 16, 64]
+
+ALGORITHMS = {
+    "fnv1a": {
+        "hash": fnv1a32,
+        "fold": partition_fnv1a,
+        "algorithm": "FNV-1a 32-bit over the key as unsigned bytes, then unsigned remainder by the partition count",
+        "note": "No signed reading anywhere: bytes are unsigned, the fold is unsigned.",
+    },
+    "javahash": {
+        "hash": java_array_hash,
+        "fold": partition_java_array_hash,
+        "algorithm": "java.util.Arrays.hashCode over the key as signed bytes, then Math.floorMod by the partition count",
+        "note": "Signed at both ends. 0x80 must enter the sum as -128; a language with unsigned bytes must cast.",
+    },
+}
+
+# Keys chosen for what they can catch, not for coverage. The first four are the whole reason this
+# file exists: 0x80 is where a signed byte and an unsigned byte stop agreeing, and a client that
+# sign-extends passes every ASCII vector before failing on the first non-ASCII key in production.
+KEYS = [
+    ("empty", b""),
+    ("zero byte", b"\x00"),
+    ("0x7f — last byte a signed reading gets right", b"\x7f"),
+    ("0x80 — first byte a signed reading gets wrong", b"\x80"),
+    ("0xff", b"\xff"),
+    ("ascii", b"user-1"),
+    ("ascii, one bit apart from the previous", b"user-2"),
+    ("utf-8 cyrillic", "заказ-7".encode("utf-8")),
+    ("utf-8 emoji", "order-🚀".encode("utf-8")),
+    ("every byte value", bytes(range(256))),
+    ("long", b"customer/" + b"9" * 200),
+]
+
+PAYLOADS = [
+    ("empty", b""),
+    ("one byte", b"a"),
+    ("check value", b"123456789"),
+    ("high bytes", b"\x80\x81\xfe\xff"),
+    ("zeroes", b"\x00" * 32),
+    ("ones", b"\xff" * 32),
+    ("every byte value", bytes(range(256))),
+    ("utf-8 cyrillic", "событие".encode("utf-8")),
+]
+
+here = pathlib.Path(__file__).parent
+
+
+def write_tsv(filename: str, header: list, rows: list, preamble: list) -> None:
+    """TSV is the canonical form and JSON is the mirror — not the other way round.
+
+    Two of the languages that have to read these have no JSON parser to hand: Kotlin/JVM, where it
+    would be a dependency this project has to justify, and C. Tab-separated fields are three lines
+    of parsing everywhere and a dependency nowhere. Names go last, being the only field with spaces.
+    """
+    lines = [f"# {line}" for line in preamble]
+    lines.append("# " + "\t".join(header))
+    lines += ["\t".join(row) for row in rows]
+    (here / filename).write_text("\n".join(lines) + "\n")
+    print(f"   wrote {filename}: {len(rows)} vectors")
+
+
+partitioners = {
+    slug: {
+        "algorithm": spec["algorithm"],
+        "note": spec["note"],
+        "offsetBasis": FNV_OFFSET_BASIS if slug == "fnv1a" else None,
+        "prime": FNV_PRIME if slug == "fnv1a" else None,
+        "specification": "docs/api/protocol-wire.md §7",
+        "vectors": [
+            {
+                "name": name,
+                "keyHex": key.hex(),
+                "hash": spec["hash"](key),
+                "partition": {str(n): spec["fold"](key, n) for n in PARTITION_COUNTS},
+            }
+            for name, key in KEYS
+        ],
+    }
+    for slug, spec in ALGORITHMS.items()
+}
+
+checksum = {
+    "algorithm": "CRC-32C (Castagnoli), polynomial 0x1EDC6F41, reflected input and output, init and xorout 0xFFFFFFFF",
+    "specification": "docs/api/protocol-wire.md §7",
+    "warning": "Not zlib's CRC-32 and not .NET's System.IO.Hashing.Crc32 — a different polynomial, silently.",
+    "vectors": [
+        {"name": name, "payloadHex": payload.hex(), "crc32c": crc32c(payload)}
+        for name, payload in PAYLOADS
+    ],
+}
+
+for slug, spec in ALGORITHMS.items():
+    write_tsv(
+        f"partitioner-{slug}.tsv",
+        ["keyHex", "hash", *(f"p{n}" for n in PARTITION_COUNTS), "name"],
+        [
+            [
+                key.hex(),
+                str(spec["hash"](key)),
+                *(str(spec["fold"](key, n)) for n in PARTITION_COUNTS),
+                name,
+            ]
+            for name, key in KEYS
+        ],
+        [spec["algorithm"], spec["note"], "generated by conformance/vectors/generate.py"],
+    )
+
+write_tsv(
+    "crc32c.tsv",
+    ["payloadHex", "crc32c", "name"],
+    [[payload.hex(), str(crc32c(payload)), name] for name, payload in PAYLOADS],
+    [checksum["algorithm"], checksum["warning"], f"specified in {checksum['specification']}"],
+)
+
+mirrors = {f"partitioner-{slug}.json": doc for slug, doc in partitioners.items()}
+mirrors["crc32c.json"] = checksum
+
+for filename, document in mirrors.items():
+    (here / filename).write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n")
+    print(f"   wrote {filename}: {len(document['vectors'])} vectors")

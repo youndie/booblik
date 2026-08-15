@@ -1,0 +1,78 @@
+name: client-java
+
+# One workflow per client, because GitHub applies `paths:` to a whole workflow rather than to a job.
+#
+# `conformance/**` is in the list as well as the client's own directory, and that is not padding:
+# the kit and the golden vectors are shared, so a change to either has to re-run every client rather
+# than only the one whose files moved.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'clients/java/**'
+      - 'conformance/**'
+      - '.github/workflows/client-java.yml'
+  pull_request:
+    paths:
+      - 'clients/java/**'
+      - 'conformance/**'
+      - '.github/workflows/client-java.yml'
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # `gradle test` against a fake broker that decodes what the client encoded. `-Xlint:all
+      # -Werror` is on for every compilation, so the build is the style and analysis check as well —
+      # there is no separate linter step to drift out of sync with it.
+      - name: Gate
+        run: ./clients/java/gate.sh
+
+  conformance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Two JDKs: the client compiles under 21 and the broker image needs 25. setup-java leaves the
+      # last one in JAVA_HOME, and the client's own Gradle build resolves its toolchain regardless.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # A job of its own because it needs a broker in Docker, and the gate above must not be able to
+      # go red for a reason that has nothing to do with this client's code.
+      #
+      # The broker's gate is skipped inside the image build: nothing here changed the JVM side, and
+      # the `build` workflow runs it on the same commit anyway.
+      - name: Build the image
+        env:
+          BOOBLIK_SKIP_GATE: '1'
+        run: ./ci/docker-build.sh booblik:ci
+
+      # The only check that can catch a client which is wrong self-consistently — most of all a
+      # partitioner that disagrees with the specification, which no unit test of this client alone
+      # would ever notice.
+      - name: Conformance
+        env:
+          BOOBLIK_IMAGE: booblik:ci
+        run: ./conformance/run.sh clients/java/conformance-client.sh

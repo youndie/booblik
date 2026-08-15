@@ -28,8 +28,12 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
+      # `./ci/gate.sh jvm` rather than `./gradlew check` directly: the gate script is what a
+      # developer runs (project rule 1 since M-131а), and a script CI never executes is a script
+      # that rots until the day somebody depends on it. The JVM part is named explicitly because
+      # this runner has no Docker — the conformance part belongs to the `image` job below.
       - name: Check
-        run: ./gradlew check --stacktrace
+        run: ./ci/gate.sh jvm
 
       # Benchmarks are compiled, never run here. Compiling them is the point: a benchmark that no
       # ordinary build touches rots silently and is discovered the day its number is needed.
@@ -83,6 +87,19 @@ jobs:
         env:
           BOOBLIK_IMAGE: booblik:ci
         run: ./ci/docker-smoke.sh
+
+      # The conformance kit against its reference client (M-131). Here rather than in `check`
+      # because it needs a live broker, and in this job rather than one of its own because the
+      # image it needs is the one just built.
+      #
+      # The reference client passing proves the harness works, not that the JVM client is correct —
+      # it picks partitions with the very function it would be checked against. What checks that is
+      # `ConformanceVectorsTest` in the gate, against vectors computed in another language. Both are
+      # needed, and neither substitutes for the other.
+      - name: Conformance — the reference client
+        env:
+          BOOBLIK_IMAGE: booblik:ci
+        run: ./conformance/run.sh
 
   # The sample, built against the **published** client rather than against this checkout.
   #
