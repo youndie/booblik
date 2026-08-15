@@ -9,6 +9,31 @@ class FetchFailedException(
     val code: ErrorCode,
 ) : IllegalStateException("broker refused the fetch: $code")
 
+/**
+ * The next record is larger than `maxBytes`, so it can never arrive whole.
+ *
+ * One of the two ways a reader stops making progress, and the only one that does not resolve itself.
+ * A response with no whole records and a truncated tail means the next record does not fit; dropping
+ * the tail and asking again — which is right in every other case — makes the identical request for
+ * ever. The reader keeps running, returns nothing and never advances, and from the outside that is
+ * indistinguishable from a reader that has caught up.
+ *
+ * Thrown rather than retried, because raising `maxBytes` above [recordBytes] is the only fix. Not to
+ * be confused with [ErrorCode.RECORD_TOO_LARGE], which is the broker refusing to **store** a record
+ * too big for a segment; this is the reader's own limit, chosen by the reader.
+ *
+ * Added in M-139, after the same place written in Go, Python, Node, .NET and Java all reported it
+ * and the JVM client alone went quiet.
+ */
+class RecordExceedsMaxBytesException(
+    val offset: Offset,
+    val recordBytes: Int,
+    val maxBytes: Int,
+) : IllegalStateException(
+        "record at offset ${offset.value} needs $recordBytes bytes and maxBytes is $maxBytes, " +
+            "so it can never be read whole",
+    )
+
 /** A batch of records and where the log ended when they were read. */
 data class Records(
     val records: List<ByteArray>,
@@ -55,10 +80,18 @@ class Consumer(
      * tail is dropped and the position advances only past whole records, so the next poll asks for
      * that record again from its start. The broker will not do this for us: finding the record
      * boundary means parsing the batch, which is the work the zero-copy read path exists to avoid.
+     *
+     * @throws RecordExceedsMaxBytesException when nothing whole came back and something partial did.
+     *     That is the one case where dropping the tail and asking again never terminates, and until
+     *     M-139 this method reported it as an empty batch — indistinguishable, from the caller's
+     *     side, from having caught up.
      */
     suspend fun poll(): Records {
         val result = connection.fetch(topic, partition, position, maxBytes)
         if (result.error != ErrorCode.NONE) throw FetchFailedException(result.error)
+        if (result.records.isEmpty() && result.truncated) {
+            throw RecordExceedsMaxBytesException(position, result.truncatedRecordBytes, maxBytes)
+        }
         position += result.records.size.toLong()
         return Records(result.records, result.highWatermark)
     }

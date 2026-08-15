@@ -94,7 +94,7 @@ class Producer(
      */
     suspend fun topic(
         topic: TopicName,
-        partitioner: Partitioner = Partitioner.ByKeyHash,
+        partitioner: Partitioner = Partitioner.Fnv1a,
     ): TopicHandle {
         val answer = connection.metadata(listOf(topic))
         if (answer.error != ErrorCode.NONE) throw ProduceFailedException(answer.error)
@@ -180,7 +180,12 @@ class Producer(
 
     private suspend fun sendAll() {
         if (pending.isEmpty()) return
-        val batches = pending.entries.toList()
+        // `map`, not `entries.toList()`. The latter hands back **views** into the map, and reading
+        // `key` off one after `clear()` is undefined — Kotlin/Native's HashMap notices and throws
+        // ConcurrentModificationException, while the JVM's LinkedHashMap does not check and returns
+        // the stale key, so the same line worked here by accident of one implementation for as long
+        // as there was only one. Found by the Kotlin/Native probe in M-134а.
+        val batches = pending.map { (key, batch) -> key to batch }
         pending.clear()
         for ((key, batch) in batches) {
             deliver(key, batch)

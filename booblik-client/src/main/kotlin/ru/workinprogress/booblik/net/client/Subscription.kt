@@ -13,6 +13,7 @@ import ru.workinprogress.booblik.Offset
 import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.net.wire.ErrorCode
+import ru.workinprogress.booblik.net.wire.PartitionInfo
 import java.io.Closeable
 import java.net.InetSocketAddress
 
@@ -193,6 +194,12 @@ class BooblikSubscriber(
                         minBytes = config.minBytes,
                     )
                 if (answer.error != ErrorCode.NONE) throw FetchFailedException(answer.error)
+                // Nothing whole and something partial: the next record is bigger than `maxBytes` and
+                // never arrives. Continuing would ask for it again, and again, for ever — a
+                // subscription that runs, emits nothing and reports nothing (M-139).
+                if (answer.records.isEmpty() && answer.truncated) {
+                    throw RecordExceedsMaxBytesException(position, answer.truncatedRecordBytes, config.maxBytes)
+                }
                 if (answer.records.isEmpty()) {
                     // Caught up. Under `follow` the broker already waited before answering, so
                     // there is nothing to sleep off here — asking again immediately is asking it

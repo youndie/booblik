@@ -1,42 +1,3 @@
-public final class ru/workinprogress/booblik/Offset : java/lang/Comparable {
-	public static final field Companion Lru/workinprogress/booblik/Offset$Companion;
-	public static final synthetic fun box-impl (J)Lru/workinprogress/booblik/Offset;
-	public synthetic fun compareTo (Ljava/lang/Object;)I
-	public fun compareTo-0rT4OEU (J)I
-	public static fun compareTo-0rT4OEU (JJ)I
-	public static fun constructor-impl (J)J
-	public fun equals (Ljava/lang/Object;)Z
-	public static fun equals-impl (JLjava/lang/Object;)Z
-	public static final fun equals-impl0 (JJ)Z
-	public final fun getValue ()J
-	public fun hashCode ()I
-	public static fun hashCode-impl (J)I
-	public static final fun inc-SgWxkiU (J)J
-	public static final fun minus-0rT4OEU (JJ)J
-	public static final fun plus-t_NbKng (JJ)J
-	public fun toString ()Ljava/lang/String;
-	public static fun toString-impl (J)Ljava/lang/String;
-	public final synthetic fun unbox-impl ()J
-}
-
-public final class ru/workinprogress/booblik/Offset$Companion {
-	public final fun getZERO-SgWxkiU ()J
-}
-
-public final class ru/workinprogress/booblik/PartitionId {
-	public static final synthetic fun box-impl (I)Lru/workinprogress/booblik/PartitionId;
-	public static fun constructor-impl (I)I
-	public fun equals (Ljava/lang/Object;)Z
-	public static fun equals-impl (ILjava/lang/Object;)Z
-	public static final fun equals-impl0 (II)Z
-	public final fun getValue ()I
-	public fun hashCode ()I
-	public static fun hashCode-impl (I)I
-	public fun toString ()Ljava/lang/String;
-	public static fun toString-impl (I)Ljava/lang/String;
-	public final synthetic fun unbox-impl ()I
-}
-
 public final class ru/workinprogress/booblik/Position : java/lang/Comparable {
 	public static final field Companion Lru/workinprogress/booblik/Position$Companion;
 	public static final synthetic fun box-impl (I)Lru/workinprogress/booblik/Position;
@@ -58,34 +19,6 @@ public final class ru/workinprogress/booblik/Position : java/lang/Comparable {
 
 public final class ru/workinprogress/booblik/Position$Companion {
 	public final fun getZERO-zKT0D7o ()I
-}
-
-public final class ru/workinprogress/booblik/TopicName {
-	public static final field Companion Lru/workinprogress/booblik/TopicName$Companion;
-	public static final field MAX_LENGTH I
-	public static final synthetic fun box-impl (Ljava/lang/String;)Lru/workinprogress/booblik/TopicName;
-	public static fun constructor-impl (Ljava/lang/String;)Ljava/lang/String;
-	public fun equals (Ljava/lang/Object;)Z
-	public static fun equals-impl (Ljava/lang/String;Ljava/lang/Object;)Z
-	public static final fun equals-impl0 (Ljava/lang/String;Ljava/lang/String;)Z
-	public final fun getValue ()Ljava/lang/String;
-	public fun hashCode ()I
-	public static fun hashCode-impl (Ljava/lang/String;)I
-	public fun toString ()Ljava/lang/String;
-	public static fun toString-impl (Ljava/lang/String;)Ljava/lang/String;
-	public final synthetic fun unbox-impl ()Ljava/lang/String;
-}
-
-public final class ru/workinprogress/booblik/TopicName$Companion {
-}
-
-public final class ru/workinprogress/booblik/log/AckPolicy : java/lang/Enum {
-	public static final field FORCED Lru/workinprogress/booblik/log/AckPolicy;
-	public static final field NONE Lru/workinprogress/booblik/log/AckPolicy;
-	public static final field WRITTEN Lru/workinprogress/booblik/log/AckPolicy;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lru/workinprogress/booblik/log/AckPolicy;
-	public static fun values ()[Lru/workinprogress/booblik/log/AckPolicy;
 }
 
 public final class ru/workinprogress/booblik/log/FlushPolicy {

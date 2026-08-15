@@ -10,10 +10,13 @@ package ru.workinprogress.booblik.log
  *   to allocate. It exists to give benchmarks an upper bound and to be the honest name for
  *   fire-and-forget.
  * * [WRITTEN] promises the bytes are in the log and the offset is final. It does **not** promise
- *   they survive a power loss — see [ru.workinprogress.booblik.storage.SegmentWriter.force].
+ *   they survive a power loss — that needs the barrier `SegmentWriter.force` performs, and this
+ *   level is answered before any barrier.
  * * [FORCED] promises durability, and costs a disk barrier: about 4 ms on the reference host, or
- *   250 batches per second per producer. That number is why group commit exists — see
- *   [PartitionWriter].
+ *   250 batches per second per producer. That number is why the broker's writer groups everyone
+ *   already queued into one barrier instead of one per request.
+ *
+ * On the wire as a single byte, in this order. The values must not be renumbered.
  */
 enum class AckPolicy {
     NONE,

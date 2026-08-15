@@ -7,6 +7,10 @@ package ru.workinprogress.booblik.net.wire
  * Everything is big-endian, and that is not a coin toss: it matches the on-disk record framing, so
  * a FETCH response can hand segment bytes to the socket without touching them. A protocol that
  * disagreed with the log would need a byte swap on the one path that must not have one.
+ *
+ * This file is the whole of what a client and a broker share. Everything else in the codec belongs
+ * to one side or the other — a client never decodes a request, a broker never encodes one — which
+ * is the seam M-134 cut along when the client's half became multiplatform.
  */
 object Protocol {
     const val VERSION: Short = 1
@@ -38,6 +42,9 @@ object Protocol {
      * rather than hidden, because a silently shortened wait is a lie about the protocol.
      */
     const val MAX_FETCH_WAIT_MILLIS = 60_000
+
+    /** `[int32 length][int32 crc]`, the header in front of every stored record. */
+    const val RECORD_HEADER_BYTES = 4 + 4
 
     /** Whether this broker speaks [version] of [apiKey]. Versions are per request, not global. */
     fun supports(

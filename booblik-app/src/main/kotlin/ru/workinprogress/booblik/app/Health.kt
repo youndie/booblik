@@ -2,6 +2,7 @@ package ru.workinprogress.booblik.app
 
 import ru.workinprogress.booblik.net.client.BooblikClient
 import ru.workinprogress.booblik.net.wire.ErrorCode
+import ru.workinprogress.booblik.net.wire.MetadataResult
 import java.net.InetSocketAddress
 import kotlin.system.exitProcess
 
@@ -46,7 +47,7 @@ object Health {
         // into a hung check, losing exactly what it was sent to find. A blocking read on a
         // `SocketChannel` does not answer to `SO_TIMEOUT`; closing the channel is what unblocks it,
         // so the watchdog closes the client and the read fails on its own.
-        var answer: ru.workinprogress.booblik.net.client.MetadataResult? = null
+        var answer: MetadataResult? = null
         var failure: Throwable? = null
         val client =
             runCatching { BooblikClient(InetSocketAddress(host, port)) }.getOrElse {

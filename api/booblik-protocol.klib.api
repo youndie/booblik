@@ -1,0 +1,274 @@
+// Klib ABI Dump
+// Targets: [linuxX64, macosArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <io.github.youndie.booblik:booblik-protocol>
+final enum class ru.workinprogress.booblik.log/AckPolicy : kotlin/Enum<ru.workinprogress.booblik.log/AckPolicy> { // ru.workinprogress.booblik.log/AckPolicy|null[0]
+    enum entry FORCED // ru.workinprogress.booblik.log/AckPolicy.FORCED|null[0]
+    enum entry NONE // ru.workinprogress.booblik.log/AckPolicy.NONE|null[0]
+    enum entry WRITTEN // ru.workinprogress.booblik.log/AckPolicy.WRITTEN|null[0]
+
+    final val entries // ru.workinprogress.booblik.log/AckPolicy.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ru.workinprogress.booblik.log/AckPolicy> // ru.workinprogress.booblik.log/AckPolicy.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): ru.workinprogress.booblik.log/AckPolicy // ru.workinprogress.booblik.log/AckPolicy.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ru.workinprogress.booblik.log/AckPolicy> // ru.workinprogress.booblik.log/AckPolicy.values|values#static(){}[0]
+}
+
+final enum class ru.workinprogress.booblik.net.wire/ApiKey : kotlin/Enum<ru.workinprogress.booblik.net.wire/ApiKey> { // ru.workinprogress.booblik.net.wire/ApiKey|null[0]
+    enum entry FETCH // ru.workinprogress.booblik.net.wire/ApiKey.FETCH|null[0]
+    enum entry METADATA // ru.workinprogress.booblik.net.wire/ApiKey.METADATA|null[0]
+    enum entry PRODUCE // ru.workinprogress.booblik.net.wire/ApiKey.PRODUCE|null[0]
+
+    final val entries // ru.workinprogress.booblik.net.wire/ApiKey.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ru.workinprogress.booblik.net.wire/ApiKey> // ru.workinprogress.booblik.net.wire/ApiKey.entries.<get-entries>|<get-entries>#static(){}[0]
+    final val id // ru.workinprogress.booblik.net.wire/ApiKey.id|{}id[0]
+        final fun <get-id>(): kotlin/Short // ru.workinprogress.booblik.net.wire/ApiKey.id.<get-id>|<get-id>(){}[0]
+
+    final fun valueOf(kotlin/String): ru.workinprogress.booblik.net.wire/ApiKey // ru.workinprogress.booblik.net.wire/ApiKey.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ru.workinprogress.booblik.net.wire/ApiKey> // ru.workinprogress.booblik.net.wire/ApiKey.values|values#static(){}[0]
+
+    final object Companion { // ru.workinprogress.booblik.net.wire/ApiKey.Companion|null[0]
+        final fun of(kotlin/Short): ru.workinprogress.booblik.net.wire/ApiKey? // ru.workinprogress.booblik.net.wire/ApiKey.Companion.of|of(kotlin.Short){}[0]
+    }
+}
+
+final enum class ru.workinprogress.booblik.net.wire/ErrorCode : kotlin/Enum<ru.workinprogress.booblik.net.wire/ErrorCode> { // ru.workinprogress.booblik.net.wire/ErrorCode|null[0]
+    enum entry CORRUPT_REQUEST // ru.workinprogress.booblik.net.wire/ErrorCode.CORRUPT_REQUEST|null[0]
+    enum entry NONE // ru.workinprogress.booblik.net.wire/ErrorCode.NONE|null[0]
+    enum entry OFFSET_OUT_OF_RANGE // ru.workinprogress.booblik.net.wire/ErrorCode.OFFSET_OUT_OF_RANGE|null[0]
+    enum entry RECORD_TOO_LARGE // ru.workinprogress.booblik.net.wire/ErrorCode.RECORD_TOO_LARGE|null[0]
+    enum entry UNKNOWN_TOPIC_OR_PARTITION // ru.workinprogress.booblik.net.wire/ErrorCode.UNKNOWN_TOPIC_OR_PARTITION|null[0]
+    enum entry UNSUPPORTED_VERSION // ru.workinprogress.booblik.net.wire/ErrorCode.UNSUPPORTED_VERSION|null[0]
+
+    final val entries // ru.workinprogress.booblik.net.wire/ErrorCode.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<ru.workinprogress.booblik.net.wire/ErrorCode> // ru.workinprogress.booblik.net.wire/ErrorCode.entries.<get-entries>|<get-entries>#static(){}[0]
+    final val id // ru.workinprogress.booblik.net.wire/ErrorCode.id|{}id[0]
+        final fun <get-id>(): kotlin/Short // ru.workinprogress.booblik.net.wire/ErrorCode.id.<get-id>|<get-id>(){}[0]
+
+    final fun valueOf(kotlin/String): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.net.wire/ErrorCode.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<ru.workinprogress.booblik.net.wire/ErrorCode> // ru.workinprogress.booblik.net.wire/ErrorCode.values|values#static(){}[0]
+
+    final object Companion { // ru.workinprogress.booblik.net.wire/ErrorCode.Companion|null[0]
+        final fun of(kotlin/Short): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.net.wire/ErrorCode.Companion.of|of(kotlin.Short){}[0]
+    }
+}
+
+abstract fun interface ru.workinprogress.booblik.net.client/Partitioner { // ru.workinprogress.booblik.net.client/Partitioner|null[0]
+    abstract fun partitionFor(kotlin/ByteArray, kotlin/Int): kotlin/Int // ru.workinprogress.booblik.net.client/Partitioner.partitionFor|partitionFor(kotlin.ByteArray;kotlin.Int){}[0]
+
+    final object Companion { // ru.workinprogress.booblik.net.client/Partitioner.Companion|null[0]
+        final val Fnv1a // ru.workinprogress.booblik.net.client/Partitioner.Companion.Fnv1a|{}Fnv1a[0]
+            final fun <get-Fnv1a>(): ru.workinprogress.booblik.net.client/Partitioner // ru.workinprogress.booblik.net.client/Partitioner.Companion.Fnv1a.<get-Fnv1a>|<get-Fnv1a>(){}[0]
+        final val JavaArrayHash // ru.workinprogress.booblik.net.client/Partitioner.Companion.JavaArrayHash|{}JavaArrayHash[0]
+            final fun <get-JavaArrayHash>(): ru.workinprogress.booblik.net.client/Partitioner // ru.workinprogress.booblik.net.client/Partitioner.Companion.JavaArrayHash.<get-JavaArrayHash>|<get-JavaArrayHash>(){}[0]
+
+        final fun fnv1a32(kotlin/ByteArray): kotlin/Int // ru.workinprogress.booblik.net.client/Partitioner.Companion.fnv1a32|fnv1a32(kotlin.ByteArray){}[0]
+    }
+}
+
+final class ru.workinprogress.booblik.net.wire/CorruptRecordException : kotlin/IllegalStateException { // ru.workinprogress.booblik.net.wire/CorruptRecordException|null[0]
+    constructor <init>(ru.workinprogress.booblik/Offset, kotlin/Int, kotlin/Int) // ru.workinprogress.booblik.net.wire/CorruptRecordException.<init>|<init>(ru.workinprogress.booblik.Offset;kotlin.Int;kotlin.Int){}[0]
+
+    final val computed // ru.workinprogress.booblik.net.wire/CorruptRecordException.computed|{}computed[0]
+        final fun <get-computed>(): kotlin/Int // ru.workinprogress.booblik.net.wire/CorruptRecordException.computed.<get-computed>|<get-computed>(){}[0]
+    final val offset // ru.workinprogress.booblik.net.wire/CorruptRecordException.offset|{}offset[0]
+        final fun <get-offset>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/CorruptRecordException.offset.<get-offset>|<get-offset>(){}[0]
+    final val stored // ru.workinprogress.booblik.net.wire/CorruptRecordException.stored|{}stored[0]
+        final fun <get-stored>(): kotlin/Int // ru.workinprogress.booblik.net.wire/CorruptRecordException.stored.<get-stored>|<get-stored>(){}[0]
+}
+
+final class ru.workinprogress.booblik.net.wire/CorruptRequestException : kotlin/IllegalArgumentException { // ru.workinprogress.booblik.net.wire/CorruptRequestException|null[0]
+    constructor <init>(kotlin/String) // ru.workinprogress.booblik.net.wire/CorruptRequestException.<init>|<init>(kotlin.String){}[0]
+}
+
+final class ru.workinprogress.booblik.net.wire/FetchResponse { // ru.workinprogress.booblik.net.wire/FetchResponse|null[0]
+    constructor <init>(kotlin/Int, ru.workinprogress.booblik.net.wire/ErrorCode, ru.workinprogress.booblik/Offset, kotlin.collections/List<kotlin/ByteArray>, kotlin/Boolean, kotlin/Int = ...) // ru.workinprogress.booblik.net.wire/FetchResponse.<init>|<init>(kotlin.Int;ru.workinprogress.booblik.net.wire.ErrorCode;ru.workinprogress.booblik.Offset;kotlin.collections.List<kotlin.ByteArray>;kotlin.Boolean;kotlin.Int){}[0]
+
+    final val correlationId // ru.workinprogress.booblik.net.wire/FetchResponse.correlationId|{}correlationId[0]
+        final fun <get-correlationId>(): kotlin/Int // ru.workinprogress.booblik.net.wire/FetchResponse.correlationId.<get-correlationId>|<get-correlationId>(){}[0]
+    final val error // ru.workinprogress.booblik.net.wire/FetchResponse.error|{}error[0]
+        final fun <get-error>(): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.net.wire/FetchResponse.error.<get-error>|<get-error>(){}[0]
+    final val highWatermark // ru.workinprogress.booblik.net.wire/FetchResponse.highWatermark|{}highWatermark[0]
+        final fun <get-highWatermark>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/FetchResponse.highWatermark.<get-highWatermark>|<get-highWatermark>(){}[0]
+    final val records // ru.workinprogress.booblik.net.wire/FetchResponse.records|{}records[0]
+        final fun <get-records>(): kotlin.collections/List<kotlin/ByteArray> // ru.workinprogress.booblik.net.wire/FetchResponse.records.<get-records>|<get-records>(){}[0]
+    final val truncated // ru.workinprogress.booblik.net.wire/FetchResponse.truncated|{}truncated[0]
+        final fun <get-truncated>(): kotlin/Boolean // ru.workinprogress.booblik.net.wire/FetchResponse.truncated.<get-truncated>|<get-truncated>(){}[0]
+    final val truncatedRecordBytes // ru.workinprogress.booblik.net.wire/FetchResponse.truncatedRecordBytes|{}truncatedRecordBytes[0]
+        final fun <get-truncatedRecordBytes>(): kotlin/Int // ru.workinprogress.booblik.net.wire/FetchResponse.truncatedRecordBytes.<get-truncatedRecordBytes>|<get-truncatedRecordBytes>(){}[0]
+
+    final fun component1(): kotlin/Int // ru.workinprogress.booblik.net.wire/FetchResponse.component1|component1(){}[0]
+    final fun component2(): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.net.wire/FetchResponse.component2|component2(){}[0]
+    final fun component3(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/FetchResponse.component3|component3(){}[0]
+    final fun component4(): kotlin.collections/List<kotlin/ByteArray> // ru.workinprogress.booblik.net.wire/FetchResponse.component4|component4(){}[0]
+    final fun component5(): kotlin/Boolean // ru.workinprogress.booblik.net.wire/FetchResponse.component5|component5(){}[0]
+    final fun component6(): kotlin/Int // ru.workinprogress.booblik.net.wire/FetchResponse.component6|component6(){}[0]
+    final fun copy(kotlin/Int = ..., ru.workinprogress.booblik.net.wire/ErrorCode = ..., ru.workinprogress.booblik/Offset = ..., kotlin.collections/List<kotlin/ByteArray> = ..., kotlin/Boolean = ..., kotlin/Int = ...): ru.workinprogress.booblik.net.wire/FetchResponse // ru.workinprogress.booblik.net.wire/FetchResponse.copy|copy(kotlin.Int;ru.workinprogress.booblik.net.wire.ErrorCode;ru.workinprogress.booblik.Offset;kotlin.collections.List<kotlin.ByteArray>;kotlin.Boolean;kotlin.Int){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ru.workinprogress.booblik.net.wire/FetchResponse.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ru.workinprogress.booblik.net.wire/FetchResponse.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ru.workinprogress.booblik.net.wire/FetchResponse.toString|toString(){}[0]
+}
+
+final class ru.workinprogress.booblik.net.wire/MetadataResult { // ru.workinprogress.booblik.net.wire/MetadataResult|null[0]
+    constructor <init>(kotlin/Int, ru.workinprogress.booblik.net.wire/ErrorCode, kotlin.collections/List<ru.workinprogress.booblik.net.wire/TopicInfo>) // ru.workinprogress.booblik.net.wire/MetadataResult.<init>|<init>(kotlin.Int;ru.workinprogress.booblik.net.wire.ErrorCode;kotlin.collections.List<ru.workinprogress.booblik.net.wire.TopicInfo>){}[0]
+
+    final val correlationId // ru.workinprogress.booblik.net.wire/MetadataResult.correlationId|{}correlationId[0]
+        final fun <get-correlationId>(): kotlin/Int // ru.workinprogress.booblik.net.wire/MetadataResult.correlationId.<get-correlationId>|<get-correlationId>(){}[0]
+    final val error // ru.workinprogress.booblik.net.wire/MetadataResult.error|{}error[0]
+        final fun <get-error>(): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.net.wire/MetadataResult.error.<get-error>|<get-error>(){}[0]
+    final val topics // ru.workinprogress.booblik.net.wire/MetadataResult.topics|{}topics[0]
+        final fun <get-topics>(): kotlin.collections/List<ru.workinprogress.booblik.net.wire/TopicInfo> // ru.workinprogress.booblik.net.wire/MetadataResult.topics.<get-topics>|<get-topics>(){}[0]
+
+    final fun component1(): kotlin/Int // ru.workinprogress.booblik.net.wire/MetadataResult.component1|component1(){}[0]
+    final fun component2(): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.net.wire/MetadataResult.component2|component2(){}[0]
+    final fun component3(): kotlin.collections/List<ru.workinprogress.booblik.net.wire/TopicInfo> // ru.workinprogress.booblik.net.wire/MetadataResult.component3|component3(){}[0]
+    final fun copy(kotlin/Int = ..., ru.workinprogress.booblik.net.wire/ErrorCode = ..., kotlin.collections/List<ru.workinprogress.booblik.net.wire/TopicInfo> = ...): ru.workinprogress.booblik.net.wire/MetadataResult // ru.workinprogress.booblik.net.wire/MetadataResult.copy|copy(kotlin.Int;ru.workinprogress.booblik.net.wire.ErrorCode;kotlin.collections.List<ru.workinprogress.booblik.net.wire.TopicInfo>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ru.workinprogress.booblik.net.wire/MetadataResult.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ru.workinprogress.booblik.net.wire/MetadataResult.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ru.workinprogress.booblik.net.wire/MetadataResult.toString|toString(){}[0]
+}
+
+final class ru.workinprogress.booblik.net.wire/PartitionInfo { // ru.workinprogress.booblik.net.wire/PartitionInfo|null[0]
+    constructor <init>(ru.workinprogress.booblik/PartitionId, ru.workinprogress.booblik/Offset, ru.workinprogress.booblik/Offset) // ru.workinprogress.booblik.net.wire/PartitionInfo.<init>|<init>(ru.workinprogress.booblik.PartitionId;ru.workinprogress.booblik.Offset;ru.workinprogress.booblik.Offset){}[0]
+
+    final val highWatermark // ru.workinprogress.booblik.net.wire/PartitionInfo.highWatermark|{}highWatermark[0]
+        final fun <get-highWatermark>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/PartitionInfo.highWatermark.<get-highWatermark>|<get-highWatermark>(){}[0]
+    final val logStartOffset // ru.workinprogress.booblik.net.wire/PartitionInfo.logStartOffset|{}logStartOffset[0]
+        final fun <get-logStartOffset>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/PartitionInfo.logStartOffset.<get-logStartOffset>|<get-logStartOffset>(){}[0]
+    final val partition // ru.workinprogress.booblik.net.wire/PartitionInfo.partition|{}partition[0]
+        final fun <get-partition>(): ru.workinprogress.booblik/PartitionId // ru.workinprogress.booblik.net.wire/PartitionInfo.partition.<get-partition>|<get-partition>(){}[0]
+
+    final fun component1(): ru.workinprogress.booblik/PartitionId // ru.workinprogress.booblik.net.wire/PartitionInfo.component1|component1(){}[0]
+    final fun component2(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/PartitionInfo.component2|component2(){}[0]
+    final fun component3(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/PartitionInfo.component3|component3(){}[0]
+    final fun copy(ru.workinprogress.booblik/PartitionId = ..., ru.workinprogress.booblik/Offset = ..., ru.workinprogress.booblik/Offset = ...): ru.workinprogress.booblik.net.wire/PartitionInfo // ru.workinprogress.booblik.net.wire/PartitionInfo.copy|copy(ru.workinprogress.booblik.PartitionId;ru.workinprogress.booblik.Offset;ru.workinprogress.booblik.Offset){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ru.workinprogress.booblik.net.wire/PartitionInfo.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ru.workinprogress.booblik.net.wire/PartitionInfo.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ru.workinprogress.booblik.net.wire/PartitionInfo.toString|toString(){}[0]
+}
+
+final class ru.workinprogress.booblik.net.wire/ProduceResult { // ru.workinprogress.booblik.net.wire/ProduceResult|null[0]
+    constructor <init>(kotlin/Int, ru.workinprogress.booblik.net.wire/ErrorCode, ru.workinprogress.booblik/Offset, ru.workinprogress.booblik/Offset) // ru.workinprogress.booblik.net.wire/ProduceResult.<init>|<init>(kotlin.Int;ru.workinprogress.booblik.net.wire.ErrorCode;ru.workinprogress.booblik.Offset;ru.workinprogress.booblik.Offset){}[0]
+
+    final val baseOffset // ru.workinprogress.booblik.net.wire/ProduceResult.baseOffset|{}baseOffset[0]
+        final fun <get-baseOffset>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/ProduceResult.baseOffset.<get-baseOffset>|<get-baseOffset>(){}[0]
+    final val correlationId // ru.workinprogress.booblik.net.wire/ProduceResult.correlationId|{}correlationId[0]
+        final fun <get-correlationId>(): kotlin/Int // ru.workinprogress.booblik.net.wire/ProduceResult.correlationId.<get-correlationId>|<get-correlationId>(){}[0]
+    final val error // ru.workinprogress.booblik.net.wire/ProduceResult.error|{}error[0]
+        final fun <get-error>(): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.net.wire/ProduceResult.error.<get-error>|<get-error>(){}[0]
+    final val logEndOffset // ru.workinprogress.booblik.net.wire/ProduceResult.logEndOffset|{}logEndOffset[0]
+        final fun <get-logEndOffset>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/ProduceResult.logEndOffset.<get-logEndOffset>|<get-logEndOffset>(){}[0]
+
+    final fun component1(): kotlin/Int // ru.workinprogress.booblik.net.wire/ProduceResult.component1|component1(){}[0]
+    final fun component2(): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.net.wire/ProduceResult.component2|component2(){}[0]
+    final fun component3(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/ProduceResult.component3|component3(){}[0]
+    final fun component4(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.net.wire/ProduceResult.component4|component4(){}[0]
+    final fun copy(kotlin/Int = ..., ru.workinprogress.booblik.net.wire/ErrorCode = ..., ru.workinprogress.booblik/Offset = ..., ru.workinprogress.booblik/Offset = ...): ru.workinprogress.booblik.net.wire/ProduceResult // ru.workinprogress.booblik.net.wire/ProduceResult.copy|copy(kotlin.Int;ru.workinprogress.booblik.net.wire.ErrorCode;ru.workinprogress.booblik.Offset;ru.workinprogress.booblik.Offset){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ru.workinprogress.booblik.net.wire/ProduceResult.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ru.workinprogress.booblik.net.wire/ProduceResult.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ru.workinprogress.booblik.net.wire/ProduceResult.toString|toString(){}[0]
+}
+
+final class ru.workinprogress.booblik.net.wire/TopicInfo { // ru.workinprogress.booblik.net.wire/TopicInfo|null[0]
+    constructor <init>(ru.workinprogress.booblik/TopicName, kotlin.collections/List<ru.workinprogress.booblik.net.wire/PartitionInfo>) // ru.workinprogress.booblik.net.wire/TopicInfo.<init>|<init>(ru.workinprogress.booblik.TopicName;kotlin.collections.List<ru.workinprogress.booblik.net.wire.PartitionInfo>){}[0]
+
+    final val partitions // ru.workinprogress.booblik.net.wire/TopicInfo.partitions|{}partitions[0]
+        final fun <get-partitions>(): kotlin.collections/List<ru.workinprogress.booblik.net.wire/PartitionInfo> // ru.workinprogress.booblik.net.wire/TopicInfo.partitions.<get-partitions>|<get-partitions>(){}[0]
+    final val topic // ru.workinprogress.booblik.net.wire/TopicInfo.topic|{}topic[0]
+        final fun <get-topic>(): ru.workinprogress.booblik/TopicName // ru.workinprogress.booblik.net.wire/TopicInfo.topic.<get-topic>|<get-topic>(){}[0]
+
+    final fun component1(): ru.workinprogress.booblik/TopicName // ru.workinprogress.booblik.net.wire/TopicInfo.component1|component1(){}[0]
+    final fun component2(): kotlin.collections/List<ru.workinprogress.booblik.net.wire/PartitionInfo> // ru.workinprogress.booblik.net.wire/TopicInfo.component2|component2(){}[0]
+    final fun copy(ru.workinprogress.booblik/TopicName = ..., kotlin.collections/List<ru.workinprogress.booblik.net.wire/PartitionInfo> = ...): ru.workinprogress.booblik.net.wire/TopicInfo // ru.workinprogress.booblik.net.wire/TopicInfo.copy|copy(ru.workinprogress.booblik.TopicName;kotlin.collections.List<ru.workinprogress.booblik.net.wire.PartitionInfo>){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ru.workinprogress.booblik.net.wire/TopicInfo.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ru.workinprogress.booblik.net.wire/TopicInfo.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ru.workinprogress.booblik.net.wire/TopicInfo.toString|toString(){}[0]
+}
+
+final class ru.workinprogress.booblik.net.wire/TruncatedFrameException : kotlin/IllegalStateException { // ru.workinprogress.booblik.net.wire/TruncatedFrameException|null[0]
+    constructor <init>(kotlin/String) // ru.workinprogress.booblik.net.wire/TruncatedFrameException.<init>|<init>(kotlin.String){}[0]
+}
+
+final value class ru.workinprogress.booblik/Offset : kotlin/Comparable<ru.workinprogress.booblik/Offset> { // ru.workinprogress.booblik/Offset|null[0]
+    constructor <init>(kotlin/Long) // ru.workinprogress.booblik/Offset.<init>|<init>(kotlin.Long){}[0]
+
+    final val value // ru.workinprogress.booblik/Offset.value|{}value[0]
+        final fun <get-value>(): kotlin/Long // ru.workinprogress.booblik/Offset.value.<get-value>|<get-value>(){}[0]
+
+    final fun compareTo(ru.workinprogress.booblik/Offset): kotlin/Int // ru.workinprogress.booblik/Offset.compareTo|compareTo(ru.workinprogress.booblik.Offset){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ru.workinprogress.booblik/Offset.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ru.workinprogress.booblik/Offset.hashCode|hashCode(){}[0]
+    final fun inc(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik/Offset.inc|inc(){}[0]
+    final fun minus(ru.workinprogress.booblik/Offset): kotlin/Long // ru.workinprogress.booblik/Offset.minus|minus(ru.workinprogress.booblik.Offset){}[0]
+    final fun plus(kotlin/Long): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik/Offset.plus|plus(kotlin.Long){}[0]
+    final fun toString(): kotlin/String // ru.workinprogress.booblik/Offset.toString|toString(){}[0]
+
+    final object Companion { // ru.workinprogress.booblik/Offset.Companion|null[0]
+        final val ZERO // ru.workinprogress.booblik/Offset.Companion.ZERO|{}ZERO[0]
+            final fun <get-ZERO>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik/Offset.Companion.ZERO.<get-ZERO>|<get-ZERO>(){}[0]
+    }
+}
+
+final value class ru.workinprogress.booblik/PartitionId { // ru.workinprogress.booblik/PartitionId|null[0]
+    constructor <init>(kotlin/Int) // ru.workinprogress.booblik/PartitionId.<init>|<init>(kotlin.Int){}[0]
+
+    final val value // ru.workinprogress.booblik/PartitionId.value|{}value[0]
+        final fun <get-value>(): kotlin/Int // ru.workinprogress.booblik/PartitionId.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // ru.workinprogress.booblik/PartitionId.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ru.workinprogress.booblik/PartitionId.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ru.workinprogress.booblik/PartitionId.toString|toString(){}[0]
+}
+
+final value class ru.workinprogress.booblik/TopicName { // ru.workinprogress.booblik/TopicName|null[0]
+    constructor <init>(kotlin/String) // ru.workinprogress.booblik/TopicName.<init>|<init>(kotlin.String){}[0]
+
+    final val value // ru.workinprogress.booblik/TopicName.value|{}value[0]
+        final fun <get-value>(): kotlin/String // ru.workinprogress.booblik/TopicName.value.<get-value>|<get-value>(){}[0]
+
+    final fun equals(kotlin/Any?): kotlin/Boolean // ru.workinprogress.booblik/TopicName.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ru.workinprogress.booblik/TopicName.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ru.workinprogress.booblik/TopicName.toString|toString(){}[0]
+
+    final object Companion { // ru.workinprogress.booblik/TopicName.Companion|null[0]
+        final const val MAX_LENGTH // ru.workinprogress.booblik/TopicName.Companion.MAX_LENGTH|{}MAX_LENGTH[0]
+            final fun <get-MAX_LENGTH>(): kotlin/Int // ru.workinprogress.booblik/TopicName.Companion.MAX_LENGTH.<get-MAX_LENGTH>|<get-MAX_LENGTH>(){}[0]
+    }
+}
+
+final object ru.workinprogress.booblik.net.wire/Protocol { // ru.workinprogress.booblik.net.wire/Protocol|null[0]
+    final const val FETCH_VERSION // ru.workinprogress.booblik.net.wire/Protocol.FETCH_VERSION|{}FETCH_VERSION[0]
+        final fun <get-FETCH_VERSION>(): kotlin/Short // ru.workinprogress.booblik.net.wire/Protocol.FETCH_VERSION.<get-FETCH_VERSION>|<get-FETCH_VERSION>(){}[0]
+    final const val LENGTH_PREFIX_BYTES // ru.workinprogress.booblik.net.wire/Protocol.LENGTH_PREFIX_BYTES|{}LENGTH_PREFIX_BYTES[0]
+        final fun <get-LENGTH_PREFIX_BYTES>(): kotlin/Int // ru.workinprogress.booblik.net.wire/Protocol.LENGTH_PREFIX_BYTES.<get-LENGTH_PREFIX_BYTES>|<get-LENGTH_PREFIX_BYTES>(){}[0]
+    final const val MAX_FETCH_WAIT_MILLIS // ru.workinprogress.booblik.net.wire/Protocol.MAX_FETCH_WAIT_MILLIS|{}MAX_FETCH_WAIT_MILLIS[0]
+        final fun <get-MAX_FETCH_WAIT_MILLIS>(): kotlin/Int // ru.workinprogress.booblik.net.wire/Protocol.MAX_FETCH_WAIT_MILLIS.<get-MAX_FETCH_WAIT_MILLIS>|<get-MAX_FETCH_WAIT_MILLIS>(){}[0]
+    final const val MAX_FRAME_BYTES // ru.workinprogress.booblik.net.wire/Protocol.MAX_FRAME_BYTES|{}MAX_FRAME_BYTES[0]
+        final fun <get-MAX_FRAME_BYTES>(): kotlin/Int // ru.workinprogress.booblik.net.wire/Protocol.MAX_FRAME_BYTES.<get-MAX_FRAME_BYTES>|<get-MAX_FRAME_BYTES>(){}[0]
+    final const val RECORD_HEADER_BYTES // ru.workinprogress.booblik.net.wire/Protocol.RECORD_HEADER_BYTES|{}RECORD_HEADER_BYTES[0]
+        final fun <get-RECORD_HEADER_BYTES>(): kotlin/Int // ru.workinprogress.booblik.net.wire/Protocol.RECORD_HEADER_BYTES.<get-RECORD_HEADER_BYTES>|<get-RECORD_HEADER_BYTES>(){}[0]
+    final const val REQUEST_HEADER_BYTES // ru.workinprogress.booblik.net.wire/Protocol.REQUEST_HEADER_BYTES|{}REQUEST_HEADER_BYTES[0]
+        final fun <get-REQUEST_HEADER_BYTES>(): kotlin/Int // ru.workinprogress.booblik.net.wire/Protocol.REQUEST_HEADER_BYTES.<get-REQUEST_HEADER_BYTES>|<get-REQUEST_HEADER_BYTES>(){}[0]
+    final const val RESPONSE_HEADER_BYTES // ru.workinprogress.booblik.net.wire/Protocol.RESPONSE_HEADER_BYTES|{}RESPONSE_HEADER_BYTES[0]
+        final fun <get-RESPONSE_HEADER_BYTES>(): kotlin/Int // ru.workinprogress.booblik.net.wire/Protocol.RESPONSE_HEADER_BYTES.<get-RESPONSE_HEADER_BYTES>|<get-RESPONSE_HEADER_BYTES>(){}[0]
+    final const val VERSION // ru.workinprogress.booblik.net.wire/Protocol.VERSION|{}VERSION[0]
+        final fun <get-VERSION>(): kotlin/Short // ru.workinprogress.booblik.net.wire/Protocol.VERSION.<get-VERSION>|<get-VERSION>(){}[0]
+
+    final fun supports(ru.workinprogress.booblik.net.wire/ApiKey, kotlin/Short): kotlin/Boolean // ru.workinprogress.booblik.net.wire/Protocol.supports|supports(ru.workinprogress.booblik.net.wire.ApiKey;kotlin.Short){}[0]
+}
+
+final object ru.workinprogress.booblik.net.wire/RequestEncoder { // ru.workinprogress.booblik.net.wire/RequestEncoder|null[0]
+    final fun fetch(kotlin/Int, ru.workinprogress.booblik/TopicName, ru.workinprogress.booblik/PartitionId, ru.workinprogress.booblik/Offset, kotlin/Int, kotlin/Int = ..., kotlin/Int = ...): kotlin/ByteArray // ru.workinprogress.booblik.net.wire/RequestEncoder.fetch|fetch(kotlin.Int;ru.workinprogress.booblik.TopicName;ru.workinprogress.booblik.PartitionId;ru.workinprogress.booblik.Offset;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    final fun metadata(kotlin/Int, kotlin.collections/List<ru.workinprogress.booblik/TopicName>): kotlin/ByteArray // ru.workinprogress.booblik.net.wire/RequestEncoder.metadata|metadata(kotlin.Int;kotlin.collections.List<ru.workinprogress.booblik.TopicName>){}[0]
+    final fun produce(kotlin/Int, ru.workinprogress.booblik/TopicName, ru.workinprogress.booblik/PartitionId, kotlin.collections/List<kotlin/ByteArray>, ru.workinprogress.booblik.log/AckPolicy): kotlin/ByteArray // ru.workinprogress.booblik.net.wire/RequestEncoder.produce|produce(kotlin.Int;ru.workinprogress.booblik.TopicName;ru.workinprogress.booblik.PartitionId;kotlin.collections.List<kotlin.ByteArray>;ru.workinprogress.booblik.log.AckPolicy){}[0]
+}
+
+final object ru.workinprogress.booblik.net.wire/ResponseDecoder { // ru.workinprogress.booblik.net.wire/ResponseDecoder|null[0]
+    final fun fetch(kotlin/ByteArray, ru.workinprogress.booblik/Offset): ru.workinprogress.booblik.net.wire/FetchResponse // ru.workinprogress.booblik.net.wire/ResponseDecoder.fetch|fetch(kotlin.ByteArray;ru.workinprogress.booblik.Offset){}[0]
+    final fun metadata(kotlin/ByteArray): ru.workinprogress.booblik.net.wire/MetadataResult // ru.workinprogress.booblik.net.wire/ResponseDecoder.metadata|metadata(kotlin.ByteArray){}[0]
+    final fun produce(kotlin/ByteArray): ru.workinprogress.booblik.net.wire/ProduceResult // ru.workinprogress.booblik.net.wire/ResponseDecoder.produce|produce(kotlin.ByteArray){}[0]
+}

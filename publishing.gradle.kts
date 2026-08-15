@@ -41,8 +41,18 @@ configure<PublishingExtension> {
     }
 
     publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
+        // JVM-модуль публикуется одной публикацией, которую надо создать. Multiplatform-модуль
+        // (`:booblik-protocol`, M-134) создаёт свои сам — по одной на таргет плюс корневую, — и
+        // компонента `java` у него нет вовсе. Создать «свою» публикацию поверх них означало бы
+        // выложить jvm-артефакт второй раз под другим именем.
+        if (components.findByName("java") != null) {
+            create<MavenPublication>("maven") {
+                from(components["java"])
+            }
+        }
+
+        // Одни и те же метаданные для обоих случаев, потому что потребитель их видит одинаково.
+        withType<MavenPublication>().configureEach {
             pom {
                 name.set(project.name)
                 // По-английски, как и всё, что видит потребитель: описание артефакта показывают

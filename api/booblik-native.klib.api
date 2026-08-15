@@ -1,0 +1,107 @@
+// Klib ABI Dump
+// Targets: [linuxX64, macosArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <io.github.youndie.booblik:booblik-native>
+final class ru.workinprogress.booblik.native/BooblikConnection : kotlin/AutoCloseable { // ru.workinprogress.booblik.native/BooblikConnection|null[0]
+    constructor <init>(kotlin/String) // ru.workinprogress.booblik.native/BooblikConnection.<init>|<init>(kotlin.String){}[0]
+
+    final fun close() // ru.workinprogress.booblik.native/BooblikConnection.close|close(){}[0]
+    final fun consumer(ru.workinprogress.booblik/TopicName, ru.workinprogress.booblik/PartitionId, ru.workinprogress.booblik/Offset = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...): ru.workinprogress.booblik.native/Consumer // ru.workinprogress.booblik.native/BooblikConnection.consumer|consumer(ru.workinprogress.booblik.TopicName;ru.workinprogress.booblik.PartitionId;ru.workinprogress.booblik.Offset;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    final fun fetch(ru.workinprogress.booblik/TopicName, ru.workinprogress.booblik/PartitionId, ru.workinprogress.booblik/Offset, kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...): ru.workinprogress.booblik.net.wire/FetchResponse // ru.workinprogress.booblik.native/BooblikConnection.fetch|fetch(ru.workinprogress.booblik.TopicName;ru.workinprogress.booblik.PartitionId;ru.workinprogress.booblik.Offset;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+    final fun metadata(kotlin.collections/List<ru.workinprogress.booblik/TopicName> = ...): ru.workinprogress.booblik.net.wire/MetadataResult // ru.workinprogress.booblik.native/BooblikConnection.metadata|metadata(kotlin.collections.List<ru.workinprogress.booblik.TopicName>){}[0]
+    final fun produce(ru.workinprogress.booblik/TopicName, ru.workinprogress.booblik/PartitionId, kotlin.collections/List<kotlin/ByteArray>, ru.workinprogress.booblik.log/AckPolicy = ...): ru.workinprogress.booblik.net.wire/ProduceResult? // ru.workinprogress.booblik.native/BooblikConnection.produce|produce(ru.workinprogress.booblik.TopicName;ru.workinprogress.booblik.PartitionId;kotlin.collections.List<kotlin.ByteArray>;ru.workinprogress.booblik.log.AckPolicy){}[0]
+    final fun topic(ru.workinprogress.booblik/TopicName): ru.workinprogress.booblik.native/Topic // ru.workinprogress.booblik.native/BooblikConnection.topic|topic(ru.workinprogress.booblik.TopicName){}[0]
+}
+
+final class ru.workinprogress.booblik.native/ConnectionException : kotlin/IllegalStateException { // ru.workinprogress.booblik.native/ConnectionException|null[0]
+    constructor <init>(kotlin/String) // ru.workinprogress.booblik.native/ConnectionException.<init>|<init>(kotlin.String){}[0]
+}
+
+final class ru.workinprogress.booblik.native/Consumer { // ru.workinprogress.booblik.native/Consumer|null[0]
+    constructor <init>(ru.workinprogress.booblik.native/BooblikConnection, ru.workinprogress.booblik/TopicName, ru.workinprogress.booblik/PartitionId, ru.workinprogress.booblik/Offset = ..., kotlin/Int = ..., kotlin/Int = ..., kotlin/Int = ...) // ru.workinprogress.booblik.native/Consumer.<init>|<init>(ru.workinprogress.booblik.native.BooblikConnection;ru.workinprogress.booblik.TopicName;ru.workinprogress.booblik.PartitionId;ru.workinprogress.booblik.Offset;kotlin.Int;kotlin.Int;kotlin.Int){}[0]
+
+    final val lag // ru.workinprogress.booblik.native/Consumer.lag|{}lag[0]
+        final fun <get-lag>(): kotlin/Long // ru.workinprogress.booblik.native/Consumer.lag.<get-lag>|<get-lag>(){}[0]
+
+    final var highWatermark // ru.workinprogress.booblik.native/Consumer.highWatermark|{}highWatermark[0]
+        final fun <get-highWatermark>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.native/Consumer.highWatermark.<get-highWatermark>|<get-highWatermark>(){}[0]
+    final var position // ru.workinprogress.booblik.native/Consumer.position|{}position[0]
+        final fun <get-position>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.native/Consumer.position.<get-position>|<get-position>(){}[0]
+
+    final fun poll(): kotlin.collections/List<kotlin/ByteArray> // ru.workinprogress.booblik.native/Consumer.poll|poll(){}[0]
+    final fun records(): kotlin.sequences/Sequence<kotlin/ByteArray> // ru.workinprogress.booblik.native/Consumer.records|records(){}[0]
+    final fun seek(ru.workinprogress.booblik/Offset) // ru.workinprogress.booblik.native/Consumer.seek|seek(ru.workinprogress.booblik.Offset){}[0]
+
+    final object Companion { // ru.workinprogress.booblik.native/Consumer.Companion|null[0]
+        final const val DEFAULT_MAX_BYTES // ru.workinprogress.booblik.native/Consumer.Companion.DEFAULT_MAX_BYTES|{}DEFAULT_MAX_BYTES[0]
+            final fun <get-DEFAULT_MAX_BYTES>(): kotlin/Int // ru.workinprogress.booblik.native/Consumer.Companion.DEFAULT_MAX_BYTES.<get-DEFAULT_MAX_BYTES>|<get-DEFAULT_MAX_BYTES>(){}[0]
+        final const val DEFAULT_MAX_WAIT_MILLIS // ru.workinprogress.booblik.native/Consumer.Companion.DEFAULT_MAX_WAIT_MILLIS|{}DEFAULT_MAX_WAIT_MILLIS[0]
+            final fun <get-DEFAULT_MAX_WAIT_MILLIS>(): kotlin/Int // ru.workinprogress.booblik.native/Consumer.Companion.DEFAULT_MAX_WAIT_MILLIS.<get-DEFAULT_MAX_WAIT_MILLIS>|<get-DEFAULT_MAX_WAIT_MILLIS>(){}[0]
+    }
+}
+
+final class ru.workinprogress.booblik.native/FetchFailedException : kotlin/IllegalStateException { // ru.workinprogress.booblik.native/FetchFailedException|null[0]
+    constructor <init>(ru.workinprogress.booblik.net.wire/ErrorCode) // ru.workinprogress.booblik.native/FetchFailedException.<init>|<init>(ru.workinprogress.booblik.net.wire.ErrorCode){}[0]
+
+    final val code // ru.workinprogress.booblik.native/FetchFailedException.code|{}code[0]
+        final fun <get-code>(): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.native/FetchFailedException.code.<get-code>|<get-code>(){}[0]
+}
+
+final class ru.workinprogress.booblik.native/ProduceFailedException : kotlin/IllegalStateException { // ru.workinprogress.booblik.native/ProduceFailedException|null[0]
+    constructor <init>(ru.workinprogress.booblik.net.wire/ErrorCode) // ru.workinprogress.booblik.native/ProduceFailedException.<init>|<init>(ru.workinprogress.booblik.net.wire.ErrorCode){}[0]
+
+    final val code // ru.workinprogress.booblik.native/ProduceFailedException.code|{}code[0]
+        final fun <get-code>(): ru.workinprogress.booblik.net.wire/ErrorCode // ru.workinprogress.booblik.native/ProduceFailedException.code.<get-code>|<get-code>(){}[0]
+}
+
+final class ru.workinprogress.booblik.native/Producer : kotlin/AutoCloseable { // ru.workinprogress.booblik.native/Producer|null[0]
+    constructor <init>(ru.workinprogress.booblik.native/BooblikConnection, kotlinx.coroutines/CoroutineScope, ru.workinprogress.booblik.native/ProducerConfig = ...) // ru.workinprogress.booblik.native/Producer.<init>|<init>(ru.workinprogress.booblik.native.BooblikConnection;kotlinx.coroutines.CoroutineScope;ru.workinprogress.booblik.native.ProducerConfig){}[0]
+
+    final fun close() // ru.workinprogress.booblik.native/Producer.close|close(){}[0]
+    final suspend fun flush() // ru.workinprogress.booblik.native/Producer.flush|flush(){}[0]
+    final suspend fun send(ru.workinprogress.booblik/TopicName, ru.workinprogress.booblik/PartitionId, kotlin/ByteArray): kotlinx.coroutines/CompletableDeferred<ru.workinprogress.booblik/Offset?> // ru.workinprogress.booblik.native/Producer.send|send(ru.workinprogress.booblik.TopicName;ru.workinprogress.booblik.PartitionId;kotlin.ByteArray){}[0]
+}
+
+final class ru.workinprogress.booblik.native/ProducerConfig { // ru.workinprogress.booblik.native/ProducerConfig|null[0]
+    constructor <init>(kotlin/Int = ..., kotlin/Long = ..., ru.workinprogress.booblik.log/AckPolicy = ...) // ru.workinprogress.booblik.native/ProducerConfig.<init>|<init>(kotlin.Int;kotlin.Long;ru.workinprogress.booblik.log.AckPolicy){}[0]
+
+    final val ackPolicy // ru.workinprogress.booblik.native/ProducerConfig.ackPolicy|{}ackPolicy[0]
+        final fun <get-ackPolicy>(): ru.workinprogress.booblik.log/AckPolicy // ru.workinprogress.booblik.native/ProducerConfig.ackPolicy.<get-ackPolicy>|<get-ackPolicy>(){}[0]
+    final val lingerMillis // ru.workinprogress.booblik.native/ProducerConfig.lingerMillis|{}lingerMillis[0]
+        final fun <get-lingerMillis>(): kotlin/Long // ru.workinprogress.booblik.native/ProducerConfig.lingerMillis.<get-lingerMillis>|<get-lingerMillis>(){}[0]
+    final val maxBatchSize // ru.workinprogress.booblik.native/ProducerConfig.maxBatchSize|{}maxBatchSize[0]
+        final fun <get-maxBatchSize>(): kotlin/Int // ru.workinprogress.booblik.native/ProducerConfig.maxBatchSize.<get-maxBatchSize>|<get-maxBatchSize>(){}[0]
+
+    final fun component1(): kotlin/Int // ru.workinprogress.booblik.native/ProducerConfig.component1|component1(){}[0]
+    final fun component2(): kotlin/Long // ru.workinprogress.booblik.native/ProducerConfig.component2|component2(){}[0]
+    final fun component3(): ru.workinprogress.booblik.log/AckPolicy // ru.workinprogress.booblik.native/ProducerConfig.component3|component3(){}[0]
+    final fun copy(kotlin/Int = ..., kotlin/Long = ..., ru.workinprogress.booblik.log/AckPolicy = ...): ru.workinprogress.booblik.native/ProducerConfig // ru.workinprogress.booblik.native/ProducerConfig.copy|copy(kotlin.Int;kotlin.Long;ru.workinprogress.booblik.log.AckPolicy){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // ru.workinprogress.booblik.native/ProducerConfig.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // ru.workinprogress.booblik.native/ProducerConfig.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // ru.workinprogress.booblik.native/ProducerConfig.toString|toString(){}[0]
+}
+
+final class ru.workinprogress.booblik.native/RecordExceedsMaxBytesException : kotlin/IllegalStateException { // ru.workinprogress.booblik.native/RecordExceedsMaxBytesException|null[0]
+    constructor <init>(ru.workinprogress.booblik/Offset, kotlin/Int, kotlin/Int) // ru.workinprogress.booblik.native/RecordExceedsMaxBytesException.<init>|<init>(ru.workinprogress.booblik.Offset;kotlin.Int;kotlin.Int){}[0]
+
+    final val maxBytes // ru.workinprogress.booblik.native/RecordExceedsMaxBytesException.maxBytes|{}maxBytes[0]
+        final fun <get-maxBytes>(): kotlin/Int // ru.workinprogress.booblik.native/RecordExceedsMaxBytesException.maxBytes.<get-maxBytes>|<get-maxBytes>(){}[0]
+    final val offset // ru.workinprogress.booblik.native/RecordExceedsMaxBytesException.offset|{}offset[0]
+        final fun <get-offset>(): ru.workinprogress.booblik/Offset // ru.workinprogress.booblik.native/RecordExceedsMaxBytesException.offset.<get-offset>|<get-offset>(){}[0]
+    final val recordBytes // ru.workinprogress.booblik.native/RecordExceedsMaxBytesException.recordBytes|{}recordBytes[0]
+        final fun <get-recordBytes>(): kotlin/Int // ru.workinprogress.booblik.native/RecordExceedsMaxBytesException.recordBytes.<get-recordBytes>|<get-recordBytes>(){}[0]
+}
+
+final class ru.workinprogress.booblik.native/Topic { // ru.workinprogress.booblik.native/Topic|null[0]
+    final val name // ru.workinprogress.booblik.native/Topic.name|{}name[0]
+        final fun <get-name>(): ru.workinprogress.booblik/TopicName // ru.workinprogress.booblik.native/Topic.name.<get-name>|<get-name>(){}[0]
+    final val partitions // ru.workinprogress.booblik.native/Topic.partitions|{}partitions[0]
+        final fun <get-partitions>(): kotlin.collections/List<ru.workinprogress.booblik/PartitionId> // ru.workinprogress.booblik.native/Topic.partitions.<get-partitions>|<get-partitions>(){}[0]
+
+    final fun partitionFor(kotlin/ByteArray?): ru.workinprogress.booblik/PartitionId // ru.workinprogress.booblik.native/Topic.partitionFor|partitionFor(kotlin.ByteArray?){}[0]
+    final fun send(kotlin/ByteArray, kotlin/ByteArray? = ..., ru.workinprogress.booblik.log/AckPolicy = ...): ru.workinprogress.booblik.net.wire/ProduceResult? // ru.workinprogress.booblik.native/Topic.send|send(kotlin.ByteArray;kotlin.ByteArray?;ru.workinprogress.booblik.log.AckPolicy){}[0]
+}

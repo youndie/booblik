@@ -9,8 +9,8 @@ public final class ru/workinprogress/booblik/net/client/BooblikClient : java/io/
 	public final fun getLocalAddress ()Ljava/net/SocketAddress;
 	public final fun getRemoteAddress ()Ljava/net/SocketAddress;
 	public final fun receiveFetch ()Lru/workinprogress/booblik/net/client/FetchResult;
-	public final fun receiveMetadata ()Lru/workinprogress/booblik/net/client/MetadataResult;
-	public final fun receiveProduce ()Lru/workinprogress/booblik/net/client/ProduceResult;
+	public final fun receiveMetadata ()Lru/workinprogress/booblik/net/wire/MetadataResult;
+	public final fun receiveProduce ()Lru/workinprogress/booblik/net/wire/ProduceResult;
 	public final fun sendFetch-h6PF7p0 (Ljava/lang/String;IJIII)I
 	public static synthetic fun sendFetch-h6PF7p0$default (Lru/workinprogress/booblik/net/client/BooblikClient;Ljava/lang/String;IJIIIILjava/lang/Object;)I
 	public final fun sendMetadata (Ljava/util/List;)I
@@ -69,35 +69,23 @@ public final class ru/workinprogress/booblik/net/client/FetchFailedException : j
 }
 
 public final class ru/workinprogress/booblik/net/client/FetchResult {
-	public synthetic fun <init> (ILru/workinprogress/booblik/net/wire/ErrorCode;JLjava/util/List;ZLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (ILru/workinprogress/booblik/net/wire/ErrorCode;JLjava/util/List;ZIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (ILru/workinprogress/booblik/net/wire/ErrorCode;JLjava/util/List;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
 	public final fun component2 ()Lru/workinprogress/booblik/net/wire/ErrorCode;
 	public final fun component3-SgWxkiU ()J
 	public final fun component4 ()Ljava/util/List;
 	public final fun component5 ()Z
-	public final fun copy-rqAaQr4 (ILru/workinprogress/booblik/net/wire/ErrorCode;JLjava/util/List;Z)Lru/workinprogress/booblik/net/client/FetchResult;
-	public static synthetic fun copy-rqAaQr4$default (Lru/workinprogress/booblik/net/client/FetchResult;ILru/workinprogress/booblik/net/wire/ErrorCode;JLjava/util/List;ZILjava/lang/Object;)Lru/workinprogress/booblik/net/client/FetchResult;
+	public final fun component6 ()I
+	public final fun copy-RsLHZjs (ILru/workinprogress/booblik/net/wire/ErrorCode;JLjava/util/List;ZI)Lru/workinprogress/booblik/net/client/FetchResult;
+	public static synthetic fun copy-RsLHZjs$default (Lru/workinprogress/booblik/net/client/FetchResult;ILru/workinprogress/booblik/net/wire/ErrorCode;JLjava/util/List;ZIILjava/lang/Object;)Lru/workinprogress/booblik/net/client/FetchResult;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getCorrelationId ()I
 	public final fun getError ()Lru/workinprogress/booblik/net/wire/ErrorCode;
 	public final fun getHighWatermark-SgWxkiU ()J
 	public final fun getRecords ()Ljava/util/List;
 	public final fun getTruncated ()Z
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class ru/workinprogress/booblik/net/client/MetadataResult {
-	public fun <init> (ILru/workinprogress/booblik/net/wire/ErrorCode;Ljava/util/List;)V
-	public final fun component1 ()I
-	public final fun component2 ()Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public final fun component3 ()Ljava/util/List;
-	public final fun copy (ILru/workinprogress/booblik/net/wire/ErrorCode;Ljava/util/List;)Lru/workinprogress/booblik/net/client/MetadataResult;
-	public static synthetic fun copy$default (Lru/workinprogress/booblik/net/client/MetadataResult;ILru/workinprogress/booblik/net/wire/ErrorCode;Ljava/util/List;ILjava/lang/Object;)Lru/workinprogress/booblik/net/client/MetadataResult;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getCorrelationId ()I
-	public final fun getError ()Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public final fun getTopics ()Ljava/util/List;
+	public final fun getTruncatedRecordBytes ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
@@ -107,50 +95,9 @@ public abstract interface class ru/workinprogress/booblik/net/client/OffsetStore
 	public abstract fun save-KBN7SHQ (Ljava/lang/String;IJLkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
-public final class ru/workinprogress/booblik/net/client/PartitionInfo {
-	public synthetic fun <init> (IJJLkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-6_o2rbo ()I
-	public final fun component2-SgWxkiU ()J
-	public final fun component3-SgWxkiU ()J
-	public final fun copy-jwJ1WIY (IJJ)Lru/workinprogress/booblik/net/client/PartitionInfo;
-	public static synthetic fun copy-jwJ1WIY$default (Lru/workinprogress/booblik/net/client/PartitionInfo;IJJILjava/lang/Object;)Lru/workinprogress/booblik/net/client/PartitionInfo;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getHighWatermark-SgWxkiU ()J
-	public final fun getLogStartOffset-SgWxkiU ()J
-	public final fun getPartition-6_o2rbo ()I
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public abstract interface class ru/workinprogress/booblik/net/client/Partitioner {
-	public static final field Companion Lru/workinprogress/booblik/net/client/Partitioner$Companion;
-	public abstract fun partitionFor ([BI)I
-}
-
-public final class ru/workinprogress/booblik/net/client/Partitioner$Companion {
-	public final fun getByKeyHash ()Lru/workinprogress/booblik/net/client/Partitioner;
-}
-
 public final class ru/workinprogress/booblik/net/client/ProduceFailedException : java/lang/IllegalStateException {
 	public fun <init> (Lru/workinprogress/booblik/net/wire/ErrorCode;)V
 	public final fun getCode ()Lru/workinprogress/booblik/net/wire/ErrorCode;
-}
-
-public final class ru/workinprogress/booblik/net/client/ProduceResult {
-	public synthetic fun <init> (ILru/workinprogress/booblik/net/wire/ErrorCode;JJLkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()I
-	public final fun component2 ()Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public final fun component3-SgWxkiU ()J
-	public final fun component4-SgWxkiU ()J
-	public final fun copy-7eBCXTQ (ILru/workinprogress/booblik/net/wire/ErrorCode;JJ)Lru/workinprogress/booblik/net/client/ProduceResult;
-	public static synthetic fun copy-7eBCXTQ$default (Lru/workinprogress/booblik/net/client/ProduceResult;ILru/workinprogress/booblik/net/wire/ErrorCode;JJILjava/lang/Object;)Lru/workinprogress/booblik/net/client/ProduceResult;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getBaseOffset-SgWxkiU ()J
-	public final fun getCorrelationId ()I
-	public final fun getError ()Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public final fun getLogEndOffset-SgWxkiU ()J
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
 }
 
 public final class ru/workinprogress/booblik/net/client/Producer : java/lang/AutoCloseable {
@@ -209,6 +156,13 @@ public final class ru/workinprogress/booblik/net/client/RecordBatch {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class ru/workinprogress/booblik/net/client/RecordExceedsMaxBytesException : java/lang/IllegalStateException {
+	public synthetic fun <init> (JIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getMaxBytes ()I
+	public final fun getOffset-SgWxkiU ()J
+	public final fun getRecordBytes ()I
+}
+
 public final class ru/workinprogress/booblik/net/client/Records {
 	public synthetic fun <init> (Ljava/util/List;JLkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/util/List;
@@ -225,10 +179,10 @@ public final class ru/workinprogress/booblik/net/client/Records {
 
 public final class ru/workinprogress/booblik/net/client/ResponseReader {
 	public static final field INSTANCE Lru/workinprogress/booblik/net/client/ResponseReader;
-	public final fun fetch (Ljava/nio/ByteBuffer;)Lru/workinprogress/booblik/net/client/FetchResult;
-	public final fun metadata (Ljava/nio/ByteBuffer;)Lru/workinprogress/booblik/net/client/MetadataResult;
-	public final fun produce (Ljava/nio/ByteBuffer;)Lru/workinprogress/booblik/net/client/ProduceResult;
-	public final fun readFrame (Ljava/nio/channels/SocketChannel;)Ljava/nio/ByteBuffer;
+	public final fun fetch ([B)Lru/workinprogress/booblik/net/client/FetchResult;
+	public final fun metadata ([B)Lru/workinprogress/booblik/net/wire/MetadataResult;
+	public final fun produce ([B)Lru/workinprogress/booblik/net/wire/ProduceResult;
+	public final fun readFrame (Ljava/nio/channels/SocketChannel;)[B
 	public final fun readFully (Ljava/nio/channels/SocketChannel;Ljava/nio/ByteBuffer;)V
 }
 
@@ -290,38 +244,6 @@ public final class ru/workinprogress/booblik/net/client/TopicHandle {
 	public static synthetic fun send$default (Lru/workinprogress/booblik/net/client/TopicHandle;[B[BLkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 }
 
-public final class ru/workinprogress/booblik/net/client/TopicInfo {
-	public synthetic fun <init> (Ljava/lang/String;Ljava/util/List;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-CPONTrc ()Ljava/lang/String;
-	public final fun component2 ()Ljava/util/List;
-	public final fun copy-OW2BbQ0 (Ljava/lang/String;Ljava/util/List;)Lru/workinprogress/booblik/net/client/TopicInfo;
-	public static synthetic fun copy-OW2BbQ0$default (Lru/workinprogress/booblik/net/client/TopicInfo;Ljava/lang/String;Ljava/util/List;ILjava/lang/Object;)Lru/workinprogress/booblik/net/client/TopicInfo;
-	public fun equals (Ljava/lang/Object;)Z
-	public final fun getPartitions ()Ljava/util/List;
-	public final fun getTopic-CPONTrc ()Ljava/lang/String;
-	public fun hashCode ()I
-	public fun toString ()Ljava/lang/String;
-}
-
-public final class ru/workinprogress/booblik/net/wire/ApiKey : java/lang/Enum {
-	public static final field Companion Lru/workinprogress/booblik/net/wire/ApiKey$Companion;
-	public static final field FETCH Lru/workinprogress/booblik/net/wire/ApiKey;
-	public static final field METADATA Lru/workinprogress/booblik/net/wire/ApiKey;
-	public static final field PRODUCE Lru/workinprogress/booblik/net/wire/ApiKey;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public final fun getId ()S
-	public static fun valueOf (Ljava/lang/String;)Lru/workinprogress/booblik/net/wire/ApiKey;
-	public static fun values ()[Lru/workinprogress/booblik/net/wire/ApiKey;
-}
-
-public final class ru/workinprogress/booblik/net/wire/ApiKey$Companion {
-	public final fun of (S)Lru/workinprogress/booblik/net/wire/ApiKey;
-}
-
-public final class ru/workinprogress/booblik/net/wire/CorruptRequestException : java/lang/IllegalArgumentException {
-	public fun <init> (Ljava/lang/String;)V
-}
-
 public abstract interface class ru/workinprogress/booblik/net/wire/DecodeResult {
 }
 
@@ -347,24 +269,6 @@ public final class ru/workinprogress/booblik/net/wire/DecodeResult$Ok : ru/worki
 	public final fun getRequest ()Lru/workinprogress/booblik/net/wire/Request;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
-}
-
-public final class ru/workinprogress/booblik/net/wire/ErrorCode : java/lang/Enum {
-	public static final field CORRUPT_REQUEST Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public static final field Companion Lru/workinprogress/booblik/net/wire/ErrorCode$Companion;
-	public static final field NONE Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public static final field OFFSET_OUT_OF_RANGE Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public static final field RECORD_TOO_LARGE Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public static final field UNKNOWN_TOPIC_OR_PARTITION Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public static final field UNSUPPORTED_VERSION Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public final fun getId ()S
-	public static fun valueOf (Ljava/lang/String;)Lru/workinprogress/booblik/net/wire/ErrorCode;
-	public static fun values ()[Lru/workinprogress/booblik/net/wire/ErrorCode;
-}
-
-public final class ru/workinprogress/booblik/net/wire/ErrorCode$Companion {
-	public final fun of (S)Lru/workinprogress/booblik/net/wire/ErrorCode;
 }
 
 public final class ru/workinprogress/booblik/net/wire/FetchRequest : ru/workinprogress/booblik/net/wire/PartitionRequest {
@@ -443,18 +347,6 @@ public final class ru/workinprogress/booblik/net/wire/ProduceRequest : ru/workin
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class ru/workinprogress/booblik/net/wire/Protocol {
-	public static final field FETCH_VERSION S
-	public static final field INSTANCE Lru/workinprogress/booblik/net/wire/Protocol;
-	public static final field LENGTH_PREFIX_BYTES I
-	public static final field MAX_FETCH_WAIT_MILLIS I
-	public static final field MAX_FRAME_BYTES I
-	public static final field REQUEST_HEADER_BYTES I
-	public static final field RESPONSE_HEADER_BYTES I
-	public static final field VERSION S
-	public final fun supports (Lru/workinprogress/booblik/net/wire/ApiKey;S)Z
-}
-
 public abstract interface class ru/workinprogress/booblik/net/wire/Request {
 	public abstract fun getHeader ()Lru/workinprogress/booblik/net/wire/RequestHeader;
 }
@@ -463,14 +355,6 @@ public final class ru/workinprogress/booblik/net/wire/RequestDecoder {
 	public static final field INSTANCE Lru/workinprogress/booblik/net/wire/RequestDecoder;
 	public static final field UNKNOWN_CORRELATION_ID I
 	public final fun decode (Ljava/nio/ByteBuffer;)Lru/workinprogress/booblik/net/wire/DecodeResult;
-}
-
-public final class ru/workinprogress/booblik/net/wire/RequestEncoder {
-	public static final field INSTANCE Lru/workinprogress/booblik/net/wire/RequestEncoder;
-	public final fun fetch-QyL0f9k (ILjava/lang/String;IJIII)Ljava/nio/ByteBuffer;
-	public static synthetic fun fetch-QyL0f9k$default (Lru/workinprogress/booblik/net/wire/RequestEncoder;ILjava/lang/String;IJIIIILjava/lang/Object;)Ljava/nio/ByteBuffer;
-	public final fun metadata (ILjava/util/List;)Ljava/nio/ByteBuffer;
-	public final fun produce-3yZB1oI (ILjava/lang/String;ILjava/util/List;Lru/workinprogress/booblik/log/AckPolicy;)Ljava/nio/ByteBuffer;
 }
 
 public final class ru/workinprogress/booblik/net/wire/RequestHeader {

@@ -94,9 +94,10 @@ private suspend fun publishForever(
     while (true) {
         val user = users[Random.nextInt(users.size)]
         val key = user.toByteArray()
-        // Asked before sending, and the answer is stable: `ByKeyHash` is a pure function of the
-        // key. Doing the same for an unkeyed record would be a bug — the round-robin partitioner
-        // advances a counter, so asking would consume a slot and the records would skip partitions.
+        // Asked before sending, and the answer is stable: the keyed partitioner is a pure function
+        // of the key. Doing the same for an unkeyed record would be a bug — the round-robin
+        // partitioner advances a counter, so asking would consume a slot and the records would
+        // skip partitions.
         val partition = topic.partitionFor(key)
 
         val payload = """{"user":"$user","action":"${ACTIONS[Random.nextInt(ACTIONS.size)]}"}"""

@@ -1,16 +1,24 @@
 package ru.workinprogress.booblik
 
+// Explicit, because `kotlin.jvm.*` is a default import only when compiling for the JVM. Without it
+// these files compile on the JVM and fail on every native target — the exact shape of mistake that
+// makes "it builds" mean nothing in a multiplatform module.
+import kotlin.jvm.JvmInline
+
 /**
  * Logical number of a record inside a partition. Monotonic, gap-free, assigned by the broker.
  *
- * The whole reason these are separate types is that [Offset] and [Position] are both `Long`-ish
+ * The whole reason these are separate types is that offsets and byte positions are both `Long`-ish
  * and mixing them up produces a broker that silently reads the wrong bytes instead of failing.
  *
  * Note the cost, because it is easy to assume there is none: a `value class` is erased to its
  * carrier **only when the static type is the value class itself**. In a generic position it is
- * boxed — so `Map<Offset, Position>` allocates two objects per entry. That is why the index is a
- * [ru.workinprogress.booblik.storage.SparseOffsetIndex] over a `LongArray` and not a
- * `ConcurrentSkipListMap<Offset, Position>`; see docs/research §1.6.
+ * boxed — so `Map<Offset, …>` allocates per entry. That is why the storage index is a `LongArray`
+ * and not a map keyed by this type; see docs/research §1.6.
+ *
+ * Lives here rather than in `:booblik-core` because it goes **on the wire**, and the wire is what
+ * a client and a broker have to agree on. `Position` stayed in the core for the mirror-image
+ * reason: it is a byte offset inside a segment file and never appears in a request or a response.
  */
 @JvmInline
 value class Offset(
@@ -32,32 +40,6 @@ value class Offset(
 
     companion object {
         val ZERO = Offset(0)
-    }
-}
-
-/**
- * Byte position inside a single segment file.
- *
- * `Int`, not `Long`, and deliberately so: a segment is bounded by [Int.MAX_VALUE] bytes anyway
- * (both `MappedByteBuffer` and a single `transferTo` call are int-indexed — research §1.4, §1.5),
- * so a `Long` here would advertise a range the storage cannot serve.
- */
-@JvmInline
-value class Position(
-    val value: Int,
-) : Comparable<Position> {
-    init {
-        require(value >= 0) { "position must be non-negative, got $value" }
-    }
-
-    operator fun plus(delta: Int): Position = Position(value + delta)
-
-    override fun compareTo(other: Position): Int = value.compareTo(other.value)
-
-    override fun toString(): String = value.toString()
-
-    companion object {
-        val ZERO = Position(0)
     }
 }
 

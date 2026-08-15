@@ -6,17 +6,22 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import ru.workinprogress.booblik.Offset
 import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.log.AckPolicy
 import ru.workinprogress.booblik.net.client.BooblikConnection
+import ru.workinprogress.booblik.net.client.BooblikSubscriber
 import ru.workinprogress.booblik.net.client.Consumer
 import ru.workinprogress.booblik.net.client.FetchFailedException
 import ru.workinprogress.booblik.net.client.ProduceFailedException
 import ru.workinprogress.booblik.net.client.Producer
 import ru.workinprogress.booblik.net.client.ProducerConfig
+import ru.workinprogress.booblik.net.client.RecordExceedsMaxBytesException
+import ru.workinprogress.booblik.net.client.StartPosition
+import ru.workinprogress.booblik.net.client.SubscriptionConfig
 import ru.workinprogress.booblik.net.wire.ErrorCode
 import java.net.InetSocketAddress
 import java.nio.file.Files
@@ -168,6 +173,38 @@ class ClientTest {
 
             val second = consumer.poll()
             assertContentEquals(records[2], second.records.first(), "the cut record comes back whole")
+        }
+    }
+
+    @Test
+    fun `a record too large for maxBytes is reported rather than looking like the end of the log`() {
+        // The second way a reader stops, and the only one that never resolves itself: the response
+        // is a truncated tail with nothing whole before it, so dropping the tail and asking again —
+        // right in every other case — makes the identical request for ever. Until M-139 this came
+        // back as an empty batch, which is exactly what a caught-up consumer gets.
+        withClient { connection, _ ->
+            connection.produce(topic, partition, listOf(ByteArray(500)))
+
+            val consumer = Consumer(connection, topic, partition, maxBytes = 100)
+            val failure = assertFailsWith<RecordExceedsMaxBytesException> { consumer.poll() }
+
+            assertEquals(500, failure.recordBytes, "the number a caller raises maxBytes above")
+            assertEquals(100, failure.maxBytes)
+            assertEquals(Offset(0), failure.offset)
+            assertEquals(Offset(0), consumer.position, "the position must not move past an unread record")
+        }
+    }
+
+    @Test
+    fun `a subscription reports the record it cannot fit instead of following nothing`() {
+        withClient { connection, address ->
+            connection.produce(topic, partition, listOf(ByteArray(500)))
+
+            BooblikSubscriber(address, SubscriptionConfig(maxBytes = 100, maxWaitMillis = 0)).use { subscriber ->
+                assertFailsWith<RecordExceedsMaxBytesException> {
+                    subscriber.replay(topic, StartPosition.Earliest).toList()
+                }
+            }
         }
     }
 

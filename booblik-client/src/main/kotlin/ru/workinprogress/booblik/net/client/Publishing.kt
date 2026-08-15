@@ -9,36 +9,6 @@ import ru.workinprogress.booblik.net.wire.ErrorCode
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Decides which partition a record goes to, from a key the broker never sees.
- *
- * Keys are a **client-side** idea here, and permanently so: the record format has no room for one,
- * so the broker cannot route by key, cannot compact by key, and will never be able to. What it can
- * do is store whatever bytes it is given in whatever partition it is told, which is all a
- * partitioner needs.
- */
-fun interface Partitioner {
-    fun partitionFor(
-        key: ByteArray,
-        partitions: Int,
-    ): Int
-
-    companion object {
-        /**
-         * `Arrays.hashCode` over the key, folded into range.
-         *
-         * Specified by the JDK rather than implementation-defined, so two processes agree — which
-         * is the only property a partitioner has to have. `floorMod` and not `%`: the hash is
-         * signed, and a negative partition id would fail on the broker for a reason that has
-         * nothing to do with the record.
-         */
-        val ByKeyHash =
-            Partitioner { key, partitions ->
-                Math.floorMod(key.contentHashCode(), partitions)
-            }
-    }
-}
-
-/**
  * One topic, so its name and its partitions stop being arguments to every call.
  *
  * Obtained from [Producer.topic], which asks the broker what partitions exist (M-70) rather than
@@ -50,7 +20,7 @@ class TopicHandle internal constructor(
     private val producer: Producer,
     val topic: TopicName,
     val partitions: List<PartitionId>,
-    private val partitioner: Partitioner = Partitioner.ByKeyHash,
+    private val partitioner: Partitioner = Partitioner.Fnv1a,
 ) {
     private val roundRobin = AtomicInteger(0)
 

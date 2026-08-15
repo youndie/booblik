@@ -10,6 +10,8 @@ import ru.workinprogress.booblik.Offset
 import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.log.AckPolicy
+import ru.workinprogress.booblik.net.wire.MetadataResult
+import ru.workinprogress.booblik.net.wire.ProduceResult
 import ru.workinprogress.booblik.net.wire.RequestEncoder
 import java.io.Closeable
 import java.net.InetSocketAddress
@@ -75,7 +77,9 @@ class BooblikConnection(
                     // Registered before the bytes go out, and by the same coroutine, so the queue
                     // order and the wire order cannot disagree.
                     message.pending?.let(pending::add)
-                    writeFully(message.frame)
+                    // The one place a frame becomes a ByteBuffer: `wrap` makes a view over the
+                    // array the encoder already produced and copies nothing.
+                    writeFully(ByteBuffer.wrap(message.frame))
                 }
             } catch (e: Throwable) {
                 fail(e)
@@ -173,14 +177,14 @@ class BooblikConnection(
     }
 
     private class Outgoing(
-        val frame: ByteBuffer,
+        val frame: ByteArray,
         val pending: Pending?,
     )
 
     private sealed class Pending(
         val correlationId: Int,
     ) {
-        abstract fun complete(frame: ByteBuffer)
+        abstract fun complete(frame: ByteArray)
 
         abstract fun fail(cause: Throwable)
 
@@ -194,7 +198,7 @@ class BooblikConnection(
             correlationId: Int,
             private val answer: CompletableDeferred<ProduceResult>,
         ) : Pending(correlationId) {
-            override fun complete(frame: ByteBuffer) {
+            override fun complete(frame: ByteArray) {
                 val result = ResponseReader.produce(frame)
                 checkOrder(result.correlationId)
                 answer.complete(result)
@@ -209,7 +213,7 @@ class BooblikConnection(
             correlationId: Int,
             private val answer: CompletableDeferred<MetadataResult>,
         ) : Pending(correlationId) {
-            override fun complete(frame: ByteBuffer) {
+            override fun complete(frame: ByteArray) {
                 val result = ResponseReader.metadata(frame)
                 checkOrder(result.correlationId)
                 answer.complete(result)
@@ -224,7 +228,7 @@ class BooblikConnection(
             correlationId: Int,
             private val answer: CompletableDeferred<FetchResult>,
         ) : Pending(correlationId) {
-            override fun complete(frame: ByteBuffer) {
+            override fun complete(frame: ByteArray) {
                 val result = ResponseReader.fetch(frame)
                 checkOrder(result.correlationId)
                 answer.complete(result)

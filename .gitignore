@@ -5,3 +5,10 @@ build/
 *.iml
 .DS_Store
 local.properties
+
+# clients/ — one ecosystem's build output per line, and none of them called `build`.
+__pycache__/
+*.egg-info/
+node_modules/
+bin/
+obj/

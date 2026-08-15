@@ -1,5 +1,9 @@
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
+    // Declared here as well, and for the same reason: the Kotlin plugin lands on the build classpath
+    // once, so a module asking for a *versioned* multiplatform plugin fails with "already on the
+    // classpath with an unknown version" rather than anything about multiplatform.
+    alias(libs.plugins.kotlin.multiplatform) apply false
     alias(libs.plugins.ktlint)
 }
 
@@ -57,7 +61,11 @@ allprojects {
     group = "io.github.youndie.booblik"
     // A default that is a snapshot on purpose: a build with no `-PVERSION` must not be able to
     // produce something that looks like a release.
-    version = providers.gradleProperty("VERSION").getOrElse("0.2.1-SNAPSHOT")
+    // 0.3.0 and not 0.2.1: M-130 changed the default partitioner, so the same key goes to a
+    // different partition than it did in 0.2.0. Nothing in the ABI moved, which is exactly why the
+    // version has to say it — `checkKotlinAbi` cannot see a change of behaviour behind a stable
+    // signature, and this one costs per-key order to anyone who upgrades mid-stream.
+    version = providers.gradleProperty("VERSION").getOrElse("0.3.0-SNAPSHOT")
 }
 
 // The whole point of this block: the gate is one command. `./gradlew check` must run the tests
@@ -97,7 +105,9 @@ subprojects {
             // `:booblik-benchmark` is deliberately outside: it publishes nothing, and every new
             // probe would show up as an API change, which trains everyone to run `updateLegacyAbi`
             // without reading the diff — the exact habit this check exists to prevent.
-            if (project.name != "booblik-benchmark") {
+            // `:booblik-conformance` is outside for the same reason: it is a fixture for the
+            // conformance harness, its whole surface is a `main`, and nobody can depend on it.
+            if (project.name !in setOf("booblik-benchmark", "booblik-conformance")) {
                 @OptIn(org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation::class)
                 abiValidation {
                     // Calling the block is what enables it — there is no `enabled` flag any more,

@@ -1,42 +1,14 @@
 package ru.workinprogress.booblik.net.client
 
 import ru.workinprogress.booblik.Offset
-import ru.workinprogress.booblik.PartitionId
-import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.net.wire.ErrorCode
+import ru.workinprogress.booblik.net.wire.MetadataResult
+import ru.workinprogress.booblik.net.wire.ProduceResult
 import ru.workinprogress.booblik.net.wire.Protocol
+import ru.workinprogress.booblik.net.wire.ResponseDecoder
 import java.io.EOFException
 import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
-
-/** What the broker answered a PRODUCE with. */
-data class ProduceResult(
-    val correlationId: Int,
-    val error: ErrorCode,
-    val baseOffset: Offset,
-    val logEndOffset: Offset,
-)
-
-/** One partition, as the broker describes it. */
-data class PartitionInfo(
-    val partition: PartitionId,
-    /** Where the **live** log starts: retention moves this, and it is not always zero. */
-    val logStartOffset: Offset,
-    val highWatermark: Offset,
-)
-
-/** One topic and its partitions, in the order the broker listed them. */
-data class TopicInfo(
-    val topic: TopicName,
-    val partitions: List<PartitionInfo>,
-)
-
-/** What the broker answered a METADATA with. */
-data class MetadataResult(
-    val correlationId: Int,
-    val error: ErrorCode,
-    val topics: List<TopicInfo>,
-)
 
 /** What the broker answered a FETCH with. [records] are already unframed and checksum-verified. */
 data class FetchResult(
@@ -46,6 +18,15 @@ data class FetchResult(
     val records: List<ByteArray>,
     /** True when the response ended inside a record, which `maxBytes` makes routine. */
     val truncated: Boolean,
+    /**
+     * How big the dropped record is, when its header made it into the response; zero when the
+     * response stopped inside the header itself.
+     *
+     * Here so that a caller can tell "nothing new to read" from "the next record is bigger than
+     * `maxBytes` and never will be read", which are the same empty list otherwise. The number is
+     * what `maxBytes` has to exceed, and it is what [RecordExceedsMaxBytesException] carries.
+     */
+    val truncatedRecordBytes: Int = 0,
 )
 
 /**
@@ -60,104 +41,71 @@ class CorruptRecordException(
 ) : IllegalStateException("record $index in the fetch response fails its checksum")
 
 /**
- * Reads response frames off a socket and unpacks them.
+ * Reads response frames off a socket and hands them to the codec.
  *
- * Kept apart from both clients because both need it and neither should own it. Blocking by
- * signature: the pipelined client runs it on its own reader coroutine, the simple one calls it
- * inline.
+ * All three responses are decoded in `:booblik-protocol` now — PRODUCE and METADATA since M-134,
+ * FETCH since M-140. What is left here is reading whole frames off a `SocketChannel`, which is the
+ * only part that needs a JVM at all, plus the mapping from the protocol module's types to this
+ * library's published ones.
+ *
+ * The FETCH decoder held out longest for a reason that turned out to be measurable and false: every
+ * record has to be checksum-verified, `CRC32C` on the JVM is an intrinsic, and a decoder written for
+ * common code was expected to cost a JVM reader. It does not (measurement 25).
  */
 object ResponseReader {
-    fun readFrame(channel: SocketChannel): ByteBuffer {
+    /** Reads one whole frame, without its length prefix. */
+    fun readFrame(channel: SocketChannel): ByteArray {
         val prefix = ByteBuffer.allocate(Protocol.LENGTH_PREFIX_BYTES)
         readFully(channel, prefix)
         prefix.flip()
         val length = prefix.int
         require(length in 1..Protocol.MAX_FRAME_BYTES) { "broker sent a frame of $length bytes" }
+
         val body = ByteBuffer.allocate(length)
         readFully(channel, body)
-        body.flip()
-        return body
+        return body.array()
     }
 
-    fun produce(body: ByteBuffer): ProduceResult {
-        val correlationId = body.int
-        val error = ErrorCode.of(body.short)
-        if (error != ErrorCode.NONE) {
-            return ProduceResult(correlationId, error, Offset.ZERO, Offset.ZERO)
-        }
-        // Read into locals rather than into the constructor call: both fields are `body.long`, and
-        // which one is which would then depend on argument evaluation order.
-        val baseOffset = Offset(body.long)
-        val logEndOffset = Offset(body.long)
-        return ProduceResult(correlationId, error, baseOffset, logEndOffset)
-    }
+    fun produce(body: ByteArray): ProduceResult = ResponseDecoder.produce(body)
 
-    fun metadata(body: ByteBuffer): MetadataResult {
-        val correlationId = body.int
-        val error = ErrorCode.of(body.short)
-        if (error != ErrorCode.NONE) return MetadataResult(correlationId, error, emptyList())
+    fun metadata(body: ByteArray): MetadataResult = ResponseDecoder.metadata(body)
 
-        val topicCount = body.int
-        val topics = ArrayList<TopicInfo>(topicCount)
-        repeat(topicCount) {
-            val name = ByteArray(body.short.toInt() and 0xFFFF).also { body.get(it) }
-            val partitionCount = body.int
-            val partitions = ArrayList<PartitionInfo>(partitionCount)
-            repeat(partitionCount) {
-                // Locals, in order, for the same reason `produce` uses them: three reads of the
-                // same buffer whose meaning is positional.
-                val id = PartitionId(body.int)
-                val logStartOffset = Offset(body.long)
-                val highWatermark = Offset(body.long)
-                partitions += PartitionInfo(id, logStartOffset, highWatermark)
+    /**
+     * Unpacks a FETCH response, checksum and all.
+     *
+     * **The unpacking itself lives in `:booblik-protocol` since M-140.** There were two decoders for
+     * this one response — this one over `ByteBuffer`, the shared one over `ByteArray` — and two
+     * readings of the same bytes is one too many; what kept them apart was the belief that the
+     * shared one would cost a JVM reader, `CRC32C` here being an intrinsic.
+     *
+     * Measured instead of believed (measurement 25). On the Linux box the two are
+     * indistinguishable at 64 B and 1 KiB records and the shared one is **1.40× faster** at 8 KiB.
+     * On the mac the same run said the opposite by 1.7× — with a ±100 % interval on one row, which
+     * is the stand answering about itself rather than about the code.
+     *
+     * What is left here is the mapping, and it stays for one reason: [FetchResult] and
+     * [CorruptRecordException] are this library's published types, and swapping them for the
+     * protocol module's would break every caller for no gain a caller can see.
+     */
+    fun fetch(frame: ByteArray): FetchResult {
+        val answer =
+            try {
+                ResponseDecoder.fetch(frame, Offset.ZERO)
+            } catch (corrupt: ru.workinprogress.booblik.net.wire.CorruptRecordException) {
+                // Translated rather than propagated: callers of this client catch the client's own
+                // exception, and the offset the shared decoder reports is relative to the fetch
+                // offset it was given — which is zero here, so it is the index within the response,
+                // exactly what this exception has always carried.
+                throw CorruptRecordException(corrupt.offset.value.toInt())
             }
-            topics += TopicInfo(TopicName(String(name, Charsets.UTF_8)), partitions)
-        }
-        return MetadataResult(correlationId, error, topics)
-    }
-
-    fun fetch(body: ByteBuffer): FetchResult {
-        val correlationId = body.int
-        val error = ErrorCode.of(body.short)
-        if (error != ErrorCode.NONE) {
-            return FetchResult(correlationId, error, Offset.ZERO, emptyList(), truncated = false)
-        }
-        val highWatermark = Offset(body.long)
-        body.int // payloadBytes: the frame length already bounds the body, so this is redundant here
-
-        val records = ArrayList<ByteArray>()
-        var truncated = false
-        while (body.remaining() >= RECORD_HEADER) {
-            val mark = body.position()
-            val size = body.int
-            val expectedCrc = body.int
-            if (size <= 0 || size > body.remaining()) {
-                // `maxBytes` cuts on a byte boundary, not a record boundary, so the tail of a full
-                // response is normally a record that does not fit. Dropping it and asking again
-                // from the last complete offset is the client's job — the broker will not do it,
-                // because parsing the batch is exactly what the zero-copy path avoids.
-                body.position(mark)
-                truncated = true
-                break
-            }
-            val record = ByteArray(size)
-            body.get(record)
-            // Checked here and nowhere else on this path. A truncated tail is not corruption and
-            // must not be reported as such, which is why the length check comes first.
-            if (checksum(record) != expectedCrc) throw CorruptRecordException(records.size)
-            records += record
-        }
-        if (body.remaining() > 0) truncated = true
-        return FetchResult(correlationId, error, highWatermark, records, truncated)
-    }
-
-    /** `[int32 length][int32 crc]`, the same header the broker writes to disk. */
-    private const val RECORD_HEADER = Int.SIZE_BYTES * 2
-
-    private fun checksum(record: ByteArray): Int {
-        val crc = java.util.zip.CRC32C()
-        crc.update(record, 0, record.size)
-        return crc.value.toInt()
+        return FetchResult(
+            answer.correlationId,
+            answer.error,
+            answer.highWatermark,
+            answer.records,
+            answer.truncated,
+            answer.truncatedRecordBytes,
+        )
     }
 
     fun readFully(

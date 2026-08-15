@@ -4,6 +4,8 @@ import ru.workinprogress.booblik.Offset
 import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.log.AckPolicy
+import ru.workinprogress.booblik.net.wire.MetadataResult
+import ru.workinprogress.booblik.net.wire.ProduceResult
 import ru.workinprogress.booblik.net.wire.RequestEncoder
 import java.io.Closeable
 import java.net.InetSocketAddress
@@ -42,7 +44,7 @@ class BooblikClient(
         ackPolicy: AckPolicy = AckPolicy.WRITTEN,
     ): Int? {
         val correlationId = nextCorrelationId++
-        writeFully(RequestEncoder.produce(correlationId, topic, partition, records, ackPolicy))
+        writeFully(ByteBuffer.wrap(RequestEncoder.produce(correlationId, topic, partition, records, ackPolicy)))
         return if (ackPolicy == AckPolicy.NONE) null else correlationId
     }
 
@@ -57,7 +59,9 @@ class BooblikClient(
     ): Int {
         val correlationId = nextCorrelationId++
         writeFully(
-            RequestEncoder.fetch(correlationId, topic, partition, fetchOffset, maxBytes, maxWaitMillis, minBytes),
+            ByteBuffer.wrap(
+                RequestEncoder.fetch(correlationId, topic, partition, fetchOffset, maxBytes, maxWaitMillis, minBytes),
+            ),
         )
         return correlationId
     }
@@ -65,7 +69,7 @@ class BooblikClient(
     /** Asks what exists. Empty [topics] means "everything". */
     fun sendMetadata(topics: List<TopicName> = emptyList()): Int {
         val correlationId = nextCorrelationId++
-        writeFully(RequestEncoder.metadata(correlationId, topics))
+        writeFully(ByteBuffer.wrap(RequestEncoder.metadata(correlationId, topics)))
         return correlationId
     }
 

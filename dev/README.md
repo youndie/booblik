@@ -203,8 +203,8 @@ reads like a missing artefact rather than a lost repository.
 
 **Round-robin in `partitionFor(null)` advances a counter.** Asking which partition a record will go
 to and then sending it is two turns of that counter, and the records start skipping partitions. With
-a key there is no such thing: `ByKeyHash` is a pure function. That is another reason the sample
-publishes with a key.
+a key there is no such thing: the keyed partitioner is a pure function of the key, whichever one is
+configured. That is another reason the sample publishes with a key.
 
 **The broker image is built for amd64.** The compose file names `platform` explicitly, because
 otherwise an arm64 host reports `no matching manifest`, which reads like a broken tag.

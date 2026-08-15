@@ -7,11 +7,15 @@ plugins {
 
 rootProject.name = "booblik"
 
+include(":booblik-protocol")
+include(":booblik-native")
+include(":booblik-native-conformance")
 include(":booblik-core")
 include(":booblik-client")
 include(":booblik-net")
 include(":booblik-app")
 include(":booblik-benchmark")
+include(":booblik-conformance")
 
 dependencyResolutionManagement {
     repositories {
