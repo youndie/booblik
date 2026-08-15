@@ -64,8 +64,8 @@ configure<PublishingExtension> {
                 url.set("https://github.com/youndie/booblik")
                 licenses {
                     license {
-                        name.set("The Apache License, Version 2.0")
-                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                        name.set("MIT License")
+                        url.set("https://opensource.org/licenses/MIT")
                     }
                 }
                 // `url`, `scm` and `developers` are what Maven Central refuses a POM without.

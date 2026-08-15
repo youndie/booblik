@@ -102,8 +102,8 @@ publishing {
                 url = "https://github.com/youndie/booblik"
                 licenses {
                     license {
-                        name = "The Apache License, Version 2.0"
-                        url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                        name = "MIT License"
+                        url = "https://opensource.org/licenses/MIT"
                     }
                 }
                 // What Maven Central refuses a POM without. Central was decided against in
