@@ -106,8 +106,9 @@ publishing {
                         url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
                     }
                 }
-                // Maven Central refuses a POM without these three, and that decision is open
-                // (M-156). They cost nothing in reposilite.
+                // What Maven Central refuses a POM without. Central was decided against in
+                // M-156; these stay because they cost nothing and the criterion for revisiting it
+                // is not about taste — a library on Central may not depend on artefacts outside it.
                 developers {
                     developer {
                         id = "youndie"

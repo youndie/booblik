@@ -68,11 +68,12 @@ configure<PublishingExtension> {
                         url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
                     }
                 }
-                // `url`, `scm` and `developers` are here because Maven Central refuses a POM
-                // without them, and that decision is still open (M-156). They cost nothing in
-                // reposilite and are the whole difference between "can be published to Central"
-                // and "has to be revisited before it can be" — so they go in now rather than
-                // being discovered as a rejection later.
+                // `url`, `scm` and `developers` are what Maven Central refuses a POM without.
+                // Central was decided against in M-156 — reposilite is read anonymously, which is
+                // all a consumer needs — but these cost nothing and remove half the work if the
+                // criterion for revisiting it ever fires: a library on Central may not depend on
+                // artefacts outside Central, so the day booblik-client becomes a transitive
+                // dependency of something published there, this has to move.
                 developers {
                     developer {
                         id.set("youndie")
