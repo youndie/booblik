@@ -1,0 +1,131 @@
+name: publish-dotnet
+
+# Publishing clients/dotnet to NuGet.org (M-152).
+#
+# **The one secret in the whole delivery.** Go needs no registry at all, PyPI and npm hand out
+# short-lived tokens over OIDC, the JVM repository has its own credentials already, and the image
+# goes out on GITHUB_TOKEN. NuGet is the one that still wants an API key: `NUGET_API_KEY`, scoped
+# to the `Booblik` package glob and given an expiry, because a key without a scope is a key to
+# every package the account owns.
+#
+# By tag, in the `clients/<language>/vX.Y.Z` form every client here uses.
+
+on:
+  push:
+    tags: ['clients/dotnet/v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (must match Booblik.csproj)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: nuget
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0'
+
+      # The tag triggers and the csproj is what ships; a disagreement between them is how a package
+      # lands under a number its own metadata denies.
+      - name: Version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#clients/dotnet/v}"
+          fi
+          DECLARED=$(grep -m1 '<Version>' clients/dotnet/Booblik/Booblik.csproj | sed 's/.*<Version>\(.*\)<\/Version>.*/\1/')
+          if [ "$VERSION" != "$DECLARED" ]; then
+            echo "::error::the tag says $VERSION and Booblik.csproj says $DECLARED"
+            exit 1
+          fi
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # Before the upload: a tag can sit on a commit nothing has checked, and NuGet.org does not
+      # delete a published version — it can only be unlisted, which leaves it resolvable by exact
+      # number for anybody who already asked for it.
+      - name: Gate
+        run: ./clients/dotnet/gate.sh
+
+      - name: Pack
+        run: dotnet pack clients/dotnet/Booblik/Booblik.csproj -c Release -o /tmp/nupkg
+
+      - name: Push
+        run: |
+          dotnet nuget push "/tmp/nupkg/Booblik.${{ steps.version.outputs.value }}.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "${{ secrets.NUGET_API_KEY }}" \
+            --skip-duplicate
+
+  # A green push says the push did not fail. This installs what a user would install and drives a
+  # real broker with it.
+  verify:
+    needs: publish
+    runs-on: ubuntu-24.04
+    # NuGet indexing is the slow one of the five — minutes rather than seconds — so this waits
+    # longer than the others before calling it a failure.
+    timeout-minutes: 30
+
+    services:
+      broker:
+        image: ghcr.io/youndie/booblik:latest
+        ports: ['9092:9092']
+        env:
+          BOOBLIK_TOPICS: smoke:1
+
+    steps:
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0'
+
+      - name: Install from NuGet and drive the broker with it
+        run: |
+          VERSION="${GITHUB_REF_NAME#clients/dotnet/v}"
+          mkdir -p /tmp/smoke && cd /tmp/smoke
+          dotnet new console --force >/dev/null
+
+          # Indexing is not instantaneous and the wait is measured in minutes; retried rather than
+          # slept on, so the step ends as soon as the package is actually resolvable.
+          installed=false
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if dotnet add package Booblik --version "$VERSION" >/dev/null 2>&1; then installed=true; break; fi
+            echo "not indexed yet (attempt $attempt), waiting"
+            sleep 30
+          done
+          if [ "$installed" != true ]; then
+            echo "::error::Booblik $VERSION never became resolvable on NuGet.org"
+            exit 1
+          fi
+
+          cat > Program.cs <<'SMOKE'
+          using Booblik;
+
+          var payload = "smoke"u8.ToArray();
+          using var connection = await Connection.ConnectAsync("localhost:9092");
+
+          var before = (await connection.MetadataAsync(["smoke"]))["smoke"][0].HighWatermark;
+          await connection.ProduceAsync("smoke", 0, [payload]);
+          var answer = await connection.FetchAsync("smoke", 0, before, maxBytes: 1 << 20);
+
+          if (answer.Records.Count != 1 || !answer.Records[0].AsSpan().SequenceEqual(payload))
+          {
+              Console.Error.WriteLine($"read back {answer.Records.Count} records");
+              return 1;
+          }
+
+          Console.WriteLine($"published Booblik reads and writes: offset {before}");
+          return 0;
+          SMOKE
+          dotnet run

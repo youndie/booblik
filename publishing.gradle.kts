@@ -61,11 +61,28 @@ configure<PublishingExtension> {
                     "A message broker on an append-only log: segments, reads by a numeric offset, " +
                         "one process and no cluster",
                 )
+                url.set("https://github.com/youndie/booblik")
                 licenses {
                     license {
                         name.set("The Apache License, Version 2.0")
                         url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
                     }
+                }
+                // `url`, `scm` and `developers` are here because Maven Central refuses a POM
+                // without them, and that decision is still open (M-156). They cost nothing in
+                // reposilite and are the whole difference between "can be published to Central"
+                // and "has to be revisited before it can be" — so they go in now rather than
+                // being discovered as a rejection later.
+                developers {
+                    developer {
+                        id.set("youndie")
+                        url.set("https://github.com/youndie")
+                    }
+                }
+                scm {
+                    url.set("https://github.com/youndie/booblik")
+                    connection.set("scm:git:https://github.com/youndie/booblik.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/youndie/booblik.git")
                 }
             }
         }

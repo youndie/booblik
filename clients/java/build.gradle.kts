@@ -7,7 +7,7 @@ group = "io.github.youndie.booblik"
 version = "0.1.0"
 
 /*
- * A publisher for booblik in plain Java.
+ * A client for booblik in plain Java.
  *
  * **No dependencies**, which is the whole reason it exists rather than a facade over the Kotlin
  * client. A facade would have solved the syntax — Kotlin mangles the names of functions with
@@ -63,18 +63,61 @@ val conformanceJar by tasks.registering(Jar::class) {
     }
 }
 
+/*
+ * Published like the JVM modules in the main build, and configured here rather than by sharing
+ * their `publishing.gradle.kts`: this is a **separate Gradle build** with its own wrapper, so there
+ * is no root project to apply a script from. The property names are the same ones on purpose —
+ * one set of secrets covers every Maven publication in the repository.
+ *
+ * Without configuration only `publishToMavenLocal` works, which is the right default: whoever
+ * builds booblik has their own destination.
+ */
 publishing {
+    repositories {
+        maven {
+            name = "booblikRepo"
+            url =
+                uri(
+                    providers.gradleProperty("BOOBLIK_REPO_URL").orNull
+                        ?: System.getenv("BOOBLIK_REPO_URL")
+                        ?: "https://reposilite.kotlin.website/snapshots",
+                )
+            credentials {
+                username =
+                    providers.gradleProperty("BOOBLIK_REPO_USER").orNull
+                        ?: System.getenv("BOOBLIK_REPO_USER")
+                password =
+                    providers.gradleProperty("BOOBLIK_REPO_SECRET").orNull
+                        ?: System.getenv("BOOBLIK_REPO_SECRET")
+            }
+        }
+    }
+
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
             pom {
                 name = "booblik-java"
-                description = "A publisher for booblik, a message broker on an append-only log"
+                description = "A client for booblik, a message broker on an append-only log"
+                url = "https://github.com/youndie/booblik"
                 licenses {
                     license {
                         name = "The Apache License, Version 2.0"
                         url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
                     }
+                }
+                // Maven Central refuses a POM without these three, and that decision is open
+                // (M-156). They cost nothing in reposilite.
+                developers {
+                    developer {
+                        id = "youndie"
+                        url = "https://github.com/youndie"
+                    }
+                }
+                scm {
+                    url = "https://github.com/youndie/booblik"
+                    connection = "scm:git:https://github.com/youndie/booblik.git"
+                    developerConnection = "scm:git:ssh://git@github.com/youndie/booblik.git"
                 }
             }
         }

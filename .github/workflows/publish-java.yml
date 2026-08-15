@@ -1,0 +1,136 @@
+name: publish-java
+
+# Publishing clients/java to the Maven repository (M-152).
+#
+# Separate from `publish.yml` — which handles the Kotlin modules of the main build — because this
+# client is a **separate Gradle build** with its own wrapper and its own version. That separation is
+# the point of the arrangement: a fix in the Java client should not force a release of the broker's
+# client library, and vice versa.
+#
+# Same secrets as `publish.yml`, one set for every Maven publication in the repository. No macOS
+# runner here: plain Java, no native targets.
+
+on:
+  push:
+    tags: ['clients/java/v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (must match clients/java/build.gradle.kts)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment: maven
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # The tag triggers and the build file is what ships. A disagreement is how an artefact lands
+      # under a number its own POM denies.
+      - name: Version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#clients/java/v}"
+          fi
+          DECLARED=$(grep -m1 '^version = ' clients/java/build.gradle.kts | cut -d'"' -f2)
+          if [ "$VERSION" != "$DECLARED" ]; then
+            echo "::error::the tag says $VERSION and build.gradle.kts says $DECLARED"
+            exit 1
+          fi
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # A tag can sit on a commit nothing has ever checked, and an artefact outlives a red build.
+      - name: Gate
+        run: ./clients/java/gate.sh
+
+      - name: Publish
+        working-directory: clients/java
+        env:
+          ORG_GRADLE_PROJECT_BOOBLIK_REPO_URL: ${{ secrets.BOOBLIK_REPO_URL }}
+          ORG_GRADLE_PROJECT_BOOBLIK_REPO_USER: ${{ secrets.BOOBLIK_REPO_USER }}
+          ORG_GRADLE_PROJECT_BOOBLIK_REPO_SECRET: ${{ secrets.BOOBLIK_REPO_SECRET }}
+        run: ./gradlew publishAllPublicationsToBooblikRepoRepository --stacktrace
+
+  # What a user gets is what their build resolves. This resolves it — from the repository, by
+  # coordinates, into a project that has never seen this checkout — and drives a real broker with it.
+  verify:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      broker:
+        image: ghcr.io/youndie/booblik:latest
+        ports: ['9092:9092']
+        env:
+          BOOBLIK_TOPICS: smoke:1
+
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Resolve from the repository and drive the broker with it
+        env:
+          BOOBLIK_REPO_URL: ${{ secrets.BOOBLIK_REPO_URL }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#clients/java/v}"
+          # The same default as the build file: the URL secret is optional, and reposilite serves
+          # public reads without credentials — which is exactly what a user's build will do.
+          ROOT="${BOOBLIK_REPO_URL:-https://reposilite.kotlin.website/snapshots}/io/github/youndie/booblik"
+
+          mkdir -p /tmp/smoke && cd /tmp/smoke
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsSL -o booblik-java.jar "$ROOT/booblik-java/$VERSION/booblik-java-$VERSION.jar"; then break; fi
+            echo "not readable yet (attempt $attempt), waiting"
+            sleep 20
+            if [ "$attempt" = 6 ]; then
+              echo "::error::booblik-java $VERSION never became readable at $ROOT"
+              exit 1
+            fi
+          done
+
+          cat > Smoke.java <<'SMOKE'
+          import java.util.Arrays;
+          import java.util.List;
+          import ru.workinprogress.booblik.java.AckPolicy;
+          import ru.workinprogress.booblik.java.Connection;
+          import ru.workinprogress.booblik.java.Fetched;
+
+          public class Smoke {
+              public static void main(String[] args) {
+                  byte[] payload = "smoke".getBytes();
+                  try (Connection connection = Connection.open("localhost:9092")) {
+                      long before = connection.metadata("smoke").get("smoke").get(0).highWatermark();
+                      connection.produce("smoke", 0, List.of(payload), AckPolicy.WRITTEN);
+
+                      Fetched answer = connection.fetch("smoke", 0, before, 1 << 20, 0, 0);
+                      if (answer.records().size() != 1 || !Arrays.equals(answer.records().get(0), payload)) {
+                          throw new AssertionError("read back " + answer.records().size() + " records");
+                      }
+                      System.out.println("the published jar reads and writes: offset " + before);
+                  }
+              }
+          }
+          SMOKE
+          # Compiled and run against the jar exactly as a consumer's classpath would carry it.
+          javac -cp booblik-java.jar Smoke.java
+          java -cp booblik-java.jar:. Smoke

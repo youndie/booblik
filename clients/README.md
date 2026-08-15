@@ -104,6 +104,42 @@ force a JVM release, and a JVM release should not push four unchanged packages i
 Every client's README states the protocol version it speaks (currently PRODUCE and METADATA v1,
 FETCH v2) and the roles it declares to the kit.
 
+## Publishing
+
+One tag shape for all of them — `clients/<language>/vX.Y.Z` — and it is Go's shape rather than a
+convention chosen here: a Go module in a subdirectory is *required* to be tagged that way, so the
+rest follow instead of one language having its own.
+
+| | goes to | what it costs |
+|---|---|---|
+| `go/` | nowhere — the tag **is** the release | nothing |
+| `python/` | PyPI | a trusted publisher, no secret |
+| `node/` | npm | a trusted publisher, no secret |
+| `dotnet/` | NuGet.org | **the one API key in the repository** |
+| `java/` | the Maven repository | the credentials that were already there |
+| `kotlin-native/` | the Maven repository, from `publish.yml` | a macOS runner, see below |
+
+**GitHub Packages was considered and does not fit**, which is worth writing down because it looks
+like it should. Python is not among its registries at all, and for npm, Maven and NuGet its own
+documentation says a package must be authenticated for "regardless of whether the package is public
+or private" — only the container registry allows anonymous pulls. Checked without a token:
+`maven.pkg.github.com` answers 401, `ghcr.io` answers 200, and the reposilite this repository
+already uses answers 200. Moving there would have handed every consumer a personal access token.
+
+Installing from git is not a substitute either: **npm has no subdirectory syntax** — the fragment
+after `#` takes a commit-ish or a semver range and nothing else — and the package lives in
+`clients/node/`. pip (`#subdirectory=`) and Go (the subdirectory *is* the module path) can do it,
+but what they install is a reference rather than a version.
+
+**Kotlin/Native and the shared protocol publish from macOS**, because the `macosArm64` klib builds
+nowhere else while `linuxX64` builds there too. A multiplatform module has to publish its root and
+every target in one run from one host, or the root points at variants that do not exist.
+
+Each workflow ends by installing what it just published — from the registry, into a container that
+has never seen this checkout — and driving a real broker with it. That step is not ceremony: the
+JVM client's 0.1.1 was published by a green run and did not compile at the consumer, and nothing
+short of consuming it would have said so.
+
 ## CI
 
 One workflow file per language, because GitHub Actions applies `paths:` to a whole workflow rather

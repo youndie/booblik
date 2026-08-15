@@ -1,0 +1,122 @@
+name: publish-go
+
+# The Go client is not published anywhere, and this workflow exists because of that rather than in
+# spite of it (M-153).
+#
+# A Go module is identified by its path in the repository, so the tag **is** the release: there is
+# no registry, no account and no credential. Which removes the only step that would otherwise have
+# checked anything — and `proxy.golang.org` fetches a tagged version once and caches it for ever.
+# A bad version cannot be deleted, only `retract`ed in a later one.
+#
+# So the tag gets checked after the fact, which is the only moment left: the gate on the exact
+# commit the tag names, and then the module fetched through the public proxy the way a user's
+# `go get` will fetch it.
+
+on:
+  push:
+    tags: ['clients/go/v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to verify, e.g. clients/go/v0.1.0'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      broker:
+        image: ghcr.io/youndie/booblik:latest
+        ports: ['9092:9092']
+        env:
+          BOOBLIK_TOPICS: smoke:1
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: false
+
+      - name: Gate
+        run: ./clients/go/gate.sh
+
+      - name: Fetch the module the way a user would
+        run: |
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then TAG="$GITHUB_REF_NAME"; fi
+          VERSION="${TAG#clients/go/}"
+          MODULE="github.com/youndie/booblik/clients/go"
+
+          mkdir -p /tmp/smoke && cd /tmp/smoke
+          go mod init smoke >/dev/null
+
+          # Through the public proxy, deliberately: GOFLAGS=-mod=mod with a replace directive would
+          # test the working copy, which is the one thing already covered. The proxy learns about a
+          # tag within a minute or two, so this retries rather than sleeping on a guess.
+          for attempt in 1 2 3 4 5 6; do
+            if go get "$MODULE@$VERSION"; then break; fi
+            echo "the proxy does not have $VERSION yet (attempt $attempt), waiting"
+            sleep 20
+            if [ "$attempt" = 6 ]; then
+              echo "::error::$MODULE@$VERSION never became fetchable"
+              exit 1
+            fi
+          done
+
+          cat > main.go <<'SMOKE'
+          package main
+
+          import (
+              "bytes"
+              "context"
+              "fmt"
+              "os"
+
+              booblik "github.com/youndie/booblik/clients/go"
+          )
+
+          func main() {
+              ctx := context.Background()
+              conn, err := booblik.Dial(ctx, "localhost:9092")
+              if err != nil {
+                  fmt.Fprintln(os.Stderr, err)
+                  os.Exit(1)
+              }
+              defer func() { _ = conn.Close() }()
+
+              payload := []byte("smoke")
+              answer, err := conn.Metadata(ctx, "smoke")
+              if err != nil {
+                  fmt.Fprintln(os.Stderr, err)
+                  os.Exit(1)
+              }
+              before := answer["smoke"][0].HighWatermark
+
+              if _, err := conn.Produce(ctx, "smoke", 0, [][]byte{payload}, booblik.AckWritten); err != nil {
+                  fmt.Fprintln(os.Stderr, err)
+                  os.Exit(1)
+              }
+              fetched, err := conn.Fetch(ctx, booblik.FetchRequest{
+                  Topic: "smoke", Partition: 0, Offset: before, MaxBytes: 1 << 20,
+              })
+              if err != nil {
+                  fmt.Fprintln(os.Stderr, err)
+                  os.Exit(1)
+              }
+              if len(fetched.Records) != 1 || !bytes.Equal(fetched.Records[0], payload) {
+                  fmt.Fprintf(os.Stderr, "read back %d records\n", len(fetched.Records))
+                  os.Exit(1)
+              }
+              fmt.Printf("the tagged module reads and writes: offset %d\n", before)
+          }
+          SMOKE
+          go mod tidy
+          go run .

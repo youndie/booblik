@@ -1,14 +1,30 @@
 name: publish
 
-# Publishing the client library to a Maven repository (M-93). Manual only: a library goes out by
-# decision, not on every push.
+# Publishing the JVM and Kotlin/Native client libraries to a Maven repository (M-93, M-150, M-151).
+# Manual only: a library goes out by decision, not on every push.
 #
 # The address and the credentials live in repository secrets (BOOBLIK_REPO_URL / _USER / _SECRET),
 # never in files: whoever builds booblik publishes to their own repository.
 #
-# Two modules go out, and the second is not there for symmetry. `booblik-client` depends on
-# `booblik-core` through `api`, so a client published on its own is a POM pointing at an artefact
-# that is not in the repository. The server is not published at all — see docs/services/booblik-client.md.
+# **Four modules go out, and none of them is there for symmetry.** The dependencies are `api`, so
+# every one of them is on a consumer's compile classpath:
+#
+#     booblik-client → booblik-core → booblik-protocol (as booblik-protocol-jvm)
+#     booblik-native → booblik-protocol
+#
+# `booblik-protocol` was added in M-150 after being missing since M-134 — the module was extracted,
+# `booblik-core` started depending on it through `api`, and this workflow went on publishing the two
+# it always had. A publish would have produced exactly the failure the M9 lesson is about: green
+# upload, unresolvable dependency at the consumer. The `Verify` step below now walks the whole chain
+# rather than one link of it.
+#
+# **On macOS, and that is a requirement rather than a preference.** `booblik-protocol` and
+# `booblik-native` carry a `macosArm64` target whose klib only builds on macOS, while `linuxX64`
+# builds there too (the ABI dump taken on a mac in M-138 carries both targets). A multiplatform
+# module has to publish its root module and every target in **one run from one host**, or the root
+# points at variants that do not exist.
+#
+# The server is not published at all — see docs/services/booblik-client.md.
 
 on:
   workflow_dispatch:
@@ -20,8 +36,8 @@ on:
 
 jobs:
   publish:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    runs-on: macos-15
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v7
@@ -57,8 +73,10 @@ jobs:
           ORG_GRADLE_PROJECT_BOOBLIK_REPO_SECRET: ${{ secrets.BOOBLIK_REPO_SECRET }}
         run: |
           ./gradlew \
+            :booblik-protocol:publishAllPublicationsToBooblikRepoRepository \
             :booblik-core:publishAllPublicationsToBooblikRepoRepository \
             :booblik-client:publishAllPublicationsToBooblikRepoRepository \
+            :booblik-native:publishAllPublicationsToBooblikRepoRepository \
             -PVERSION=${{ steps.version.outputs.value }} --stacktrace
 
       # A successful upload only says the upload did not fail. What a consumer actually gets is in
@@ -75,10 +93,22 @@ jobs:
           # this the step would die on a malformed URL while the publish itself had succeeded.
           ROOT="${BOOBLIK_REPO_URL:-https://reposilite.kotlin.website/snapshots}/io/github/youndie/booblik"
 
-          for MODULE_NAME in booblik-core booblik-client; do
+          for MODULE_NAME in booblik-core booblik-client booblik-protocol-jvm; do
             BASE="$ROOT/$MODULE_NAME/$VERSION"
             curl -fsSL -u "$BOOBLIK_REPO_USER:$BOOBLIK_REPO_SECRET" -o /dev/null "$BASE/$MODULE_NAME-$VERSION.jar"
             echo "Published: io.github.youndie.booblik:$MODULE_NAME:$VERSION"
+          done
+
+          # The native targets, whose artefact is a klib rather than a jar. Checked by name because
+          # a multiplatform module that published its root and lost a target leaves a consumer with
+          # a resolvable module and no code for their platform.
+          for MODULE_NAME in booblik-protocol booblik-native; do
+            for TARGET in linuxx64 macosarm64; do
+              BASE="$ROOT/$MODULE_NAME-$TARGET/$VERSION"
+              curl -fsSL -u "$BOOBLIK_REPO_USER:$BOOBLIK_REPO_SECRET" -o /dev/null \
+                "$BASE/$MODULE_NAME-$TARGET-$VERSION.klib"
+              echo "Published: io.github.youndie.booblik:$MODULE_NAME-$TARGET:$VERSION"
+            done
           done
 
           POM=$(curl -fsSL -u "$BOOBLIK_REPO_USER:$BOOBLIK_REPO_SECRET" \
@@ -88,6 +118,17 @@ jobs:
           if ! echo "$FLAT" | grep -q "<artifactId>booblik-core</artifactId><version>$VERSION</version>"; then
             echo "::error::the client POM does not depend on booblik-core $VERSION — the consumer gets an unresolvable dependency"
             echo "$POM"
+            exit 1
+          fi
+
+          # One link further down, which is the link that was missing. `booblik-core` gained an
+          # `api` dependency on the protocol module in M-134 and nothing here noticed until M-150.
+          CORE_POM=$(curl -fsSL -u "$BOOBLIK_REPO_USER:$BOOBLIK_REPO_SECRET" \
+            "$ROOT/booblik-core/$VERSION/booblik-core-$VERSION.pom")
+          if ! echo "$CORE_POM" | tr -d '[:space:]' | \
+            grep -q "<artifactId>booblik-protocol-jvm</artifactId><version>$VERSION</version>"; then
+            echo "::error::the core POM does not depend on booblik-protocol-jvm $VERSION"
+            echo "$CORE_POM"
             exit 1
           fi
 

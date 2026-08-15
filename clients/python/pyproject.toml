@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "booblik"
 version = "0.1.0"
-description = "A publisher for booblik, a message broker on an append-only log"
+description = "A client for booblik, a message broker on an append-only log"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

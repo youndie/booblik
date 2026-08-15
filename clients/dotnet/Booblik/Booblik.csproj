@@ -14,7 +14,7 @@
 
     <PackageId>Booblik</PackageId>
     <Version>0.1.0</Version>
-    <Description>A publisher for booblik, a message broker on an append-only log</Description>
+    <Description>A client for booblik, a message broker on an append-only log</Description>
     <Authors>youndie</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/youndie/booblik</PackageProjectUrl>

@@ -1,0 +1,126 @@
+name: publish-node
+
+# Publishing clients/node to npm (M-152).
+#
+# By tag, in the same `clients/<language>/vX.Y.Z` form every client here uses — the form Go imposes
+# on a module in a subdirectory, adopted by the rest so that one language does not have its own.
+#
+# **No secret.** npm trusted publishing gives this workflow a short-lived token in exchange for
+# knowing which repository and workflow asked, and stamps the package with provenance while it is
+# at it. It has to be configured once on npm (the package's Settings → Trusted publisher: this
+# repository and `publish-node.yml`); until that exists the publish step fails on authentication.
+#
+# The first publish is the exception: a package that does not exist yet cannot have a trusted
+# publisher configured, so version 0.1.0 goes out by hand — `npm publish --access public` from the
+# `clients/node` directory — and everything after it comes through here.
+
+on:
+  push:
+    tags: ['clients/node/v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (must match package.json)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: npm
+    permissions:
+      # Trusted publishing and provenance both run on this. Without it there is no token; with it
+      # there is nothing long-lived to leak.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Two sources of truth for a version is how a package lands under a number its own manifest
+      # disagrees with. The tag triggers, package.json is what ships, and this refuses when they
+      # differ rather than quietly preferring one.
+      - name: Version
+        working-directory: clients/node
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#clients/node/v}"
+          fi
+          DECLARED=$(node -p "require('./package.json').version")
+          if [ "$VERSION" != "$DECLARED" ]; then
+            echo "::error::the tag says $VERSION and package.json says $DECLARED"
+            exit 1
+          fi
+
+      # Before anything is uploaded: a tag can sit on a commit nothing has ever checked, and npm
+      # only lets a version be unpublished within 72 hours and only if nobody depends on it.
+      - name: Gate
+        run: ./clients/node/gate.sh
+
+      - name: Publish
+        working-directory: clients/node
+        run: npm publish --provenance --access public
+
+  # What a user gets is what `npm install booblik` installs. Checked by installing exactly that and
+  # driving a real broker with it, because a green upload only says the upload did not fail.
+  verify:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      broker:
+        image: ghcr.io/youndie/booblik:latest
+        ports: ['9092:9092']
+        env:
+          BOOBLIK_TOPICS: smoke:1
+
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install from npm
+        run: |
+          VERSION="${GITHUB_REF_NAME#clients/node/v}"
+          mkdir -p /tmp/smoke && cd /tmp/smoke
+          npm init -y >/dev/null
+          npm pkg set type=module >/dev/null
+          # The registry is not instantaneous. Retried rather than slept on.
+          for attempt in 1 2 3 4 5 6; do
+            if npm install --quiet "booblik@$VERSION"; then exit 0; fi
+            echo "not on the registry yet (attempt $attempt), waiting"
+            sleep 20
+          done
+          echo "::error::booblik@$VERSION never appeared on npm"
+          exit 1
+
+      - name: Publish and read a record with it
+        working-directory: /tmp/smoke
+        run: |
+          cat > smoke.js <<'SMOKE'
+          import assert from "node:assert/strict";
+          import { Connection } from "booblik";
+
+          const payload = Buffer.from("smoke");
+          const connection = await Connection.connect("localhost:9092");
+          const before = (await connection.metadata("smoke")).get("smoke")[0].highWatermark;
+
+          await connection.produce("smoke", 0, [payload]);
+          const answer = await connection.fetch("smoke", 0, before, { maxBytes: 1 << 20 });
+          connection.close();
+
+          assert.deepEqual(answer.records, [payload]);
+          console.log(`published booblik reads and writes: ${answer.records[0]} at offset ${before}`);
+          SMOKE
+          node smoke.js

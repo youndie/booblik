@@ -1,0 +1,127 @@
+name: publish-python
+
+# Publishing clients/python to PyPI (M-152).
+#
+# By tag, because a release is a decision rather than a consequence of pushing. The tag names the
+# language as well as the version — `clients/python/v0.1.0` — and that shape is not decoration:
+# Go **requires** a module in a subdirectory to be tagged `clients/go/vX.Y.Z`, so every client here
+# uses the same form rather than one language having its own.
+#
+# **No secret.** PyPI trusted publishing hands this workflow a token that lives minutes, in exchange
+# for knowing which repository and which workflow file asked. It has to be configured once on PyPI
+# (Publishing → add a pending publisher: owner `youndie`, repository `booblik`, workflow
+# `publish-python.yml`); until that exists the publish step fails with an authentication error and
+# nothing else here is wrong.
+
+on:
+  push:
+    tags: ['clients/python/v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (must match pyproject.toml)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: pypi
+    permissions:
+      # What trusted publishing runs on. Without it there is no token at all, and with it there is
+      # no long-lived one to leak.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      # Two sources of truth for a version is how a package ends up on PyPI under a number its own
+      # metadata disagrees with. The tag is the trigger; pyproject.toml is what gets built; this
+      # refuses to publish when they differ rather than picking one.
+      - name: Version
+        id: version
+        working-directory: clients/python
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#clients/python/v}"
+          fi
+          DECLARED=$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2)
+          if [ "$VERSION" != "$DECLARED" ]; then
+            echo "::error::the tag says $VERSION and pyproject.toml says $DECLARED"
+            exit 1
+          fi
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # The gate runs before anything is uploaded. A tag can be put on any commit, including one
+      # nothing has ever checked, and a release on PyPI cannot be replaced — only yanked.
+      - name: Gate
+        run: ./clients/python/gate.sh
+
+      - name: Build
+        working-directory: clients/python
+        run: |
+          python -m pip install --quiet build
+          python -m build
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: clients/python/dist
+
+  # A green upload says the upload did not fail. What a user gets is what `pip install booblik`
+  # installs, and the difference between those two is where 0.1.1 of the JVM client went wrong:
+  # published green, did not compile at the consumer. So this installs the published package into a
+  # clean container and drives a real broker with it.
+  verify:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    services:
+      broker:
+        image: ghcr.io/youndie/booblik:latest
+        ports: ['9092:9092']
+        env:
+          BOOBLIK_TOPICS: smoke:1
+
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install from PyPI
+        run: |
+          VERSION="${GITHUB_REF_NAME#clients/python/v}"
+          # PyPI's index is not instantaneous. Retried rather than slept on, so the step passes as
+          # soon as it can and says what it was waiting for when it cannot.
+          for attempt in 1 2 3 4 5 6; do
+            if pip install --quiet "booblik==$VERSION"; then exit 0; fi
+            echo "not on the index yet (attempt $attempt), waiting"
+            sleep 20
+          done
+          echo "::error::booblik==$VERSION never appeared on PyPI"
+          exit 1
+
+      - name: Publish and read a record with it
+        run: |
+          python - <<'SMOKE'
+          from booblik import Connection
+
+          payload = b"smoke"
+          with Connection.connect("localhost:9092") as connection:
+              before = connection.metadata("smoke")["smoke"][0].high_watermark
+              connection.produce("smoke", 0, [payload])
+              answer = connection.fetch("smoke", 0, before, 1 << 20)
+
+          assert answer.records == [payload], f"read back {answer.records!r}"
+          print(f"published booblik reads and writes: {answer.records[0]!r} at offset {before}")
+          SMOKE
