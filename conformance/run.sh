@@ -102,4 +102,12 @@ grep -q "booblik listening" <<<"$(docker logs "$NAME" 2>&1)" || {
     exit 1
 }
 
+# One untimed call before the checks start, and it is not ceremony. Every client script builds
+# itself on first use, and the harness gives each verb 20 seconds — which is generous for a verb and
+# nowhere near enough to link a Kotlin/Native binary on a cold runner. Locally this never showed:
+# `ci/gate.sh` runs a client's own gate first, which leaves the binary built. On CI the conformance
+# job is a separate runner that has never built anything, so the very first verb — `capabilities` —
+# timed out and the run reported a client that "is waiting for something".
+"$CLIENT" capabilities >/dev/null
+
 BOOBLIK_BROKER="localhost:$PORT" python3 "$ROOT/conformance/harness/run.py" "$CLIENT"

@@ -11,4 +11,10 @@ __pycache__/
 *.egg-info/
 node_modules/
 bin/
+# ...except this one. `bin/` above is Gradle's and .NET's build output; the Node client's entry
+# point is source that happens to live in a directory of that name. Without the exception
+# `clients/node/bin/conformance.js` is simply absent from a fresh checkout and the client cannot
+# start at all — which every local run hides, because the file is on the disk. Found by CI, the
+# only machine that ever checks the repository out from scratch.
+!clients/node/bin/
 obj/
