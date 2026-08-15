@@ -170,6 +170,17 @@ tags: [storage, mvp]
 * **Автоматизирован:** `ServerTest.maxBytes cuts on a byte boundary and the client drops the partial tail`,
   `ClientTest.a consumer advances only past whole records when a response is cut`.
 
+### Сценарий: запись крупнее `maxBytes` не приезжает никогда
+* **Дано:** первая же запись после `fetchOffset` больше, чем `maxBytes`.
+* **Когда:** приходит FETCH.
+* **Тогда:** в ответе нет ни одной целой записи и есть обрезанный хвост. Отбросить хвост
+  и повторить — правильно во всех остальных случаях — здесь означает делать тот же запрос вечно,
+  поэтому клиент обязан **сообщить**: `RecordExceedsMaxBytesException` с размером записи и текущим
+  `maxBytes`. Молчание неотличимо от «догнал» (M-139).
+* **Автоматизирован:** `ClientTest.a record too large for maxBytes is reported rather than looking
+  like the end of the log`, `ClientTest.a subscription reports the record it cannot fit instead of
+  following nothing`, плюс проверка комплекта соответствия во всех шести клиентах.
+
 ### Сценарий: несколько запросов в полёте не путают ответы
 * **Дано:** одно соединение и пятьдесят одновременных вызовов.
 * **Когда:** все ждут ответа.
