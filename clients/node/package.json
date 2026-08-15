@@ -1,0 +1,33 @@
+{
+  "name": "booblik",
+  "version": "0.1.0",
+  "description": "A publisher for booblik, a message broker on an append-only log",
+  "license": "MIT",
+  "author": "youndie",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/youndie/booblik.git",
+    "directory": "clients/node"
+  },
+  "homepage": "https://github.com/youndie/booblik/tree/main/clients/node",
+  "keywords": [
+    "booblik",
+    "message-broker",
+    "publisher"
+  ]
+}

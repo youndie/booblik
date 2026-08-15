@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Booblik</RootNamespace>
+    <AssemblyName>Booblik</AssemblyName>
+
+    <!-- Warnings are failures here. This is a protocol implementation whose mistakes are silent by
+         nature, and a build that prints them and carries on is a build nobody reads. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <PackageId>Booblik</PackageId>
+    <Version>0.1.0</Version>
+    <Description>A publisher for booblik, a message broker on an append-only log</Description>
+    <Authors>youndie</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/youndie/booblik</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/youndie/booblik</RepositoryUrl>
+  </PropertyGroup>
+
+  <!-- No package references. The whole client is System.Net.Sockets and System.Buffers.Binary. -->
+
+  <ItemGroup>
+    <!-- So the decoder can be checked against a truncated response without being part of the public
+         surface: "a short frame is a ProtocolException" is a promise worth a test and not worth an
+         API. -->
+    <InternalsVisibleTo Include="Booblik.Tests" />
+  </ItemGroup>
+
+</Project>

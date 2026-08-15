@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "booblik"
+version = "0.1.0"
+description = "A publisher for booblik, a message broker on an append-only log"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "youndie" }]
+keywords = ["booblik", "message-broker", "publisher"]
+
+# No dependencies, and none are wanted. The whole client is `socket` and `struct`; the tests are
+# `unittest`. That is what lets `gate.sh` check this package on a machine with nothing installed.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/youndie/booblik"
+Source = "https://github.com/youndie/booblik/tree/main/clients/python"
+
+[tool.hatch.build.targets.wheel]
+packages = ["booblik"]
