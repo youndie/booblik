@@ -60,6 +60,19 @@
     - [Producer and Consumer Mechanics](/wiki/clients/producer-and-consumer)
     - [The `Conn` Lifecycle and Concurrency](/wiki/clients/the-conn-lifecycle)
     - [The `Topic` and Partitioning Logic](/wiki/clients/the-topic-and)
+  - clients/dotnet/Booblik
+    - [clients/dotnet/Booblik](/wiki/clients-dotnet-Booblik)
+    - [Connection](/wiki/clients-dotnet-Booblik/connection)
+    - [FetchAsync and Consumer](/wiki/clients-dotnet-Booblik/fetchasync-and-consumer)
+    - [ProduceAsync and AckPolicy](/wiki/clients-dotnet-Booblik/produceasync-and-ackpolicy)
+  - clients/dotnet/Booblik.Conformance
+    - [clients/dotnet/Booblik.Conformance](/wiki/clients-dotnet-Booblik.Conformance)
+    - [Conformance Verbs](/wiki/clients-dotnet-Booblik.Conformance/conformance-verbs)
+    - [Metadata Retrieval](/wiki/clients-dotnet-Booblik.Conformance/metadata-retrieval)
+  - clients/dotnet/Booblik.Tests
+    - [clients/dotnet/Booblik.Tests](/wiki/clients-dotnet-Booblik.Tests)
+    - [Connection](/wiki/clients-dotnet-Booblik.Tests/connection)
+    - [FakeBroker](/wiki/clients-dotnet-Booblik.Tests/fakebroker)
   - clients/go
     - [clients/go](/wiki/clients-go)
     - [Conn](/wiki/clients-go/conn)

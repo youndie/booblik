@@ -294,6 +294,6 @@ MIT. See [LICENSE](LICENSE).
 
 ***
 
-This build carries **13** hand-written documents and **90** generated pages.
+This build carries **13** hand-written documents and **100** generated pages.
 
 Generated pages carry a passport: which model wrote them, at which commit, from which files. Every citation into the code has been checked — the path exists, the lines are there, and the symbol named in the text appears within them.
