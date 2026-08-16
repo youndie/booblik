@@ -110,12 +110,17 @@ One tag shape for all of them — `clients/<language>/vX.Y.Z` — and it is Go's
 convention chosen here: a Go module in a subdirectory is *required* to be tagged that way, so the
 rest follow instead of one language having its own.
 
+**No long-lived credential publishes any of them.** PyPI, npm and NuGet all exchange a GitHub OIDC
+token for a key that lives minutes to an hour; Go has no registry to authenticate against; the Maven
+repository's credentials were already there. NuGet was written here with an API key first and
+corrected — its trusted publishing is the same mechanism as the other two.
+
 | | goes to | what it costs |
 |---|---|---|
 | `go/` | nowhere — the tag **is** the release | nothing |
 | `python/` | PyPI | a trusted publisher, no secret |
 | `node/` | npm | a trusted publisher, no secret |
-| `dotnet/` | NuGet.org | **the one API key in the repository** |
+| `dotnet/` | NuGet.org | a trusted publisher, no secret |
 | `java/` | the Maven repository | the credentials that were already there |
 | `kotlin-native/` | the Maven repository, from `publish.yml` | a macOS runner, see below |
 

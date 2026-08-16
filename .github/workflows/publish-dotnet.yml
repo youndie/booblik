@@ -2,11 +2,20 @@ name: publish-dotnet
 
 # Publishing clients/dotnet to NuGet.org (M-152).
 #
-# **The one secret in the whole delivery.** Go needs no registry at all, PyPI and npm hand out
-# short-lived tokens over OIDC, the JVM repository has its own credentials already, and the image
-# goes out on GITHUB_TOKEN. NuGet is the one that still wants an API key: `NUGET_API_KEY`, scoped
-# to the `Booblik` package glob and given an expiry, because a key without a scope is a key to
-# every package the account owns.
+# **No API key.** NuGet.org has trusted publishing too, which this workflow was written without and
+# is now corrected to use: `NuGet/login@v1` exchanges the GitHub OIDC token for an API key that
+# lives an hour, so there is no long-lived credential in the repository at all. With that, the
+# delivery has none anywhere — Go needs no registry, PyPI and npm hand out short-lived tokens the
+# same way, the Maven repository has its own credentials already, and the image goes out on
+# GITHUB_TOKEN.
+#
+# `NUGET_USER` is a secret only by convention: it is the nuget.org **profile name**, not an email
+# and not a credential, and the documentation recommends keeping it out of the file anyway.
+#
+# Configured once on nuget.org (username menu → Trusted Publishing), and the fields are exact:
+# Repository Owner `youndie`, Repository `booblik`, Workflow File **`publish-dotnet.yml`** — the
+# file name alone, without `.github/workflows/` — and Environment `nuget`, which this job declares
+# below. A policy on a public repository becomes permanent on the first successful publish.
 #
 # By tag, in the `clients/<language>/vX.Y.Z` form every client here uses.
 
@@ -28,6 +37,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: nuget
+    permissions:
+      # What the token exchange runs on. Without it there is no OIDC token to trade.
+      id-token: write
 
     steps:
       - uses: actions/checkout@v7
@@ -62,11 +74,19 @@ jobs:
       - name: Pack
         run: dotnet pack clients/dotnet/Booblik/Booblik.csproj -c Release -o /tmp/nupkg
 
+      # Immediately before the push, deliberately: the key nuget.org hands back is valid for an
+      # hour, and a token can be exchanged exactly once.
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Push
         run: |
           dotnet nuget push "/tmp/nupkg/Booblik.${{ steps.version.outputs.value }}.nupkg" \
             --source https://api.nuget.org/v3/index.json \
-            --api-key "${{ secrets.NUGET_API_KEY }}" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
             --skip-duplicate
 
   # A green push says the push did not fail. This installs what a user would install and drives a
