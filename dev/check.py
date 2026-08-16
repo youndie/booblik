@@ -68,6 +68,16 @@ def queue() -> int:
         `finished` counters. An earlier version compared won against finished, and those two grow
         together when a task is done twice, so the check would have stayed silent on exactly the
         failure it was written for.
+
+        Stated as a **bound rather than an equality**, and that is the second time this check has
+        had to learn the same lesson. A worker writes its DONE record, and only then clears
+        `current` and increments `finished`; a snapshot taken inside that window sees the log
+        already ahead of the worker's own counters. `won == done + held` then fails on a perfectly
+        correct run — 98 won, 98 done, 1 held — and accuses the sample of doing a task twice.
+        What the log actually promises is that a won task is either done or still held, which is
+        `won <= done + held`, and that nothing is done that was not won, which is `done <= won`.
+        Between them they still catch a task won twice: that is the only way `won` can exceed the
+        tasks the log accounts for.
       * workers do not **disagree** about what the log says. The protocol promises the same verdict
         on the same prefix — decided by the timestamps written into the records, never by a local
         clock — and says nothing about all workers standing at the same offset at the same instant,
@@ -90,13 +100,20 @@ def queue() -> int:
               f"(replayed to {w['consumedUpTo']})")
 
     done = max(done_views)
-    if won != done + held:
-        print(f"::error:: {won} tasks won but only {done} distinct tasks are done and {held} held "
+    if won > done + held:
+        print(f"::error:: {won} tasks won but the log accounts for {done} done and {held} held "
               f"— a task was won more than once")
         failed = True
-    if finished != done:
-        print(f"::error:: workers finished {finished} tasks between them but only {done} distinct "
-              f"tasks are done — the same task was worked twice")
+    if done > won:
+        print(f"::error:: the log has {done} tasks done but workers won {won} "
+              f"— something completed a task nobody claimed")
+        failed = True
+    # Not compared against `done`: a worker increments this after writing its DONE record, so the
+    # two are legitimately one apart per worker in flight. Against `won` it is exact — the same
+    # worker increments `won` first, for the same task.
+    if finished > won:
+        print(f"::error:: workers finished {finished} tasks between them but won {won} "
+              f"— a task was finished without being won")
         failed = True
     ordered = sorted(workers, key=lambda w: w["consumedUpTo"])
     for behind, ahead in zip(ordered, ordered[1:]):
