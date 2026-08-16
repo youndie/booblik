@@ -6,6 +6,7 @@
 [![kotlin](https://img.shields.io/badge/Kotlin-2.4.10-blue?logo=kotlin\&logoColor=white)](https://kotlinlang.org)
 [![jvm](https://img.shields.io/badge/JVM-25-blue?logoColor=white)](https://openjdk.org/projects/jdk/25/)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![docs](https://img.shields.io/badge/docs-booblik.wiki-8b5cf6)](https://youndie.github.io/booblik/)
 
 A message broker in Kotlin/JVM built on an append-only log: a topic splits into partitions, a
 partition into segments, and a consumer reads by a numeric offset it keeps itself.
@@ -117,7 +118,27 @@ Configuration is `booblik.*` properties, and every one of them also reads from t
 the dots turned into underscores — `booblik.port` is `BOOBLIK_PORT`. An unknown key stops the broker
 at startup rather than surfacing at 3am.
 
-## Use the client [#use-the-client]
+## Clients [#clients]
+
+Six of them, in six languages, and each one both publishes and reads. They share no code — only
+[the protocol](docs/api/protocol-wire.md) — and every one of them answers the same fourteen checks
+of [the conformance kit](conformance/) against a live broker.
+
+|                   | install                                          |                                           |
+| ----------------- | ------------------------------------------------ | ----------------------------------------- |
+| **Kotlin/JVM**    | `io.github.youndie.booblik:booblik-client:0.3.0` | [readme](booblik-client)                  |
+| **Go**            | `go get github.com/youndie/booblik/clients/go`   | [readme](clients/go/README.md)            |
+| **Python**        | `pip install booblik` — sync and `booblik.aio`   | [readme](clients/python/README.md)        |
+| **Node**          | `npm install booblik`                            | [readme](clients/node/README.md)          |
+| **.NET**          | `dotnet add package Booblik`                     | [readme](clients/dotnet/README.md)        |
+| **Java**          | `io.github.youndie.booblik:booblik-java:0.1.0`   | [readme](clients/java/README.md)          |
+| **Kotlin/Native** | `io.github.youndie.booblik:booblik-native:0.3.0` | [readme](clients/kotlin-native/README.md) |
+
+None of them has a dependency: a client here is a socket and integer arithmetic. Why there are six
+rather than one, and what each language gets wrong at the checksum, is in
+[clients/](clients/README.md).
+
+The two on Maven live in a repository of their own:
 
 ```kotlin
 repositories {
@@ -129,13 +150,15 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.youndie.booblik:booblik-client:0.2.0")
+    implementation("io.github.youndie.booblik:booblik-client:0.3.0")
 }
 ```
 
-Snapshots only for now. The client pulls `booblik-core` and coroutines with it — the API hands out
-`Flow` and takes a `CoroutineScope`, so both are compile-scope dependencies rather than details
-behind the module.
+## Use the client [#use-the-client]
+
+The Kotlin one, which is also the broker's own. It pulls `booblik-core` and coroutines with it —
+the API hands out `Flow` and takes a `CoroutineScope`, so both are compile-scope dependencies rather
+than details behind the module.
 
 Publishing, with the accumulator doing the work — the unit of a write is worth 54×, more than any
 other decision in this project:
@@ -242,11 +265,18 @@ or fast but simply about something else.
   create-topic request and no plan for one.
 * **Not encrypted or compressed.** Both would mean touching the bytes on the read path, which is
   exactly what the zero-copy path exists not to do.
-* **Not multiplatform.** The client is Kotlin/JVM. What is not portable in it is enumerable —
-  sockets, `ByteBuffer`, two primitives from `java.util.concurrent` and `CRC32C` — and it now sits
-  in one module, so the option is kept without paying for it today.
+* **The broker is not multiplatform** — it is Kotlin/JVM and stays there. The clients are another
+  matter: six languages, and the Kotlin one compiles for the JVM, linuxX64 and macosArm64 off a
+  shared codec. The last objection to that was the checksum, `CRC32C` being a JVM intrinsic that a
+  hand-written loop would have cost every byte read; it turned out to be one `expect` function
+  (measurement 25).
 
 ## Documentation [#documentation]
+
+**[youndie.github.io/booblik](https://youndie.github.io/booblik/)** — the same documentation as a
+site, together with a generated wiki: a page per module, each claim carrying a link into the code at
+the lines it is about. Generated in English from this repository, so the wiki is readable without
+Russian.
 
 [docs/](docs/README.md) — layered documentation: research, features with their BDD scenarios, the
 wire protocol, and a document per module. Written in Russian; code, KDoc and comments are in
@@ -264,6 +294,6 @@ MIT. See [LICENSE](LICENSE).
 
 ***
 
-This build carries **13** hand-written documents and **42** generated pages.
+This build carries **13** hand-written documents and **73** generated pages.
 
 Generated pages carry a passport: which model wrote them, at which commit, from which files. Every citation into the code has been checked — the path exists, the lines are there, and the symbol named in the text appears within them.

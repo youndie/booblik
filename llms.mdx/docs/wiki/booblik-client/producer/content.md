@@ -3,79 +3,72 @@
 
 
 <Callout type="info" title="Generated page">
-  Model `gemma-mtp`, commit `f508a4b65b3f`, 2026-08-15, sources: 6. Edit the code or the hand-written documentation instead.
+  Model `gemma-mtp`, commit `ef58254ca7be`, 2026-08-16, sources: 6. Edit the code or the hand-written documentation instead.
 </Callout>
 
 ## What this module is responsible for [#what-this-module-is-responsible-for]
 
-The `Producer` is responsible for accumulating individual records into batches organized by topic and partition to maximize throughput. Instead of sending every record immediately, it waits until either a maximum batch size is reached or a time limit (`lingerMillis`) expires, significantly reducing the overhead of network round-trips and broker writes ([`Producer.kt:23-34`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L23-L34)).
+The `Producer` is responsible for accumulating individual records into batches to maximize throughput by reducing the number of network requests. It acts as an intermediary between the user's `send` calls and the `BooblikConnection`, managing the lifecycle of records from their arrival in a mailbox to their delivery to the broker.
 
 ## Diagram [#diagram]
 
 <Mermaid
   chart="sequenceDiagram
-    participant C as Caller
-    participant P as Producer (runLoop)
+    participant U as User (Coroutine)
     participant M as Mailbox (Channel)
-    participant B as Pending Batches (Map)
-    participant N as Network (BooblikConnection)
+    participant R as runLoop (Accumulator)
+    participant B as Batch (Pending)
+    participant C as Connection
 
-    C->>M: send(record)
-    M->>P: Command.Append
-    P->>B: accumulate(record)
-    Note over P: Wait for lingerMillis or maxBatchSize
-    P->>B: isAnyBatchFull?
-    P->>N: deliver(batch)
-    N-->>P: result (Offset/Error)
-    P->>C: complete(Offset)"
+    U->>M: send(record)
+    M->>R: Command.Append
+    R->>B: accumulate(record)
+    Note over R: Wait for lingerMillis or maxBatchSize
+    R->>C: deliver(batch)
+    C-->>R: result (Offset/Error)
+    R->>U: complete(Offset)"
 />
 
 ## The Accumulator [#the-accumulator]
 
-The core of the producer is the accumulation logic that groups records by a `Key` (topic and partition) as seen in [`Producer.kt:235-238`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L235-L238). The `ProducerConfig` determines how these batches behave:
+The core of the producer is the accumulation loop, which manages pending records in a `LinkedHashMap` of `Key` to `Batch` ([`Producer.kt:70-71`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L70-L71)). Instead of sending records immediately, the producer waits until either the `maxBatchSize` is reached or the `lingerMillis` window expires ([`Producer.kt:23-32`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L23-L32)). Crucially, the timer for the `lingerMillis` window starts from the arrival of the *first* record in a batch, not the last, to prevent a steady trickle of records from indefinitely postponing a send ([`Producer.kt:47-49`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L47-L49)).
 
-| Parameter      | Type        | Description                                        |
-| -------------- | ----------- | -------------------------------------------------- |
-| `maxBatchSize` | `Int`       | Reached first, the batch goes immediately.         |
-| `lingerMillis` | `Long`      | How long an incomplete batch waits for company.    |
-| `ackPolicy`    | `AckPolicy` | Determines when the caller is notified of success. |
+## Command.Append and Command.Flush [#commandappend-and-commandflush]
 
-The timing logic is specifically designed so that the `lingerMillis` window starts from the arrival of the *first* record in a batch, not the last, to prevent a steady trickle of records from postponing a send indefinitely ([`Producer.kt:47-49`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L47-L49)).
+The `runLoop` operates by consuming commands from a buffered `mailbox` channel ([`Producer.kt:59`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L59)).
 
-## Command Loop and `select` semantics [#command-loop-and-select-semantics]
+* `Command.Append`: Adds a record to the corresponding partition's batch via `accumulate` ([`Producer.kt:132-134`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L132-L134)).
+* `Command.Flush`: Triggers an immediate `sendAll()` and completes the command's deferred value, forcing all currently accumulated batches to be delivered to the connection ([`Producer.kt:126-128`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L126-L128)).
 
-The `runLoop` function manages the lifecycle of incoming commands using a `select` expression to multiplex between receiving new commands from the `mailbox` and waiting for the `lingerMillis` timeout ([`Producer.kt:154-158`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L154-L158)).
+## AckPolicy and Batch Delivery [#ackpolicy-and-batch-delivery]
 
-A critical implementation detail is the use of `select` with `onReceiveCatching` rather than `withTimeoutOrNull(mailbox.receive())`. This is because a cancelled `receive` can swallow an element from the channel without delivering it to the logic, causing the caller's `CompletableDeferred` to hang forever ([`Producer.kt:143-146`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L143-L146)).
+The `deliver` function handles the actual network transmission and the subsequent response from the broker ([`Producer.kt:195-220`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L195-L220)). The behavior of the caller depends on the `AckPolicy`:
 
-## Batch Delivery and `AckPolicy` [#batch-delivery-and-ackpolicy]
+| Policy    | Behavior                                                                                                                                                                                                                                                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WRITTEN` | The `CompletableDeferred` is completed with the broker-provided offset ([`Producer.kt:214-216`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L214-L216)).                                                                    |
+| `NONE`    | The `CompletableDeferred` is completed with `Offset.ZERO` to indicate the batch was sent, even though no broker confirmation was received ([`Producer.kt:204-206`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L204-L206)). |
 
-When a batch is ready, `deliver` is called to transmit the records via the connection ([`Producer.kt:195-200`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L195-L200)). The handling of the response depends on the `AckPolicy`:
+## The Lost Record Edge Case [#the-lost-record-edge-case]
 
-* If the result is `null` (used for `AckPolicy.NONE`), the producer completes all handles with `Offset.ZERO` to indicate the batch was sent, even though no broker acknowledgement was received ([`Producer.kt:201-206`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L201-L206)).
-* If an `ErrorCode` is returned, the producer completes the handles with a `ProduceFailedException` ([`Producer.kt:208-211`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L208-L211)).
-* On success, it calculates consecutive offsets for the batch ([`Producer.kt:214-216`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L214-L216)).
+A critical edge case occurs when a `receive` operation on the `mailbox` is cancelled (e.g., due to a timeout in `select`) at the exact moment a record is being delivered to the channel. If `withTimeoutOrNull` were used instead of `select`, a cancelled receive could swallow a record, leaving the caller's `CompletableDeferred` hanging forever ([`Producer.kt:143-146`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L143-L146)). This specific race condition is verified in `ProducerLostRecordTest.kt:52-94`, where two topics at different rates are used to force the collision.
 
-## `drainPending` and Connection Failure [#drainpending-and-connection-failure]
+## Batching Performance and Throughput [#batching-performance-and-throughput]
 
-If the producer is closed or the connection fails, the `drainPending` function is invoked to ensure no callers are left hanging ([`Producer.kt:222-224`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L222-L224)). It iterates through all currently pending batches and completes their `CompletableDeferred` handles with a `ConnectionClosedException` ([`Producer.kt:223`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L223)). It then drains any remaining commands in the `mailbox` to ensure the coroutine terminates cleanly ([`Producer.kt:227-232`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L227-L232)).
-
-## Race conditions in multi-topic streams [#race-conditions-in-multi-topic-streams]
-
-A specific edge case exists when a single `Producer` handles multiple topics at different arrival rates. If a record arrives exactly when the `lingerMillis` timer expires, a race condition in the `runLoop` can cause a `receive` operation to be cancelled, swallowing a record and causing a hang ([`Producer.kt:154-158`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L154-L158)). This is verified by tests that drive two topics at different rates to force the collision ([`ProducerLostRecordTest.kt:52-53`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/ProducerLostRecordTest.kt#L52-L53)).
+Batching is the single largest performance factor in the project. As noted in [`benchmarking.md:140-146`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/docs/benchmarking.md#L140-L146), the difference between sending records one at a time and sending them in batches of 100 can result in a performance increase of approximately 54× ([`Producer.kt:39-42`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L39-L42)). The `ProducerConfig` allows tuning this via `maxBatchSize` and `lingerMillis` ([`ProducerConfig.java:4-16`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/clients/java/src/main/java/ru/workinprogress/booblik/java/ProducerConfig.java#L4-L16)).
 
 ## Key files [#key-files]
 
-| File                                                                                                                                                                                                                                                                                                    | Lines     | What is there                                        |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------------- |
-| [`…/client/Producer.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L21-L34 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt")                    | `21-34`   | `ProducerConfig` definition and batching parameters. |
-| [`…/client/Producer.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L54-L86 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt")                    | `54-86`   | `Producer` class definition and `send` method.       |
-| [`…/client/Producer.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L123-L173 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt")                  | `123-173` | The `runLoop` implementation and `select` logic.     |
-| [`…/client/Producer.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L195-L220 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt")                  | `195-220` | The `deliver` method and acknowledgement handling.   |
-| [`…/net/ProducerLostRecordTest.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/ProducerLostRecordTest.kt#L41-L53 "booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/ProducerLostRecordTest.kt") | `41-53`   | Test case for multi-topic rate collisions.           |
+| File                                                                                                                                                                                                                                                                                                     | Lines     | What is there                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------------------------------------------------- |
+| [`…/client/Producer.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L21-L34 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt")                     | `21-34`   | `ProducerConfig` data class and its default values    |
+| [`…/client/Producer.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L54-L173 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt")                    | `54-173`  | The `Producer` class and its `runLoop` implementation |
+| [`…/client/Producer.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L253-L263 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt")                   | `253-263` | The `Command` sealed interface for the mailbox        |
+| [`…/net/ClientTest.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/ClientTest.kt#L84-L96 "booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/ClientTest.kt")                                      | `84-96`   | Tests verifying batching and `flush` behavior         |
+| [`…/net/ProducerLostRecordTest.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/ProducerLostRecordTest.kt#L52-L103 "booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/ProducerLostRecordTest.kt") | `52-103`  | Test for the race condition in the accumulator        |
 
-## Behaviour that surprising [#behaviour-that-surprising]
+## Behaviour that surprises [#behaviour-that-surprises]
 
-* The `send` function in `Producer` does not actually send the record to the wire immediately; it merely queues it in a `mailbox`, meaning the returned `CompletableDeferred` only completes once the batch is actually delivered ([`Producer.kt:75-76`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L75-L76)).
-* In `runLoop`, the `lingerMillis` timer is calculated based on the first record of a batch, which prevents a "steady trickle" of records from indefinitely postponing a send ([`Producer.kt:47-49`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L47-L49)).
-* The `deliver` method uses `batch.answers.forEachIndexed` to assign consecutive offsets to records in a batch, assuming the broker assigns them sequentially ([`Producer.kt:214-216`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L214-L216)).
+* The `lingerMillis` timer is not reset on every new record; it is fixed from the moment the first record of a batch arrives ([`Producer.kt:47-49`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L47-L49)).
+* Using `select` with `onReceiveCatching` is mandatory in the `runLoop` to prevent the producer from "swallowing" records during a timeout, which would cause callers to hang ([`Producer.kt:154-158`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L154-L158)).
+* `AckPolicy.NONE` does not actually wait for a broker response, but it still completes the record's `CompletableDeferred` with `Offset.ZERO` to maintain a consistent API ([`Producer.kt:204-206`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Producer.kt#L204-L206)).

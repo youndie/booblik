@@ -3,12 +3,12 @@
 
 
 <Callout type="info" title="Generated page">
-  Model `gemma-mtp`, commit `f508a4b65b3f`, 2026-08-15, sources: 6. Edit the code or the hand-written documentation instead.
+  Model `gemma-mtp`, commit `ef58254ca7be`, 2026-08-16, sources: 6. Edit the code or the hand-written documentation instead.
 </Callout>
 
 ## What this module is responsible for [#what-this-module-is-responsible-for]
 
-This module provides a demonstration of distributed systems patterns using the `booblik` broker. It implements four distinct architectural layers: partition-based event streaming, a coordinator-less task queue, stateful projections, and a Kafka relay.
+The `dev` module provides a comprehensive demonstration of the `booblik` ecosystem through four architectural layers, ranging from basic partitioned event streams to complex Kafka-to-booblik relaying. It includes the necessary orchestration via `docker compose` and a suite of validation scripts to assert the correctness of the implementation.
 
 ## Diagram [#diagram]
 
@@ -23,70 +23,64 @@ This module provides a demonstration of distributed systems patterns using the `
 
     subgraph Layer 3: Projection
         B --> P[Projection Service]
-        P --> S[State/View]
+        P --> Q[Query API]
     end
 
     subgraph Layer 2: Queue
-        B --> Q[Task Queue]
-        Q --> W1[Worker 0]
-        Q --> W2[Worker 1]
-        Q --> W3[Worker 2]
+        B --> Q_Topic[Claims Topic]
+        Q_Topic --> W1[Worker 0]
+        Q_Topic --> W2[Worker 1]
+        Q_Topic --> W3[Worker 2]
     end
 
     subgraph Layer 1: Partitioned Stream
-        B --> C1[Consumer 0 / Partition 0]
-        B --> C2[Consumer 1 / Partition 1]
-        B --> C3[Consumer 2 / Partition 2]
+        B --> C1[Consumer 0 - Partition 0]
+        B --> C2[Consumer 1 - Partition 1]
+        B --> C3[Consumer 2 - Partition 2]
     end"
 />
 
-## Partitioning by key and consumer-side position [#partitioning-by-key-and-consumer-side-position]
+## Layer 1: Partitioned event stream with consumer-side position [#layer-1-partitioned-event-stream-with-consumer-side-position]
 
-In the first layer, the system demonstrates how to achieve ordered processing for specific entities. The key (e.g., a user ID) is used by the client to determine the partition number, ensuring all events for a single user land in the same partition ([`README.md:19-22`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L19-L22)). Unlike Kafka consumer groups, the assignment here is static and managed via the environment. Crucially, the consumer is responsible for its own position using a `FileOffsetStore`, which persists the offset to a volume via an atomic move to ensure that a crash during checkpointing does not result in corrupted state ([`README.md:30-33`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L30-L33)).
+This layer demonstrates how a publisher can distribute events across partitions using a key to ensure all events for a specific user land in the same partition, as described in [`README.md:19-22`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L19-L22). The consumer is responsible for its own state, using `FileOffsetStore` to persist its position in a file on a volume to ensure at-least-once delivery guarantees ([`README.md:30-33`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L30-L33)). This mechanism ensures that if a process restarts, it can resume from its last known position, though it may replay a small number of records if the offset was not saved atomically ([`README.md:35-38`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L35-L38)).
 
-More: [Partitioning by key and consumer-side position](dev/partitioning-key-and)
+More: [Layer 1: Partitioned event stream with consumer-side position](dev/layer-partitioned-event)
 
-## The claims log as a coordinator-less task queue [#the-claims-log-as-a-coordinator-less-task-queue]
+## Layer 2: Task queue via claims log arbitration [#layer-2-task-queue-via-claims-log-arbitration]
 
-Layer 2 implements a task queue where workers compete for tasks without a central coordinator. Instead of locks, workers append "claims" to a specific partition of a `claims` topic; the first claim to land in the log wins ([`README.md:68-70`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L68-L70)). A lease is determined by a timestamp written into the claim itself, meaning workers reach the same conclusion about a lapsed lease even if their local clocks are skewed ([`README.md:72-75`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L72-L75)). This design avoids a central coordinator but introduces specific trade-offs:
+This layer implements a coordination-free task queue where workers compete for tasks by appending claims to a `claims` topic ([`README.md:68-70`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L68-L70)). Instead of a central coordinator, the order of the log acts as the arbiter; the first claim to land in a partition wins the lease ([`README.md:69-70`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L69-L70)). A lease is determined by a timestamp written into the claim itself, ensuring that workers with clock skew still reach the same conclusion about whether a lease has expired ([`README.md:72-75`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L72-L75)). This design avoids the need for a central coordinator but results in a growing claims log and requires workers to read every claim ([`README.md:88-92`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L88-L92)).
 
-* **At-least-once delivery:** A worker might finish a task after its lease has expired and another worker has taken it ([`README.md:85-87`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L85-L87)).
-* **Log growth:** Every task requires two records in the claims log ([`README.md:88`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L88)).
-* **Scaling limits:** Traffic scales as `workers × tasks` because every worker must read every claim ([`README.md:91-92`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L91-L92)).
+## Layer 3: Log-based projection and state reconstruction [#layer-3-log-based-projection-and-state-reconstruction]
 
-## State as a fold over the log [#state-as-a-fold-over-the-log]
+The projection layer treats state as a pure function of the log, where the service stores nothing and instead builds its view by replaying the log ([`README.md:129-131`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L129-L131)). The lifecycle of a projection is managed through two distinct phases: `replay()` which catches up to the high watermark, and `follow()` which maintains the view as new events arrive ([`README.md:133-136`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L133-L136)). To prevent data corruption, the service does not persist its position separately from the state; instead, it rebuilds the entire view from the beginning to ensure consistency ([`README.md:141-144`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L141-L144)).
 
-The projection layer treats state as a pure function of the log. The service does not persist its own state; instead, it rebuilds its view by replaying the log from the beginning ([`README.md:129-131`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L129-L131)). To ensure no data is lost or duplicated during a restart, the service uses a two-phase approach: `replay()` catches up to the high watermark, and `follow()` continues from that point ([`README.md:133-136`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L133-L136)). A critical safety feature is that the service does not persist its position separately from the state; persisting a position without the corresponding state would lead to silent corruption ([`README.md:141-144`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L141-L144)).
+## Layer 4: Kafka-to-booblik relaying [#layer-4-kafka-to-booblik-relaying]
 
-More: [State as a fold over the log](dev/state-fold-over)
+This layer provides bidirectional translation between Kafka and the `booblik` protocol, acting as a bridge between ecosystems ([`README.md:164-166`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L164-L166)). The relay is a single module that changes its behavior based on the environment, specifically regarding who is responsible for remembering the position:
 
-## Relay between Kafka and booblik [#relay-between-kafka-and-booblik]
+| Direction                                                                                                                                                                                                                                                                                                                                                                                                                              | Who remembers the position    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Kafka $\to$ booblik                                                                                                                                                                                                                                                                                                                                                                                                                    | Kafka, in a consumer group    |
+| booblik $\to$ Kafka                                                                                                                                                                                                                                                                                                                                                                                                                    | `FileOffsetStore` on a volume |
+| ([`README.md:174-175`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L174-L175)). While per-key ordering is preserved during the crossing, the Kafka key itself is not stored in the `booblik` wire format and cannot be recovered on the way back ([`README.md:177-180`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L177-L180)). |                               |
 
-Layer 4 provides a bidirectional bridge between Kafka and `booblik`. Because `booblik` does not implement the full Kafka protocol (such as `baseOffset` and CRC), the relay performs translation in user space ([`README.md:162-166`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L162-L166)). The direction of data flow is determined by the environment configuration. The position management differs by direction:
+## Build and environment configuration [#build-and-environment-configuration]
 
-| Direction                                                                                                                         | Who remembers the position                    |
-| --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Kafka $\to$ booblik                                                                                                               | Kafka (via consumer group, auto-commit off)   |
-| booblik $\to$ Kafka                                                                                                               | The relay (via `FileOffsetStore` on a volume) |
-| ([`README.md:174-175`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L174-L175)) |                                               |
-
-## Build and dependency configuration [#build-and-dependency-configuration]
-
-The module uses Gradle with Kotlin DSL. The `subprojects` block in [`build.gradle.kts:7-38`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/build.gradle.kts#L7-L38) applies the Kotlin JVM and serialization plugins to all subprojects. A significant configuration detail is the avoidance of `repositories { }` blocks within `subprojects`, as doing so would replace rather than append to the repositories defined in `settings.gradle.kts` ([`build.gradle.kts:21-24`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/build.gradle.kts#L21-L24)). Additionally, the broker's runtime profile (e.g., 64 MiB memory constraints) is intentionally not applied to the sample services to ensure the benchmarks reflect the service's actual work rather than the broker's constraints ([`build.gradle.kts:31-37`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/build.gradle.kts#L31-L37)).
+The project uses Gradle with Kotlin DSL, where `subprojects` are configured to maintain a consistent style using `ktlint` ([`build.gradle.kts:13-18`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/build.gradle.kts#L13-L18)). A critical configuration detail is that `repositories { }` blocks defined in subprojects will replace, rather than append to, the repositories defined in `settings.gradle.kts` due to the `PREFER_PROJECT` mode ([`build.gradle.kts:21-24`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/build.gradle.kts#L21-L24)). Additionally, the Docker images are explicitly built for the `amd64` platform to avoid manifest errors on `arm64` hosts ([`README.md:209-210`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L209-L210)).
 
 ## Key files [#key-files]
 
 | File                                                                                                                                                                               | Lines   | What is there                                                              |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------- |
-| [`dev/README.md`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L1-L224 "dev/README.md")                                          | `1-224` | Detailed architectural documentation of the four layers and known defects. |
-| [`dev/build.gradle.kts`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/build.gradle.kts#L1-L38 "dev/build.gradle.kts")                      | `1-38`  | Gradle configuration for subprojects and dependency management.            |
-| [`dev/check-projection.sh`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/check-projection.sh#L1-L50 "dev/check-projection.sh")             | `1-50`  | Script to verify projection replay and state consistency.                  |
-| [`dev/check-queue.sh`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/check-queue.sh#L1-L20 "dev/check-queue.sh")                            | `1-20`  | Script to assert task ownership in the queue layer.                        |
-| [`dev/check-redistribution.sh`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/check-redistribution.sh#L1-L68 "dev/check-redistribution.sh") | `1-68`  | Script to test task redistribution after a worker is killed.               |
-| [`dev/check-relay.sh`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/check-relay.sh#L1-L50 "dev/check-relay.sh")                            | `1-50`  | Script to verify the Kafka $\leftrightarrow$ booblik round trip.           |
+| [`dev/README.md`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L1-L224 "dev/README.md")                                          | `1-224` | Detailed documentation of the four architectural layers and known defects. |
+| [`dev/build.gradle.kts`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/build.gradle.kts#L1-L37 "dev/build.gradle.kts")                      | `1-37`  | Gradle configuration for subprojects, including plugins and toolchains.    |
+| [`dev/check-projection.sh`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/check-projection.sh#L1-L50 "dev/check-projection.sh")             | `1-50`  | Script to validate the projection's ability to rebuild state via replay.   |
+| [`dev/check-queue.sh`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/check-queue.sh#L1-L20 "dev/check-queue.sh")                            | `1-20`  | Script to assert that tasks are won by exactly one worker.                 |
+| [`dev/check-redistribution.sh`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/check-redistribution.sh#L1-L68 "dev/check-redistribution.sh") | `1-68`  | Script to test task redistribution after a worker is killed.               |
+| [`dev/check-relay.sh`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/check-relay.sh#L1-L50 "dev/check-relay.sh")                            | `1-50`  | Script to verify the full round-trip of records through the relays.        |
 
 ## Behaviour that surprises [#behaviour-that-surprises]
 
-* **Silent Replay:** If a `FileOffsetStore` is truncated, it can cause a consumer to silently replay records because the parser handles truncated strings without error ([`README.md:32-33`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L32-L33)).
-* **The `partitionFor(null)` Trap:** Calling `partitionFor(null)` advances an internal counter, which can cause records to skip partitions if the user calls the function once to "check" and then again to "send" ([`README.md:204-206`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L204-L206)).
-* **The `receive` Cancellation Bug:** In version `0.1.2`, cancelling a `mailbox.receive` call could pull an element off a channel and drop it, causing the producer to hang while the element was lost ([`README.md:219-222`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/dev/README.md#L219-L222)).
+* **Position Persistence**: The `Projection` service does not persist its position because persisting a position without the state it belongs to can lead to silent corruption; it must rebuild everything from the log to be certain of its state ([`README.md:141-144`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/README.md#L141-L144)).
+* **Task Redistribution**: In the queue implementation, a task is not "released" by a worker shutting down gracefully; instead, the task becomes claimable again simply because the lease in the log expires ([`check-redistribution.sh:7-9`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/check-redistribution.sh#L7-L9)).
+* **Repository Overriding**: Declaring `repositories { }` in a subproject does not add to the parent repositories but replaces them, which can lead to "Could not find" errors if the parent repositories are lost ([`build.gradle.kts:21-24`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/dev/build.gradle.kts#L21-L24)).

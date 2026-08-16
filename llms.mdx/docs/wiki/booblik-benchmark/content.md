@@ -3,79 +3,88 @@
 
 
 <Callout type="info" title="Generated page">
-  Model `gemma-mtp`, commit `f508a4b65b3f`, 2026-08-15, sources: 6. Edit the code or the hand-written documentation instead.
+  Model `gemma-mtp`, commit `ef58254ca7be`, 2026-08-16, sources: 6. Edit the code or the hand-written documentation instead.
 </Callout>
 
 ## What this module is responsible for [#what-this-module-is-responsible-for]
 
-The `booblik-benchmark` module provides the infrastructure for measuring the performance and characteristics of the `booblik` system. It includes mechanisms to ensure measurement validity by enforcing physical storage usage and specific JVM configurations, a suite of JMH-based benchmarks for throughput and overhead analysis, and specialized "probes" for answering specific architectural questions.
+The `booblik-benchmark` module provides a comprehensive suite of performance measurements for the `booblik` project. It includes JMH-based benchmarks to measure throughput and latency of core components, as well as specialized "probes" designed to answer specific architectural questions regarding durability, recovery, and abstraction overhead.
 
 ## Diagram [#diagram]
 
 <Mermaid
   chart="graph TD
-    subgraph Infrastructure
-        MD[MeasurementDir: Physical Storage Check]
-        RF[RuntimeFootprint: JVM Config Verification]
+    subgraph &#x22;Benchmarks (JMH)&#x22;
+        B1[FetchDecodeBenchmark] -->|Measures| C1[Decoding Overhead]
+        B2[FlowOverheadBenchmark] -->|Measures| C2[Flow Abstraction Cost]
+        B3[PartitionWriterBenchmark] -->|Measures| C3[Batching & Ack Efficiency]
+        B4[GroupCommitBenchmark] -->|Measures| C4[Durability Barrier Scaling]
     end
-    subgraph JMH_Benchmarks
-        WB[PartitionWriterBenchmark: Write Actor Cost]
-        GCB[GroupCommitBenchmark: Producer Scaling]
-        FOB[FlowOverheadBenchmark: Flow Abstraction Cost]
-        DB[DecodeBenchmark: Decoding Overhead]
+    subgraph &#x22;Probes (Manual Execution)&#x22;
+        P1[probeDurability]
+        P2[probeStartup]
+        P3[probeSustainedWrite]
+        P4[probeLoad]
+        P5[probeSubscription]
     end
-    subgraph Probes
-        P[Probes: Standalone Shape Analysis]
-    end
-    MD --> WB
-    RF --> WB
-    WB --> GCB
-    FOB --> P"
+    subgraph &#x22;Infrastructure&#x22;
+        M[MeasurementDir] -->|Ensures| FS[Physical Storage]
+        B1 & B2 & B3 & B4 & P1 & P2 & P3 & P4 & P5 --> M
+    end"
 />
 
-## MeasurementDir [#measurementdir]
+## MeasurementDir and volatile filesystems [#measurementdir-and-volatile-filesystems]
 
-The mechanism for ensuring measurements are performed on physical storage rather than volatile filesystems like tmpfs. The `create` function in [`MeasurementDir.kt:39-49`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/MeasurementDir.kt#L39-L49) refuses to return a directory if it resides on a `tmpfs` or `ramfs` filesystem, preventing results that describe memory instead of disk.
+To prevent misleading results where `fsync` operations return instantly because they are running on RAM-backed filesystems like `tmpfs`, the `MeasurementDir` object enforces that all measurements occur on real physical storage. As defined in [`MeasurementDir.kt:32-47`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/MeasurementDir.kt#L32-L47), the system explicitly refuses to create a directory if the underlying `FileStore` type is identified as `tmpfs` or `ramfs`.
 
-More: [MeasurementDir](booblik-benchmark/measurementdir)
+More: [MeasurementDir and volatile filesystems](booblik-benchmark/measurementdir-and-volatile)
 
-## RuntimeFootprint [#runtimefootprint]
+## FetchDecodeBenchmark and the JVM reader cost [#fetchdecodebenchmark-and-the-jvm-reader-cost]
 
-The verification mechanism that ensures the JVM is running with the specific memory and GC settings required for valid results. As implemented in [`RuntimeFootprint.kt:24-46`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/RuntimeFootprint.kt#L24-L46), the module checks that required flags like `-Xmx64M` and `-XX:+UseSerialGC` are present in the runtime arguments.
+This benchmark addresses M-140 by comparing the performance of the legacy `ResponseReader` (which uses `ByteBuffer`) against the new `ResponseDecoder` (which uses `ByteArray` and index arithmetic). As detailed in [`FetchDecodeBenchmark.kt:37-40`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/FetchDecodeBenchmark.kt#L37-L40), the goal is to determine if merging these two decoders imposes a measurable cost on the platform where reading occurs, with the test varying `recordSize` from 64 B to 8 KiB.
 
-## BenchmarkConfiguration [#benchmarkconfiguration]
+More: [FetchDecodeBenchmark and the JVM reader cost](booblik-benchmark/fetchdecodebenchmark-and-the)
 
-The definition of different benchmark targets including `main`, `writer`, `flow`, `decode`, `ci`, and `quick`, as well as the `common` throughput settings. The configuration is defined in [`build.gradle.kts:57-125`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L57-L125) and uses a `common` function to set `mode = "thrpt"` and `outputTimeUnit = "s"` as seen in [`build.gradle.kts:157-162`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L157-L162).
+## FlowOverheadBenchmark and the cost of abstraction [#flowoverheadbenchmark-and-the-cost-of-abstraction]
 
-## FlowOverheadBenchmark [#flowoverheadbenchmark]
+This benchmark isolates the cost of the Kotlin `Flow` machinery by removing the network component and comparing three distinct execution shapes: a standard `loop`, a `coldFlow`, and a `bufferedFlow`. According to [`FlowOverheadBenchmark.kt:24-35`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/FlowOverheadBenchmark.kt#L24-L35), this allows the developer to distinguish between the inherent cost of the `Flow` abstraction and the decoupling cost introduced by a channel/buffer.
 
-A benchmark measuring the cost of the `Flow` abstraction by comparing `loop`, `coldFlow`, and `bufferedFlow` with varying `batchSize`. This benchmark is implemented in [`FlowOverheadBenchmark.kt:40-86`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/FlowOverheadBenchmark.kt#L40-L86) and uses a `@Param` for `batchSize` to observe how the cost per emission changes.
+## PartitionWriterBenchmark and batching efficiency [#partitionwriterbenchmark-and-batching-efficiency]
 
-## PartitionWriterBenchmark [#partitionwriterbenchmark]
+This benchmark measures the overhead of the write actor and the efficiency gains provided by batching. As described in [`PartitionWriterBenchmark.kt:28-43`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/PartitionWriterBenchmark.kt#L28-L43), it compares a single-record unit against various `batchSize` settings and `AckPolicy` configurations to determine the "actor's price" in terms of records per second.
 
-Measuring the cost of the write actor and batching by varying `batchSize`, `mode`, and `ackPolicy`. The benchmark in [`PartitionWriterBenchmark.kt:45-90`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/PartitionWriterBenchmark.kt#L45-L90) uses `@OperationsPerInvocation(RECORDS_PER_OP)` to ensure the score is reported in records per second.
+## GroupCommitBenchmark and the durability barrier [#groupcommitbenchmark-and-the-durability-barrier]
 
-## GroupCommitBenchmark [#groupcommitbenchmark]
+This benchmark analyzes how throughput scales as the number of concurrent producers increases and how the `groupWindowMillis` affects the durability barrier. As noted in [`GroupCommitBenchmark.kt:34-43`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/GroupCommitBenchmark.kt#L34-L43), it tests the hypothesis that a writer collecting multiple producers into a single group can increase throughput without significantly increasing the latency of the individual producers.
 
-Evaluating the throughput of durable writes as the number of `producers` increases, considering `groupWindowMillis` and `mode`. This is handled in [`GroupCommitBenchmark.kt:45-99`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/GroupCommitBenchmark.kt#L45-L99), where the score is measured in invocations per second.
+## Benchmark configuration and task registration [#benchmark-configuration-and-task-registration]
 
-## Probes [#probes]
+The module uses a custom Gradle configuration to manage JMH targets and specialized probes. The `build.gradle.kts` file defines several benchmark configurations:
 
-A collection of standalone `JavaExec` tasks designed to answer specific questions about system behavior (e.g., `probeDurability`, `probeStartup`). These are registered in [`build.gradle.kts:132-154`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L132-L154) and map task names to specific probe classes.
+| Configuration | Description                                                         |
+| ------------- | ------------------------------------------------------------------- |
+| `main`        | Full run with 5 warmups and 10 iterations                           |
+| `writer`      | Focuses on `PartitionWriterBenchmark`                               |
+| `flow`        | Focuses on `FlowOverheadBenchmark`                                  |
+| `decode`      | Focuses on `FetchDecodeBenchmark`                                   |
+| `ci`          | Excludes `GroupCommitBenchmark` and uses `flushEveryAppend = false` |
+| `quick`       | Short run for rapid feedback (2 warmups, 3 iterations)              |
+
+The [`build.gradle.kts:132-140`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/build.gradle.kts#L132-L140) also registers several `probes` as `JavaExec` tasks, which are ordinary programs used to answer specific architectural questions rather than providing average throughput.
 
 ## Key files [#key-files]
 
-| File                                                                                                                                                                                                                                                                                                                                        | Lines     | What is there                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------ |
-| [`…/benchmark/MeasurementDir.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/MeasurementDir.kt#L32 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/MeasurementDir.kt")                                   | `32`      | The `VOLATILE` set containing `tmpfs` and `ramfs`.           |
-| [`booblik-benchmark/build.gradle.kts`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L157-L162 "booblik-benchmark/build.gradle.kts")                                                                                                                                  | `157-162` | The `common` configuration function for benchmarks.          |
-| [`…/benchmark/FlowOverheadBenchmark.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/FlowOverheadBenchmark.kt#L44-L45 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/FlowOverheadBenchmark.kt")          | `44-45`   | The `batchSize` parameter definition.                        |
-| [`…/benchmark/GroupCommitBenchmark.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/GroupCommitBenchmark.kt#L49-L61 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/GroupCommitBenchmark.kt")             | `49-61`   | Parameters for `producers`, `groupWindowMillis`, and `mode`. |
-| [`…/benchmark/PartitionWriterBenchmark.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/PartitionWriterBenchmark.kt#L48-L55 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/PartitionWriterBenchmark.kt") | `48-55`   | Parameters for `batchSize`, `mode`, and `ackPolicy`.         |
-| [`…/benchmark/RuntimeFootprint.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/RuntimeFootprint.kt#L24 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/RuntimeFootprint.kt")                             | `24`      | The `REQUIRED` list of JVM flags.                            |
+| File                                                                                                                                                                                                                                                                                                                                        | Lines    | What is there                                                                   |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------- |
+| [`…/benchmark/MeasurementDir.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/MeasurementDir.kt#L27-L49 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/MeasurementDir.kt")                               | `27-49`  | Logic for creating measurement directories and preventing volatile filesystems. |
+| [`booblik-benchmark/build.gradle.kts`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/build.gradle.kts#L57-L125 "booblik-benchmark/build.gradle.kts")                                                                                                                                   | `57-125` | JMH target registrations and benchmark configurations.                          |
+| [`…/benchmark/FetchDecodeBenchmark.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/FetchDecodeBenchmark.kt#L37-L40 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/FetchDecodeBenchmark.kt")             | `37-40`  | Benchmark class for comparing JVM reader and decoder.                           |
+| [`…/benchmark/FlowOverheadBenchmark.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/FlowOverheadBenchmark.kt#L18-L35 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/FlowOverheadBenchmark.kt")          | `18-35`  | Benchmark class for measuring Flow abstraction overhead.                        |
+| [`…/benchmark/GroupCommitBenchmark.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/GroupCommitBenchmark.kt#L29-L43 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/GroupCommitBenchmark.kt")             | `29-43`  | Benchmark class for measuring group commit scaling.                             |
+| [`…/benchmark/PartitionWriterBenchmark.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/PartitionWriterBenchmark.kt#L28-L43 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/PartitionWriterBenchmark.kt") | `28-43`  | Benchmark class for measuring batching and acknowledgement costs.               |
 
 ## Behaviour that surprising [#behaviour-that-surprising]
 
-* The `MeasurementDir.create` function will throw an `IllegalStateException` if the directory is on a volatile filesystem, as seen in [`MeasurementDir.kt:43-47`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/MeasurementDir.kt#L43-L47).
-* In `GroupCommitBenchmark.kt:42-43`, the score is reported as **invocations per second**, meaning the user must multiply by the number of producers to get records per second.
-* The `PartitionWriterBenchmark.kt:98-101` includes `log.retainAtMost` inside the measured `append` method to ensure retention costs are included in the benchmark.
+* The `MeasurementDir` object treats a volatile filesystem as a **refusal** rather than a warning, throwing an `IllegalStateException` to prevent users from believing "fast" but false results (`MeasurementDir.kt:37-47`).
+* Benchmarks are placed in the `main` source set rather than a dedicated benchmark source set so that any refactoring that breaks a benchmark immediately breaks the build (`build.gradle.kts:54-56`).
+* In `GroupCommitBenchmark`, the score is reported as **invocations per second**, meaning the actual records per second must be calculated by multiplying the score by the number of producers (`GroupCommitBenchmark.kt:41-43`).

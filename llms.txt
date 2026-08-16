@@ -4,28 +4,64 @@
 - Wiki
   - booblik-app
     - [booblik-app](/wiki/booblik-app)
+    - [BooblikConfig](/wiki/booblik-app/booblikconfig)
     - [BooblikConfigTest](/wiki/booblik-app/booblikconfigtest)
+    - [Main execution lifecycle](/wiki/booblik-app/main-execution-lifecycle)
+    - [Metrics reporting and retention](/wiki/booblik-app/metrics-reporting-and)
   - booblik-benchmark
     - [booblik-benchmark](/wiki/booblik-benchmark)
+    - [FetchDecodeBenchmark and the JVM reader cost](/wiki/booblik-benchmark/fetchdecodebenchmark-and-the)
+    - [MeasurementDir and volatile filesystems](/wiki/booblik-benchmark/measurementdir-and-volatile)
     - [MeasurementDir](/wiki/booblik-benchmark/measurementdir)
   - booblik-client
     - [booblik-client](/wiki/booblik-client)
     - [BooblikClient](/wiki/booblik-client/booblikclient)
+    - [BooblikConnection](/wiki/booblik-client/booblikconnection)
     - [Producer](/wiki/booblik-client/producer)
+  - booblik-conformance
+    - [booblik-conformance](/wiki/booblik-conformance)
+    - [Command-line verbs](/wiki/booblik-conformance/command-line-verbs)
+    - [The conformance client contract](/wiki/booblik-conformance/the-conformance-client)
   - booblik-core
     - [booblik-core](/wiki/booblik-core)
+    - [LogSegment](/wiki/booblik-core/logsegment)
+    - [PartitionLog](/wiki/booblik-core/partitionlog)
     - [Recovery after a crash](/wiki/booblik-core/recovery-after-crash)
+  - booblik-native-conformance
+    - [booblik-native-conformance](/wiki/booblik-native-conformance)
+    - [The conformance executable](/wiki/booblik-native-conformance/the-conformance-executable)
+    - [The conformance verb interface](/wiki/booblik-native-conformance/the-conformance-verb)
+    - [The probe performance measurement](/wiki/booblik-native-conformance/the-probe-performance)
   - booblik-net
     - [booblik-net](/wiki/booblik-net)
     - [BooblikServer](/wiki/booblik-net/booblikserver)
     - [FetchMode](/wiki/booblik-net/fetchmode)
     - [Transport](/wiki/booblik-net/transport)
+  - booblik-protocol
+    - [booblik-protocol](/wiki/booblik-protocol)
+    - [AckPolicy](/wiki/booblik-protocol/ackpolicy)
+    - [Protocol Constants and Versioning](/wiki/booblik-protocol/protocol-constants-and)
   - ci
     - [ci](/wiki/ci)
+    - [The Gate](/wiki/ci/the-gate)
     - [The gated Docker build](/wiki/ci/the-gated-docker)
+    - [The Gatekeeper](/wiki/ci/the-gatekeeper)
     - [The performance floor](/wiki/ci/the-performance-floor)
+    - [The Smoke Test](/wiki/ci/the-smoke-test)
+  - clients
+    - [clients](/wiki/clients)
+    - [The `Conn` Lifecycle and Concurrency](/wiki/clients/the-conn-lifecycle)
+    - [The `Topic` and Partitioning Logic](/wiki/clients/the-topic-and)
+  - clients/python
+    - [clients/python](/wiki/clients-python)
+    - [The `Producer` and `Topic` interaction](/wiki/clients-python/the-producer-and)
+  - conformance
+    - [conformance](/wiki/conformance)
+    - [The partitioner and checksum algorithms](/wiki/conformance/the-partitioner-and)
+    - [The wire protocol reference implementation](/wiki/conformance/the-wire-protocol)
   - dev
     - [dev](/wiki/dev)
+    - [Layer 1: Partitioned event stream with consumer-side position](/wiki/dev/layer-partitioned-event)
     - [Partitioning by key and consumer-side position](/wiki/dev/partitioning-key-and)
     - [State as a fold over the log](/wiki/dev/state-fold-over)
   - dev/common
@@ -58,6 +94,7 @@
     - [.github](/wiki/github)
     - [Benchmark execution and reporting](/wiki/github/benchmark-execution-and)
     - [Docker image lifecycle and GHCR publishing](/wiki/github/docker-image-lifecycle)
+    - [Docker image verification and conformance](/wiki/github/docker-image-verification)
 - Docs
   - [Как здесь меряют и что намеряли](/docs/benchmarking)
   - [README](/docs/README)

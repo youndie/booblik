@@ -3,70 +3,59 @@
 
 
 <Callout type="info" title="Generated page">
-  Model `gemma-mtp`, commit `f508a4b65b3f`, 2026-08-15, sources: 6. Edit the code or the hand-written documentation instead.
+  Model `gemma-mtp`, commit `ef58254ca7be`, 2026-08-16, sources: 6. Edit the code or the hand-written documentation instead.
 </Callout>
 
 ## Diagram [#diagram]
 
 <Mermaid
   chart="graph TD
-    A[./gradlew :booblik-benchmark:mainBenchmark] -->|Full Run| B(main configuration)
-    A -->|Quick Check| C(quick configuration)
-    A -->|CI Check| D(ci configuration)
-    A -->|Probes| E(JavaExec Tasks)
-    
-    B --> F{JMH Execution}
-    C --> F
-    D --> F
-    E --> G[Ordinary Main Programs]
-    
-    F --> H[RuntimeFootprint Verification]
-    F --> I[MeasurementDir Enforcement]
-    F --> J[Artifact Generation]"
+    A[GitHub Schedule/Dispatch] --> B[.github/workflows/benchmark.yml:34-36]
+    B --> C[Gradle JMH Execution]
+    C --> D{Benchmark Mode}
+    D -->|mainCiBenchmark| E[Exclude Disk-Bound Tasks]
+    D -->|Other| F[Full Suite]
+    E --> G[benchmark.txt]
+    G --> H[ci/benchmark-floor.sh:24-26]
+    H --> I{Collapse Detected?}
+    I -->|Yes| J[Fail Workflow]
+    I -->|No| K[Upload Artifacts]
+    K --> L[.github/workflows/benchmark.yml:79-88]"
 />
 
-## The `main` and `quick` configurations [#the-main-and-quick-configurations]
+## The `mainCiBenchmark` mode [#the-maincibenchmark-mode]
 
-The module provides different levels of rigor to balance the need for valid data against the need for rapid feedback. The `main` configuration is the only one suitable for recording official numbers, utilizing 5 warmups and 10 iterations ([`build.gradle.kts:65-67`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L65-L67)), whereas the `quick` configuration is intended only for order-of-magnitude checks and is not suitable for the official record due to its wide confidence intervals ([`build.gradle.kts:122-124`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L122-L124)).
+The CI environment uses a specific configuration designed to filter out noise inherent to shared, hosted runners. Instead of running the full suite, it executes `mainCiBenchmark` as defined in [`build.gradle.kts:97-110`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/build.gradle.kts#L97-L110), which focuses on tasks that are not heavily influenced by the non-deterministic performance of a hosted runner's disk.
 
-## The `ci` configuration and the disk barrier [#the-ci-configuration-and-the-disk-barrier]
+## The `benchmark-floor.sh` mechanism [#the-benchmark-floorsh-mechanism]
 
-To prevent noise caused by the I/O variance of hosted runners, the `ci` configuration explicitly excludes `GroupCommitBenchmark` and the `flushEveryAppend` parameter ([`build.gradle.kts:115-116`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L115-L116)). Instead of checking for percentage-based regressions which are unreliable on shared hardware, the CI workflow uses `benchmark-floor.sh` to detect only "collapses" where performance drops by an order of magnitude ([`benchmark.yml:75`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/.github/workflows/benchmark.yml#L75)).
+To avoid the pitfalls of comparing runs from different machines—where a 20-40% swing is common—the system does not look for percentage-based regressions. Instead, [`benchmark-floor.sh:24-26`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/ci/benchmark-floor.sh#L24-L26) implements a "floor" mechanism that only triggers if performance collapses by an order of magnitude. It compares the current throughput against a hardcoded threshold (e.g., 20,000 for `FILE_CHANNEL` and 1,000,000 for `MAPPED`) to ensure that only catastrophic failures, rather than minor runner variance, cause a build failure.
 
-## The `RuntimeFootprint` verification [#the-runtimefootprint-verification]
+## The `PartitionWriterBenchmark` lifecycle [#the-partitionwriterbenchmark-lifecycle]
 
-To prevent silent invalidation of results where benchmarks run under a different JVM profile than the production broker, the `RuntimeFootprint` object verifies that required flags like `-Xmx64M` and `-XX:+UseSerialGC` are present ([`RuntimeFootprint.kt:24-30`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/RuntimeFootprint.kt#L24-L30)). This ensures that the measured process matches the intended deployment footprint.
+The benchmark lifecycle is designed to measure the real-world cost of a broker's operations. In [`PartitionWriterBenchmark.kt:98-102`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/PartitionWriterBenchmark.kt#L98-L102), the `log.retainAtMost` call is explicitly included within the measured `@Benchmark` loop. This ensures that the overhead of log retention (cleaning up old segments) is accounted for in the throughput numbers, reflecting the actual performance a user would experience in a production environment.
 
-## The `MeasurementDir` and filesystem constraints [#the-measurementdir-and-filesystem-constraints]
+## The `StartupProbe` and recovery scan [#the-startupprobe-and-recovery-scan]
 
-The benchmark refuses to run on volatile filesystems like `tmpfs` (which is used for `/tmp` on Ubuntu 26.04) because `fsync` behavior on such systems is non-functional ([`build.gradle.kts:32-34`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L32-L34)). Instead, it forces all measurements to be written to an absolute path in the `build/measurements` directory on the physical disk ([`build.gradle.kts:35-39`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L35-L39)).
+The `StartupProbe` measures the efficiency of the system's recovery mechanism. As detailed in [`StartupProbe.kt:41-49`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/probe/StartupProbe.kt#L41-L49), the probe measures the time taken to scan segments and rebuild the index. It performs three separate attempts to capture the difference between a "cold" restart (paying for the initial page cache miss) and "warm" restarts, providing a realistic range for how long a broker takes to recover after a crash.
 
-## The `allOpen` plugin and `@State` classes [#the-allopen-plugin-and-state-classes]
+## The `mainCiBenchmark` exclusion rules [#the-maincibenchmark-exclusion-rules]
 
-Because JMH generates a subclass of every `@State` class, Kotlin's default `final` class modifier would cause generation to fail with a compiler-like error message ([`build.gradle.kts:46-50`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L46-L50)). The `allOpen` plugin is used to ensure these classes are non-final for the JMH generator.
-
-## The `probe` task lifecycle [#the-probe-task-lifecycle]
-
-Beyond JMH, the module defines several `probe` tasks which are ordinary `JavaExec` programs designed to measure specific behavioral "shapes" rather than averages ([`build.gradle.kts:132-140`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L132-L140)). These include:
-
-| Task                  | Description                                                     |
-| --------------------- | --------------------------------------------------------------- |
-| `probeDurability`     | M-24: does `msync` promise what `fsync` promises                |
-| `probeStartup`        | M-23: how fast recovery scans a log                             |
-| `probeSustainedWrite` | M-26: throughput once the log outgrows memory                   |
-| `probeLoad`           | M-33/M-34: end-to-end RPS and latency percentiles over a socket |
-| `probeRemoteLoad`     | M-38: the same load against a broker on another machine         |
+To maintain a stable CI signal, certain benchmarks are explicitly excluded from the `ci` configuration in [`build.gradle.kts:111-117`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/build.gradle.kts#L111-L117). Specifically, `GroupCommitBenchmark` is excluded because its performance is heavily dependent on disk barriers and `fsync` latency, which vary wildly on hosted runners. Additionally, the `flushEveryAppend` parameter is set to `false` to avoid measuring paths that are primarily bounded by disk I/O latency rather than code efficiency.
 
 ## Key files [#key-files]
 
-| File                                                                                                                                                                                                                                                                                                                | Lines     | What is there                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------- |
-| [`booblik-benchmark/build.gradle.kts`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L57-L86 "booblik-benchmark/build.gradle.kts")                                                                                                            | `57-86`   | `benchmark` configuration block and target registration |
-| [`booblik-benchmark/build.gradle.kts`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/build.gradle.kts#L132-L154 "booblik-benchmark/build.gradle.kts")                                                                                                          | `132-154` | `probes` map and task registration                      |
-| [`…/benchmark/RuntimeFootprint.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/RuntimeFootprint.kt#L24-L46 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/RuntimeFootprint.kt") | `24-46`   | JVM argument verification logic                         |
+| File                                                                                                                                                                                                                                                                                                                                         | Lines     | What is there                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------- |
+| [`…/workflows/benchmark.yml`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/.github/workflows/benchmark.yml#L33-L38 ".github/workflows/benchmark.yml")                                                                                                                                                    | `33-38`   | Workflow trigger configuration for scheduled and manual runs  |
+| [`…/workflows/benchmark.yml`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/.github/workflows/benchmark.yml#L69-L70 ".github/workflows/benchmark.yml")                                                                                                                                                    | `69-70`   | Execution of the `mainCiBenchmark` task                       |
+| [`booblik-benchmark/build.gradle.kts`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/build.gradle.kts#L111-L117 "booblik-benchmark/build.gradle.kts")                                                                                                                                   | `111-117` | Definition of the `ci` benchmark configuration and exclusions |
+| [`ci/benchmark-floor.sh`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/ci/benchmark-floor.sh#L24-L26 "ci/benchmark-floor.sh")                                                                                                                                                                            | `24-26`   | Hardcoded performance floor values for different modes        |
+| [`…/benchmark/PartitionWriterBenchmark.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/PartitionWriterBenchmark.kt#L98-L102 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/PartitionWriterBenchmark.kt") | `98-102`  | Inclusion of retention logic in the benchmark loop            |
+| [`…/probe/StartupProbe.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/probe/StartupProbe.kt#L41-L49 "booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/probe/StartupProbe.kt")                              | `41-49`   | Logic for measuring recovery scan time and throughput         |
 
 ## Behaviour that surprises [#behaviour-that-surprises]
 
-* **`msync` vs `fsync`**: In certain environments, `msync` can appear significantly faster than `fsync` because it may not provide the same durability guarantees, making it an invalid comparison for durability ([`benchmarking.md:157-162`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/docs/benchmarking.md#L157-L162)).
-* **`MAPPED` performance**: While `MAPPED` mode is significantly faster for small writes, its performance can be heavily impacted by segment rolling (re-mapping) during long iterations ([`benchmarking.md:130-135`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/docs/benchmarking.md#L130-L135)).
-* **`SELECTOR` vs `VIRTUAL_THREADS`**: In the networking layer, `SELECTOR` provides significantly lower latency and higher throughput than `VIRTUAL_THREADS` because `transferTo` blocks on disk I/O, which pins the virtual thread ([`benchmarking.md:396-402`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/docs/benchmarking.md#L396-L402)).
+* **Non-comparable numbers:** Because of runner variance, the system explicitly refuses to compare the current CI run to the previous one; it only checks if the current run is "not a total collapse" via [`benchmark-floor.sh:70-71`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/ci/benchmark-floor.sh#L70-L71).
+* **Intentional failure in `build.yml`:** The `build.yml:42-43` step compiles benchmarks but never runs them, ensuring that broken benchmarks are caught during the build phase without producing unreliable data.
+* **The `allOpen` requirement:** In [`build.gradle.kts:46-51`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-benchmark/build.gradle.kts#L46-L51), the `allOpen` plugin is used to make `@State` classes non-final, which is necessary because JMH generates subclasses of these classes during execution.

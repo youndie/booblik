@@ -3,65 +3,71 @@
 
 
 <Callout type="info" title="Generated page">
-  Model `gemma-mtp`, commit `f508a4b65b3f`, 2026-08-15, sources: 6. Edit the code or the hand-written documentation instead.
+  Model `gemma-mtp`, commit `ef58254ca7be`, 2026-08-16, sources: 6. Edit the code or the hand-written documentation instead.
 </Callout>
 
 ## Diagram [#diagram]
 
 <Mermaid
   chart="sequenceDiagram
-    participant C as BooblikConnection
-    participant O as Outbound Channel
-    participant P as Pending Queue
+    participant C as Caller (Coroutine)
+    participant BC as BooblikConnection
     participant S as SocketChannel
+    participant B as BooblikServer
 
-    C->>O: send(Request + Pending)
-    O->>P: add(Pending)
-    O->>S: writeFully(Request)
-    S-->>C: readFrame(Response)
-    C->>P: poll()
-    P->>C: complete(Response)"
+    C->>BC: produce(records)
+    Note over BC: Increment correlationId
+    BC->>BC: Enqueue Outgoing to Channel
+    BC->>S: writeFully(frame)
+    S->>B: TCP Stream
+    B-->>S: Response Frame
+    S->>BC: readFrame()
+    BC->>BC: poll() pending queue
+    BC->>C: complete(ProduceResult)"
 />
 
 ## BooblikClient [#booblikclient]
 
-The low-level, blocking, single-socket client interface.
-`BooblikClient` provides a raw, blocking interface to the broker, where sending and receiving are separate calls to allow for manual pipelining [`BooblikClient.kt:18-22`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt#L18-L22). It manages a single `SocketChannel` and uses a `nextCorrelationId` to tag requests [`BooblikClient.kt:37`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt#L37).
+The low-level, blocking, single-socket client interface. `BooblikClient` acts as a thin wrapper around a `SocketChannel`, providing synchronous methods to send metadata, produce records, and fetch data [`BooblikClient.kt:24-88`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt#L24-L88). It is designed to be "dumb"—it performs no bookkeeping or request queuing itself, leaving that responsibility to higher-level abstractions.
+
+## Pipelined Requests and Correlation IDs [#pipelined-requests-and-correlation-ids]
+
+Because the broker is guaranteed to answer requests in the exact order they were received, the client can support pipelining. Each request is assigned a unique `correlationId` via an `AtomicInteger` [`BooblikConnection.kt:71`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L71). When a response arrives, the client uses a `ConcurrentLinkedQueue` of `Pending` objects to match the response back to the original caller [`BooblikConnection.kt:60-70`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L60-L70). If the broker responds out of order, the client detects the mismatch and fails loudly to prevent delivering data to the wrong caller [`BooblikConnection.kt:192-195`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L192-L195).
 
 ## BooblikConnection [#booblikconnection]
 
-Pipelined request management and correlation ID matching.
-`BooblikConnection` manages a pipelined connection where multiple requests can be in flight simultaneously [`BooblikConnection.kt:31`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L31). It uses an `AtomicInteger` to ensure that every caller receives a unique correlation ID, preventing the same ID from being handed to two different callers [`BooblikConnection.kt:71`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L71).
+The coroutine-based implementation of a pipelined connection. It manages two long-running jobs: a `writer` that drains an `outbound` channel to the socket and a `reader` that continuously parses incoming frames [`BooblikConnection.kt:74-100`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L74-L100). This architecture ensures that multiple coroutines can concurrently call `produce` or `fetch` without interleaving bytes on the wire, as all writes are serialized through a single coroutine [`BooblikConnection.kt:40-47`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L40-L47).
 
-## The Pending Queue and FIFO Ordering [#the-pending-queue-and-fifo-ordering]
+## AckPolicy and Response Behavior [#ackpolicy-and-response-behavior]
 
-How the client ensures broker response order matches request order via the Pending sealed class.
-To maintain the protocol's ordering guarantee, the client uses a `ConcurrentLinkedQueue` of `Pending` objects [`BooblikConnection.kt:60`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L60). The `Pending` sealed class hierarchy (including `Produce`, `Metadata`, and `Fetch`) implements `checkOrder` to verify that the broker's response correlation ID matches the expected ID, failing loudly if the broker reorders responses [`BooblikConnection.kt:192-195`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L192-L195).
+The `AckPolicy` determines whether a producer waits for a response from the broker [`BooblikClient.kt:44`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt#L44).
 
-## Fetch Wait Semantics [#fetch-wait-semantics]
+| Policy    | Behavior                                                                                                                                                                                                                                                                                    |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NONE`    | The request is sent, but no response is expected; the client returns `null` immediately [`BooblikClient.kt:48`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt#L48). |
+| `WRITTEN` | The client waits for a `ProduceResult` from the broker [`BooblikClient.kt:48`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt#L48).                                  |
+| `FORCED`  | The client waits for the broker to acknowledge the write (implementation details handled by the broker).                                                                                                                                                                                    |
 
-Behavior of maxWaitMillis and the impact of held requests on connection pipelining.
-When a `fetch` request is sent with a `maxWaitMillis` greater than zero, the broker may hold the request until more data is available or the timeout expires [`LongFetchTest.kt:58`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/LongFetchTest.kt#L58). Because the broker serves requests in order, a held fetch blocks all subsequent requests on that same connection, including `PRODUCE` requests [`BooblikConnection.kt:132-136`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L132-L136).
+## Fetch Long-Polling and maxWaitMillis [#fetch-long-polling-and-maxwaitmillis]
 
-## ConnectionClosedException and Failure Propagation [#connectionclosedexception-and-failure-propagation]
+The `fetch` request supports long-polling via the `maxWaitMillis` parameter [`BooblikClient.kt:57`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt#L57). If the broker has no data, it can "hold" the request for up to the specified duration. While a request is held, it occupies the connection, meaning subsequent requests on that same connection are blocked [`LongFetchTest.kt:117-118`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/LongFetchTest.kt#L117-L118). A record arriving at the broker during this wait period will wake the fetch immediately [`LongFetchTest.kt:52-70`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/LongFetchTest.kt#L52-L70).
 
-How the client handles socket closures and propagates errors to waiting callers.
-If a connection fails, the `fail` function iterates through all remaining `Pending` objects in the queue and completes them with a `ConnectionClosedException` [`BooblikConnection.kt:166-167`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L166-L167). This ensures that callers waiting on `await()` are not left hanging indefinitely when the socket closes [`BooblikConnection.kt:166`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L166).
+## Conformance Testing Scenarios [#conformance-testing-scenarios]
 
-## Zero-Copy Transfer via transferTo [#zero-copy-transfer-via-transferto]
+The conformance client verifies the protocol implementation against specific requirements [`Main.kt:37-80`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-conformance/src/main/kotlin/ru/workinprogress/booblik/conformance/Main.kt#L37-L80). Key checks include:
 
-The requirement for SocketChannel to enable sendfile and the risks of wrapping the channel.
-The `transferFrom` method relies on `FileChannel.transferTo` to achieve zero-copy via `sendfile` [`Connection.kt:48`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-net/src/main/kotlin/ru/workinprogress/booblik/net/nio/Connection.kt#L48). However, the `transferTarget` must be a real `SocketChannel`; wrapping the channel in a decorator can silently turn the read path into a standard heap-buffer copy loop [`SendfileTest.kt:73-76`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/SendfileTest.kt#L73-L76).
+* **Keyed Production**: Using `Partitioner.Fnv1a` to select a partition based on a key before sending the produce request [`Main.kt:158`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-conformance/src/main/kotlin/ru/workinprogress/booblik/conformance/Main.kt#L158).
+* **Error Reporting**: Ensuring that `CORRUPT_REQUEST` errors (such as `minBytes` being larger than `maxBytes`) are correctly propagated to the client [`Main.kt:182`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-conformance/src/main/kotlin/ru/workinprogress/booblik/conformance/Main.kt#L182).
 
 ## Key files [#key-files]
 
-| File                                                                                                                                                                                                                                                                                                            | Lines   | What is there                                                            |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------ |
-| [`…/client/BooblikClient.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt#L24-L49 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt")             | `24-49` | The `BooblikClient` class providing blocking send/receive methods.       |
-| [`…/client/BooblikConnection.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L50-L97 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt") | `50-97` | The `BooblikConnection` class managing the reader and writer coroutines. |
-| [`…/nio/Connection.kt`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-net/src/main/kotlin/ru/workinprogress/booblik/net/nio/Connection.kt#L23-L53 "booblik-net/src/main/kotlin/ru/workinprogress/booblik/net/nio/Connection.kt")                                     | `23-53` | The `Connection` interface defining `transferFrom` and `transferTarget`. |
+| File                                                                                                                                                                                                                                                                                                             | Lines    | What is there                                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------- |
+| [`…/client/BooblikClient.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt#L24-L88 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikClient.kt")              | `24-88`  | The low-level blocking client implementation.         |
+| [`…/client/BooblikConnection.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L50-L241 "booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt") | `50-241` | The pipelined, coroutine-based connection logic.      |
+| [`…/conformance/Main.kt`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-conformance/src/main/kotlin/ru/workinprogress/booblik/conformance/Main.kt#L37-L80 "booblik-conformance/src/main/kotlin/ru/workinprogress/booblik/conformance/Main.kt")                        | `37-80`  | The reference implementation for conformance testing. |
 
 ## Behaviour that surprise [#behaviour-that-surprise]
 
-* A held `fetch` request on a `BooblikConnection` blocks all subsequent requests on that same connection, meaning a consumer and a producer cannot share a connection if the consumer is waiting for data [`BooblikConnection.kt:132-136`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/BooblikConnection.kt#L132-L136).
-* Wrapping a `SocketChannel` in a decorator (like a metrics or TLS layer) can silently disable `sendfile` optimizations, causing `transferTo` to fall back to a heap-buffer copy loop without changing the resulting data [`SendfileTest.kt:39-41`](https://github.com/youndie/booblik/blob/f508a4b65b3f92859af222822bf3394f4a7dc534/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/SendfileTest.kt#L39-L41).
+* A held fetch request on a `BooblikConnection` blocks all subsequent requests on that same connection, but does not block requests sent from a different connection [`LongFetchTest.kt:97-118`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/LongFetchTest.kt#L97-L118).
+* If a `fetch` request is cancelled via a timeout, the abandoned read remains on the socket and may consume the response intended for the next read [`LongFetchTest.kt:37-41`](https://github.com/youndie/booblik/blob/ef58254ca7be0c2e8c83b5ee75d4ce32647cf800/booblik-net/src/test/kotlin/ru/workinprogress/booblik/net/LongFetchTest.kt#L37-L41).
