@@ -27,6 +27,11 @@
     - [LogSegment](/wiki/booblik-core/logsegment)
     - [PartitionLog](/wiki/booblik-core/partitionlog)
     - [Recovery after a crash](/wiki/booblik-core/recovery-after-crash)
+  - booblik-native
+    - [booblik-native](/wiki/booblik-native)
+    - [BooblikConnection](/wiki/booblik-native/booblikconnection)
+    - [Producer](/wiki/booblik-native/producer)
+    - [Socket](/wiki/booblik-native/socket)
   - booblik-native-conformance
     - [booblik-native-conformance](/wiki/booblik-native-conformance)
     - [The conformance executable](/wiki/booblik-native-conformance/the-conformance-executable)
@@ -50,8 +55,24 @@
     - [The Smoke Test](/wiki/ci/the-smoke-test)
   - clients
     - [clients](/wiki/clients)
+    - [CRC-32C Checksum Implementation](/wiki/clients/crc-checksum-implementation)
+    - [Kotlin/Native Multiplatform Target](/wiki/clients/kotlin-native-multiplatform)
+    - [Producer and Consumer Mechanics](/wiki/clients/producer-and-consumer)
     - [The `Conn` Lifecycle and Concurrency](/wiki/clients/the-conn-lifecycle)
     - [The `Topic` and Partitioning Logic](/wiki/clients/the-topic-and)
+  - clients/go
+    - [clients/go](/wiki/clients-go)
+    - [Conn](/wiki/clients-go/conn)
+    - [The Fetch mechanism](/wiki/clients-go/the-fetch-mechanism)
+  - clients/java
+    - [clients/java](/wiki/clients-java)
+    - [Connection and Topic Management](/wiki/clients-java/connection-and-topic)
+    - [Producer Configuration and Batching](/wiki/clients-java/producer-configuration-and)
+  - clients/node
+    - [clients/node](/wiki/clients-node)
+    - [BrokerError and ProtocolError](/wiki/clients-node/brokererror-and-protocolerror)
+    - [CRC-32C Checksum Verification](/wiki/clients-node/crc-checksum-verification)
+    - [FNV-1a Partitioning](/wiki/clients-node/fnv-partitioning)
   - clients/python
     - [clients/python](/wiki/clients-python)
     - [The `Producer` and `Topic` interaction](/wiki/clients-python/the-producer-and)
