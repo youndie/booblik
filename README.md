@@ -4,6 +4,7 @@
 [![kotlin](https://img.shields.io/badge/Kotlin-2.4.10-blue?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![jvm](https://img.shields.io/badge/JVM-25-blue?logoColor=white)](https://openjdk.org/projects/jdk/25/)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![docs](https://img.shields.io/badge/docs-booblik.wiki-8b5cf6)](https://youndie.github.io/booblik/)
 
 A message broker in Kotlin/JVM built on an append-only log: a topic splits into partitions, a
 partition into segments, and a consumer reads by a numeric offset it keeps itself.
@@ -245,6 +246,11 @@ or fast but simply about something else.
   in one module, so the option is kept without paying for it today.
 
 ## Documentation
+
+**[youndie.github.io/booblik](https://youndie.github.io/booblik/)** — the same documentation as a
+site, together with a generated wiki: a page per module, each claim carrying a link into the code at
+the lines it is about. Generated in English from this repository, so the wiki is readable without
+Russian.
 
 [docs/](docs/README.md) — layered documentation: research, features with their BDD scenarios, the
 wire protocol, and a document per module. Written in Russian; code, KDoc and comments are in
