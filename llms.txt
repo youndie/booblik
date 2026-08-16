@@ -1,0 +1,78 @@
+# Docs
+
+- [booblik](/)
+- Wiki
+  - booblik-app
+    - [booblik-app](/wiki/booblik-app)
+    - [BooblikConfigTest](/wiki/booblik-app/booblikconfigtest)
+  - booblik-benchmark
+    - [booblik-benchmark](/wiki/booblik-benchmark)
+    - [MeasurementDir](/wiki/booblik-benchmark/measurementdir)
+  - booblik-client
+    - [booblik-client](/wiki/booblik-client)
+    - [BooblikClient](/wiki/booblik-client/booblikclient)
+    - [Producer](/wiki/booblik-client/producer)
+  - booblik-core
+    - [booblik-core](/wiki/booblik-core)
+    - [Recovery after a crash](/wiki/booblik-core/recovery-after-crash)
+  - booblik-net
+    - [booblik-net](/wiki/booblik-net)
+    - [BooblikServer](/wiki/booblik-net/booblikserver)
+    - [FetchMode](/wiki/booblik-net/fetchmode)
+    - [Transport](/wiki/booblik-net/transport)
+  - ci
+    - [ci](/wiki/ci)
+    - [The gated Docker build](/wiki/ci/the-gated-docker)
+    - [The performance floor](/wiki/ci/the-performance-floor)
+  - dev
+    - [dev](/wiki/dev)
+    - [Partitioning by key and consumer-side position](/wiki/dev/partitioning-key-and)
+    - [State as a fold over the log](/wiki/dev/state-fold-over)
+  - dev/common
+    - [dev/common](/wiki/dev-common)
+    - [Atomic offset persistence](/wiki/dev-common/atomic-offset-persistence)
+    - [FileOffsetStore](/wiki/dev-common/fileoffsetstore)
+  - dev/consumer
+    - [dev/consumer](/wiki/dev-consumer)
+    - [consumeForever](/wiki/dev-consumer/consumeforever)
+    - [Reconnection logic](/wiki/dev-consumer/reconnection-logic)
+    - [Recovery after a crash](/wiki/dev-consumer/recovery-after-crash)
+  - dev/projection
+    - [dev/projection](/wiki/dev-projection)
+    - [Projection](/wiki/dev-projection/projection)
+    - [The build lifecycle](/wiki/dev-projection/the-build-lifecycle)
+  - dev/publisher
+    - [dev/publisher](/wiki/dev-publisher)
+    - [openConnection](/wiki/dev-publisher/openconnection)
+  - dev/queue-worker
+    - [dev/queue-worker](/wiki/dev-queue-worker)
+    - [ClaimRecord and the Claims Log](/wiki/dev-queue-worker/claimrecord-and-the)
+    - [ClaimState and the Deterministic Verdict](/wiki/dev-queue-worker/claimstate-and-the)
+    - [Worker Lifecycle and the Work Loop](/wiki/dev-queue-worker/worker-lifecycle-and)
+  - dev/relay
+    - [dev/relay](/wiki/dev-relay)
+    - [booblikToKafka](/wiki/dev-relay/boobliktokafka)
+    - [Directional modes](/wiki/dev-relay/directional-modes)
+    - [kafkaToBooblik](/wiki/dev-relay/kafkatobooblik)
+  - .github
+    - [.github](/wiki/github)
+    - [Benchmark execution and reporting](/wiki/github/benchmark-execution-and)
+    - [Docker image lifecycle and GHCR publishing](/wiki/github/docker-image-lifecycle)
+- Docs
+  - [Как здесь меряют и что намеряли](/docs/benchmarking)
+  - [README](/docs/README)
+  - Api
+    - [Бинарный протокол booblik](/docs/api/protocol-wire)
+  - Features
+    - [Записать в лог и прочитать по оффсету](/docs/features/feature-append-and-fetch)
+    - [Подписаться на топик и публиковать в него](/docs/features/feature-subscribe-and-publish)
+  - Research
+    - [booblik — архитектурный research](/docs/research/research-architecture)
+    - [booblik — сценарии использования и граница «в брокере / рядом»](/docs/research/research-usecases)
+    - [Исходный драфт задания](/docs/research/source-draft)
+  - Services
+    - [booblik-app](/docs/services/booblik-app)
+    - [booblik-benchmark](/docs/services/booblik-benchmark)
+    - [booblik-client](/docs/services/booblik-client)
+    - [booblik-core](/docs/services/booblik-core)
+    - [booblik-net](/docs/services/booblik-net)
