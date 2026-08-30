@@ -1,8 +1,9 @@
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    id("org.jetbrains.kotlin.multiplatform")
+    id("ru.workinprogress.sborka.kmp")
+    id("ru.workinprogress.sborka.lint")
+    id("ru.workinprogress.sborka.publish")
 }
-
-apply(from = rootProject.file("publishing.gradle.kts"))
 
 /*
  * The half of the protocol a **client** needs, and nothing else.
@@ -21,8 +22,6 @@ apply(from = rootProject.file("publishing.gradle.kts"))
  * hands the finished array to `ByteBuffer.wrap`, which allocates a view and copies nothing.
  */
 kotlin {
-    jvmToolchain(25)
-
     jvm()
 
     // linuxX64 because that is where the consumers are — tracy, shildik, mongkn, hub-backend, the

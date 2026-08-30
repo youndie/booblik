@@ -1,5 +1,7 @@
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    id("org.jetbrains.kotlin.multiplatform")
+    id("ru.workinprogress.sborka.kmp")
+    id("ru.workinprogress.sborka.lint")
 }
 
 /*
@@ -16,8 +18,6 @@ plugins {
  * whole surface is a `main`.
  */
 kotlin {
-    jvmToolchain(25)
-
     listOf(linuxX64(), macosArm64()).forEach { target ->
         target.binaries.executable {
             baseName = "conformance"

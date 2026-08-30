@@ -2,9 +2,17 @@ plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     // Declared here as well, and for the same reason: the Kotlin plugin lands on the build classpath
     // once, so a module asking for a *versioned* multiplatform plugin fails with "already on the
-    // classpath with an unknown version" rather than anything about multiplatform.
+    // classpath with an unknown version" rather than anything about multiplatform. The sborka
+    // plugins are declared the same way and for the same reason.
     alias(libs.plugins.kotlin.multiplatform) apply false
-    alias(libs.plugins.ktlint)
+    // The benchmark module's two, declared here so its own `plugins { }` block can name them without
+    // a version — the same rule the Kotlin plugins above follow.
+    alias(libs.plugins.kotlin.allopen) apply false
+    alias(libs.plugins.benchmark) apply false
+    alias(libs.plugins.sborkaJvm) apply false
+    alias(libs.plugins.sborkaKmp) apply false
+    alias(libs.plugins.sborkaLint) apply false
+    alias(libs.plugins.sborkaPublish) apply false
 }
 
 /**
@@ -55,56 +63,30 @@ val footprintOverridden = project.hasProperty("booblik.jvmArgs")
 extra["brokerJvmArgs"] =
     if (footprintOverridden) brokerJvmArgs + "-Dbooblik.footprintOverridden=true" else brokerJvmArgs
 
-allprojects {
-    // `io.github.<login>` — coordinates whose ownership is proved by owning the GitHub account.
-    // A domain of one's own would need separate proof that the domain is ours.
-    group = "io.github.youndie.booblik"
-    // A default that is a snapshot on purpose: a build with no `-PVERSION` must not be able to
-    // produce something that looks like a release.
-    // 0.3.0 and not 0.2.1: M-130 changed the default partitioner, so the same key goes to a
-    // different partition than it did in 0.2.0. Nothing in the ABI moved, which is exactly why the
-    // version has to say it — `checkKotlinAbi` cannot see a change of behaviour behind a stable
-    // signature, and this one costs per-key order to anyone who upgrades mid-stream.
-    version = providers.gradleProperty("VERSION").getOrElse("0.3.0-SNAPSHOT")
-}
-
-// The whole point of this block: the gate is one command. `./gradlew check` must run the tests
-// AND ktlint, in every module, without anyone remembering a second line in CI.
+// The group, the version, the toolchain, the ktlint wiring, the test platform and the test logging
+// used to live here, in `allprojects` and `subprojects`, and the publication in
+// `publishing.gradle.kts`. They come from `ru.workinprogress.sborka` now, applied per module, with
+// the numbers one line each in `gradle.properties` and the reasons kept beside them.
+//
+// What stays is what is booblik's: the runtime footprint above, and the ABI dump that says which
+// declarations left `internal`.
 subprojects {
-    apply(plugin = "org.jlleitschuh.gradle.ktlint")
-
-    // The formatter version is pinned here rather than left to the plugin default: otherwise the
-    // style shifts when the plugin is bumped, which is exactly when nobody is looking at the diff.
-    extensions.configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
-        version.set(rootProject.libs.versions.ktlint)
-    }
-
     plugins.withId("org.jetbrains.kotlin.jvm") {
         extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
-            // 25, not 21. Two things on the critical path are only available above 21:
-            // `FileChannel.map(mode, offset, size, Arena)` — a mapping without the 2 GB ceiling and
-            // with a deterministic release, unlike `MappedByteBuffer` (research §1.5); and virtual
-            // threads that no longer pin the carrier on `synchronized` (JEP 491, 24), which is what
-            // makes a thread-per-connection acceptor a fair baseline to measure against.
-            jvmToolchain(25)
-
             // Public API is checked into the repository as `api/<module>.api` and compared on every
             // `check`. Two reasons, and the second is the one that matters here.
             //
-            // The repository is about to be public, so a source change that quietly widens or
-            // breaks the surface someone else compiles against is a real cost. But before that:
-            // this project keeps a lot of machinery `internal` on purpose — the load driver, the
-            // measurement directory, the wire codec's helpers — and there is no way to notice when
-            // something slips out of `internal` except by reading every diff. The dump notices.
+            // The repository is public, so a source change that quietly widens or breaks the surface
+            // someone else compiles against is a real cost. But before that: this project keeps a lot
+            // of machinery `internal` on purpose — the load driver, the measurement directory, the
+            // wire codec's helpers — and there is no way to notice when something slips out of
+            // `internal` except by reading every diff. The dump notices.
             //
-            // This is the ABI validation built into the Kotlin plugin (`checkLegacyAbi` /
-            // `updateLegacyAbi`), not the standalone `binary-compatibility-validator`. Verified in
-            // the 2.4.10 artifact rather than assumed: `org.jetbrains.kotlin.gradle.dsl.abi.*` and
-            // `KotlinLegacyAbiCheckTask` are there, and the standalone plugin is the thing it
-            // replaced — one fewer dependency for the same `.api` format.
-            // `:booblik-benchmark` is deliberately outside: it publishes nothing, and every new
-            // probe would show up as an API change, which trains everyone to run `updateLegacyAbi`
-            // without reading the diff — the exact habit this check exists to prevent.
+            // This is the ABI validation built into the Kotlin plugin (`checkKotlinAbi` /
+            // `updateKotlinAbi`), not the standalone `binary-compatibility-validator`.
+            // `:booblik-benchmark` is deliberately outside: it publishes nothing, and every new probe
+            // would show up as an API change, which trains everyone to update the dump without
+            // reading the diff — the exact habit this check exists to prevent.
             // `:booblik-conformance` is outside for the same reason: it is a fixture for the
             // conformance harness, its whole surface is a `main`, and nobody can depend on it.
             if (project.name !in setOf("booblik-benchmark", "booblik-conformance")) {
@@ -122,14 +104,9 @@ subprojects {
         }
 
         tasks.withType<Test>().configureEach {
-            useJUnitPlatform()
             // Tests run under the production footprint on purpose: an allocation the storage layer
             // is not supposed to make shows up here as an OOM in the gate, not in production.
             jvmArgs(rootProject.extra["brokerJvmArgs"] as List<String>)
-            testLogging {
-                events("failed")
-                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
-            }
         }
     }
 }

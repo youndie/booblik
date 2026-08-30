@@ -32,12 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - uses: gradle/actions/setup-gradle@v6
+      # Java and Gradle in one step and at one version for the portfolio: the action installs 21 and
+      # 25 and leaves 25 as the default, which is what this build asks for.
+      - uses: youndie/sborka/.github/actions/setup-kotlin@main
 
       # The tag triggers and the build file is what ships. A disagreement is how an artefact lands
       # under a number its own POM denies.

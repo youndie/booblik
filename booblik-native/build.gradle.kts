@@ -1,8 +1,9 @@
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    id("org.jetbrains.kotlin.multiplatform")
+    id("ru.workinprogress.sborka.kmp")
+    id("ru.workinprogress.sborka.lint")
+    id("ru.workinprogress.sborka.publish")
 }
-
-apply(from = rootProject.file("publishing.gradle.kts"))
 
 /*
  * The publisher for Kotlin/Native.
@@ -27,8 +28,6 @@ apply(from = rootProject.file("publishing.gradle.kts"))
  * for.
  */
 kotlin {
-    jvmToolchain(25)
-
     linuxX64()
     macosArm64()
 
