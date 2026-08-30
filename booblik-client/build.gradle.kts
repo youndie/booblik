@@ -1,8 +1,9 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    id("org.jetbrains.kotlin.jvm")
+    id("ru.workinprogress.sborka.jvm")
+    id("ru.workinprogress.sborka.lint")
+    id("ru.workinprogress.sborka.publish")
 }
-
-apply(from = rootProject.file("publishing.gradle.kts"))
 
 /*
  * The client and the shared codec, kept apart from the server.

@@ -1,4 +1,8 @@
 [versions]
+# The build conventions: where the group, the toolchain, the ktlint wiring, the test platform and the
+# publication come from. Bumping this changes how every module is built, so it is pinned like any
+# other dependency and moved deliberately.
+sborka = "0.1.0.18"
 # Kotlin 2.4.10 — last stable on 2026-08-10 (2.4.20-Beta2 is a beta), checked against
 # maven-metadata.xml of org.jetbrains.kotlin:kotlin-stdlib.
 kotlin = "2.4.10"
@@ -38,3 +42,7 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
 benchmark = { id = "org.jetbrains.kotlinx.benchmark", version.ref = "benchmark" }
+sborkaJvm = { id = "ru.workinprogress.sborka.jvm", version.ref = "sborka" }
+sborkaKmp = { id = "ru.workinprogress.sborka.kmp", version.ref = "sborka" }
+sborkaLint = { id = "ru.workinprogress.sborka.lint", version.ref = "sborka" }
+sborkaPublish = { id = "ru.workinprogress.sborka.publish", version.ref = "sborka" }

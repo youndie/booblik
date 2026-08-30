@@ -54,12 +54,9 @@ jobs:
           # fails on a cache path that resolves to nothing rather than shrugging.
           cache: false
 
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - uses: gradle/actions/setup-gradle@v6
+      # Java and Gradle in one step and at one version for the portfolio: the action installs 21 and
+      # 25 and leaves 25 as the default, which is what this build asks for.
+      - uses: youndie/sborka/.github/actions/setup-kotlin@main
 
       # A job of its own because it needs a broker in Docker, and the gate above must not be able to
       # go red for a reason that has nothing to do with the Go code.

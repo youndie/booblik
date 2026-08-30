@@ -1,8 +1,9 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    id("org.jetbrains.kotlin.jvm")
+    id("ru.workinprogress.sborka.jvm")
+    id("ru.workinprogress.sborka.lint")
+    id("ru.workinprogress.sborka.publish")
 }
-
-apply(from = rootProject.file("publishing.gradle.kts"))
 
 dependencies {
     // `api` because the storage speaks in these types: `Offset`, `TopicName`, `PartitionId` and
