@@ -109,16 +109,54 @@ class PartitionWriter(
     var flushes: Long = 0L
         private set
 
+    /**
+     * The batch this writer is in the middle of, and the reason it is a field.
+     *
+     * Everything else the loop touches is a local, which is correct because only the writer
+     * coroutine touches it. This one has to be visible to the `finally` below: a command taken out
+     * of the mailbox is no longer in the mailbox, so draining the mailbox does not reach it, and a
+     * producer waiting on it waits for ever. That is exactly what a full volume produced —
+     * `backlog 1`, `errors 0`, and a request that never came back (issue #15).
+     */
+    private var inFlight: List<WriteCommand> = emptyList()
+
+    /**
+     * Why this writer stopped, or null while it is running.
+     *
+     * A writer that died cannot be restarted: the mailbox is closed and the loop is gone. What it
+     * can do is say so — [append] refuses immediately instead of blocking on a closed channel, and
+     * the session turns that refusal into an error code the producer can read.
+     */
+    @Volatile
+    var failure: Throwable? = null
+        private set
+
     private val job: Job =
         scope.launch {
             try {
                 runLoop()
+            } catch (cancellation: kotlin.coroutines.cancellation.CancellationException) {
+                throw cancellation
+            } catch (broken: Throwable) {
+                // A write that cannot land is not something this loop can recover from — the volume
+                // is full, or the mapping faulted, and the next batch would fault the same way.
+                // What it must not do is disappear quietly: the exception is kept so that every
+                // producer after this one gets an answer rather than a dropped connection.
+                failure = broken
+                throw broken
             } finally {
                 // Whoever is still waiting must be told, or they wait forever. Cancellation of the
                 // scope is the ordinary way this coroutine ends, and it must not strand producers.
                 mailbox.close()
+                val why = failure?.let { WriterFailedException(it) } ?: WriterClosedException()
+                for (pending in inFlight) {
+                    pending.ack?.completeExceptionally(why)
+                }
+                queued.addAndGet(-inFlight.size)
+                inFlight = emptyList()
                 for (pending in generateSequence { mailbox.tryReceive().getOrNull() }) {
-                    pending.ack?.completeExceptionally(WriterClosedException())
+                    pending.ack?.completeExceptionally(why)
+                    queued.decrementAndGet()
                 }
             }
         }
@@ -137,6 +175,10 @@ class PartitionWriter(
         policy: AckPolicy = AckPolicy.WRITTEN,
     ): Offset? {
         require(records.isNotEmpty()) { "an empty batch has no base offset to report" }
+        // Checked before the send rather than after it: sending into a closed channel throws
+        // `ClosedSendChannelException`, which says the channel is shut but not why — and the caller
+        // has to tell "the broker is stopping" from "this partition is broken" to answer at all.
+        failure?.let { throw WriterFailedException(it) }
         if (policy == AckPolicy.NONE) {
             queued.incrementAndGet()
             mailbox.send(WriteCommand(records, policy, ack = null))
@@ -165,6 +207,9 @@ class PartitionWriter(
         while (true) {
             val first = awaitCommand() ?: break
             group.add(first)
+            // Published before the first write, cleared after the acks: between those two points a
+            // failure would otherwise leave this batch owned by nobody.
+            inFlight = group
             // Drain without suspending. Everything already in the mailbox joins this group and
             // shares one barrier; anything that arrives later waits for the next round. With no
             // window the group size still self-adjusts to the load, because a slow barrier lets
@@ -189,6 +234,7 @@ class PartitionWriter(
                 command.ack?.complete(command.baseOffset!!)
             }
             queued.addAndGet(-group.size)
+            inFlight = emptyList()
             group.clear()
             // After the acks, not before: a reader woken by this must find the records already
             // readable, and `Log.nextOffset` is what makes them so.
@@ -310,3 +356,18 @@ class PartitionWriter(
 
 /** Thrown to producers still waiting when the writer's scope is cancelled. */
 class WriterClosedException : IllegalStateException("partition writer was closed before the batch was written")
+
+/**
+ * The partition's writer died, and this partition cannot be written to again.
+ *
+ * Not the same as [WriterClosedException], which is an orderly shutdown. This one carries the
+ * failure that killed the loop — a full volume being the case it was written for, where an `mmap`ed
+ * write faults as `InternalError` rather than as anything an IO path would think to catch.
+ *
+ * It exists so that the failure has a name on the wire. Before it, a producer that arrived after
+ * the writer died had its connection dropped mid-response, which is indistinguishable from a
+ * network fault; the batch already in flight was never answered at all (issue #15).
+ */
+class WriterFailedException(
+    cause: Throwable,
+) : IllegalStateException("partition writer died and cannot accept writes: $cause", cause)

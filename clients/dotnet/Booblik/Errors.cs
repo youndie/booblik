@@ -9,6 +9,12 @@ public enum Code : short
     RecordTooLarge = 3,
     UnsupportedVersion = 4,
     CorruptRequest = 5,
+
+    /// <summary>
+    /// The partition's writer died — a full volume being the case it was added for. Retrying does
+    /// not help; reads from the same partition still work.
+    /// </summary>
+    PartitionUnavailable = 6,
 }
 
 public static class CodeNames
@@ -22,6 +28,7 @@ public static class CodeNames
         Code.RecordTooLarge => "RECORD_TOO_LARGE",
         Code.UnsupportedVersion => "UNSUPPORTED_VERSION",
         Code.CorruptRequest => "CORRUPT_REQUEST",
+        Code.PartitionUnavailable => "PARTITION_UNAVAILABLE",
         _ => $"UNKNOWN({(short)code})",
     };
 }

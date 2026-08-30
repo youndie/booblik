@@ -102,13 +102,22 @@ class ErrorCodeTest {
 
     @Test
     fun `every code the protocol document lists is reachable or reserved on purpose`() {
-        // A guard against the enum and the document drifting apart. Four of the six are exercised
-        // by tests; NONE is every success, and the remaining ones are covered elsewhere.
+        // A guard against the enum and the document drifting apart, and it earned its keep in
+        // M-160: adding PARTITION_UNAVAILABLE failed here first, which is the point — a code is on
+        // the wire and in six clients, so it may not appear because somebody found it convenient.
         assertEquals(
-            listOf(0, 1, 2, 3, 4, 5),
+            listOf(0, 1, 2, 3, 4, 5, 6),
             ErrorCode.entries.map { it.id.toInt() },
             "ids are on the wire and must not be renumbered",
         )
+    }
+
+    @Test
+    fun `an unrecognised code is read as CORRUPT_REQUEST rather than crashing`() {
+        // What a client of an older build does when a newer broker answers with a code it has never
+        // heard of. It has to survive that: this is exactly the situation PARTITION_UNAVAILABLE put
+        // every already-published client into.
+        assertEquals(ErrorCode.CORRUPT_REQUEST, ErrorCode.of(99))
     }
 
     private fun writeHeaderOnly(

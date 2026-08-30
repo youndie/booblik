@@ -40,6 +40,7 @@ final enum class ru.workinprogress.booblik.net.wire/ErrorCode : kotlin/Enum<ru.w
     enum entry CORRUPT_REQUEST // ru.workinprogress.booblik.net.wire/ErrorCode.CORRUPT_REQUEST|null[0]
     enum entry NONE // ru.workinprogress.booblik.net.wire/ErrorCode.NONE|null[0]
     enum entry OFFSET_OUT_OF_RANGE // ru.workinprogress.booblik.net.wire/ErrorCode.OFFSET_OUT_OF_RANGE|null[0]
+    enum entry PARTITION_UNAVAILABLE // ru.workinprogress.booblik.net.wire/ErrorCode.PARTITION_UNAVAILABLE|null[0]
     enum entry RECORD_TOO_LARGE // ru.workinprogress.booblik.net.wire/ErrorCode.RECORD_TOO_LARGE|null[0]
     enum entry UNKNOWN_TOPIC_OR_PARTITION // ru.workinprogress.booblik.net.wire/ErrorCode.UNKNOWN_TOPIC_OR_PARTITION|null[0]
     enum entry UNSUPPORTED_VERSION // ru.workinprogress.booblik.net.wire/ErrorCode.UNSUPPORTED_VERSION|null[0]

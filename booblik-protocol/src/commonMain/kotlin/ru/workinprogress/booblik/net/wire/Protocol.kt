@@ -94,6 +94,22 @@ enum class ErrorCode(
     RECORD_TOO_LARGE(3),
     UNSUPPORTED_VERSION(4),
     CORRUPT_REQUEST(5),
+
+    /**
+     * The partition's writer died and this partition cannot be written to again until a restart.
+     *
+     * Added in M-160 for the failure mode of a full volume (issue #15): a write into a mapped
+     * segment whose backing store cannot grow faults as `InternalError`, the writer coroutine dies,
+     * and before this code the producer either waited for ever or had its connection dropped
+     * mid-response. Neither is distinguishable from a network fault by a client.
+     *
+     * A refusal rather than a disconnect for the same reason every other code here is one: framing
+     * was intact, the broker understood the request, and the connection stays usable — reads from
+     * this partition still work, which is why the process does not exit.
+     *
+     * **Retrying does not help.** The writer is gone for the life of the process.
+     */
+    PARTITION_UNAVAILABLE(6),
     ;
 
     companion object {

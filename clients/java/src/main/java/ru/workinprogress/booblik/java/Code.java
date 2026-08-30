@@ -7,7 +7,13 @@ public enum Code {
     OFFSET_OUT_OF_RANGE(2),
     RECORD_TOO_LARGE(3),
     UNSUPPORTED_VERSION(4),
-    CORRUPT_REQUEST(5);
+    CORRUPT_REQUEST(5),
+
+    /**
+     * The partition's writer died — a full volume being the case it was added for. Retrying does
+     * not help; reads from the same partition still work.
+     */
+    PARTITION_UNAVAILABLE(6);
 
     private final short id;
 

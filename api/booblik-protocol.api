@@ -107,6 +107,7 @@ public final class ru/workinprogress/booblik/net/wire/ErrorCode : java/lang/Enum
 	public static final field Companion Lru/workinprogress/booblik/net/wire/ErrorCode$Companion;
 	public static final field NONE Lru/workinprogress/booblik/net/wire/ErrorCode;
 	public static final field OFFSET_OUT_OF_RANGE Lru/workinprogress/booblik/net/wire/ErrorCode;
+	public static final field PARTITION_UNAVAILABLE Lru/workinprogress/booblik/net/wire/ErrorCode;
 	public static final field RECORD_TOO_LARGE Lru/workinprogress/booblik/net/wire/ErrorCode;
 	public static final field UNKNOWN_TOPIC_OR_PARTITION Lru/workinprogress/booblik/net/wire/ErrorCode;
 	public static final field UNSUPPORTED_VERSION Lru/workinprogress/booblik/net/wire/ErrorCode;

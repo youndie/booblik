@@ -13,6 +13,10 @@ const (
 	CodeRecordTooLarge          Code = 3
 	CodeUnsupportedVersion      Code = 4
 	CodeCorruptRequest          Code = 5
+	// CodePartitionUnavailable is the partition's writer having died — a full volume being the
+	// case it was added for. Retrying does not help: the writer is gone for the life of the
+	// broker process, and reads from the same partition still work.
+	CodePartitionUnavailable Code = 6
 )
 
 func (c Code) String() string {
@@ -29,6 +33,8 @@ func (c Code) String() string {
 		return "UNSUPPORTED_VERSION"
 	case CodeCorruptRequest:
 		return "CORRUPT_REQUEST"
+	case CodePartitionUnavailable:
+		return "PARTITION_UNAVAILABLE"
 	default:
 		return fmt.Sprintf("UNKNOWN(%d)", int16(c))
 	}
@@ -61,4 +67,5 @@ var (
 	ErrRecordTooLarge          = &BrokerError{Code: CodeRecordTooLarge}
 	ErrUnsupportedVersion      = &BrokerError{Code: CodeUnsupportedVersion}
 	ErrCorruptRequest          = &BrokerError{Code: CodeCorruptRequest}
+	ErrPartitionUnavailable    = &BrokerError{Code: CodePartitionUnavailable}
 )

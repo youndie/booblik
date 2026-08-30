@@ -33,6 +33,9 @@ ERROR_NAMES = {
     3: "RECORD_TOO_LARGE",
     4: "UNSUPPORTED_VERSION",
     5: "CORRUPT_REQUEST",
+    # The partition's writer died and cannot accept writes again (M-160). The harness carries it
+    # so that a client reporting it is read as the code it is rather than as UNKNOWN(6).
+    6: "PARTITION_UNAVAILABLE",
 }
 
 # `[int32 length][int16 apiKey][int16 apiVersion][int32 correlationId]`, and the length counts

@@ -7,6 +7,11 @@ export const Code = Object.freeze({
   RECORD_TOO_LARGE: 3,
   UNSUPPORTED_VERSION: 4,
   CORRUPT_REQUEST: 5,
+  /**
+   * The partition's writer died — a full volume being the case it was added for. Retrying does
+   * not help; reads from the same partition still work.
+   */
+  PARTITION_UNAVAILABLE: 6,
 });
 
 const NAMES = Object.fromEntries(Object.entries(Code).map(([name, value]) => [value, name]));

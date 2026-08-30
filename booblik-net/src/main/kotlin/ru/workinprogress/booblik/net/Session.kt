@@ -3,6 +3,7 @@ package ru.workinprogress.booblik.net
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.booblik.log.AckPolicy
+import ru.workinprogress.booblik.log.WriterFailedException
 import ru.workinprogress.booblik.net.nio.Connection
 import ru.workinprogress.booblik.net.wire.CorruptRequestException
 import ru.workinprogress.booblik.net.wire.DecodeResult
@@ -162,7 +163,17 @@ class Session(
         }
 
         metrics.onProduce()
-        val base = handle.writer.append(request.records, request.ackPolicy)
+        val base =
+            try {
+                handle.writer.append(request.records, request.ackPolicy)
+            } catch (dead: WriterFailedException) {
+                // The writer died — a full volume is what this was written for. Answered rather
+                // than dropped: before M-160 this exception propagated out of the session, the
+                // connection was closed mid-response, and a producer could not tell that from the
+                // network going away (issue #15).
+                respondError(request.header.correlationId, ErrorCode.PARTITION_UNAVAILABLE)
+                return
+            }
         // `NONE` gets no response at all — not an empty one. There is no offset to report, because
         // the offset does not exist until the writer reaches the batch, and a number the client
         // cannot check against anything would be worse than silence.
