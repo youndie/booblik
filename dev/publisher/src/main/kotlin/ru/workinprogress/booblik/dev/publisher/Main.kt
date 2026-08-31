@@ -8,6 +8,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -37,6 +38,10 @@ fun main() {
     val scope = CoroutineScope(SupervisorJob())
     val stats = Stats()
 
+    // Set by /pause, read by both producing loops. `AtomicBoolean` rather than `@Volatile` only
+    // because it is shared with the HTTP routes below.
+    val paused = java.util.concurrent.atomic.AtomicBoolean(false)
+
     runBlocking {
         val connection = openConnection(config)
         val producer = Producer(connection, scope)
@@ -45,13 +50,13 @@ fun main() {
             "publisher: ${config.topic} has ${topic.partitions.size} partition(s), every ${config.intervalMillis} ms",
         )
 
-        scope.launch { publishForever(topic, config, stats) }
+        scope.launch { publishForever(topic, config, stats, paused) }
 
         // The second layer's input, when it is asked for. Tasks go into one partition on purpose:
         // a queue exists so that any worker may take any task, and splitting them by partition
         // would be the first layer again under another name.
         config.tasksTopic?.let { name ->
-            scope.launch { publishTasks(producer, name, config, stats) }
+            scope.launch { publishTasks(producer, name, config, stats, paused) }
             println("publisher: also writing tasks to $name")
         }
 
@@ -60,6 +65,28 @@ fun main() {
             routing {
                 get("/health") { call.respondText("ok") }
                 get("/stats") { call.respond(stats.snapshot(config)) }
+
+                /*
+                 * A quiescent point for the checks, and the reason it exists is issue #12.
+                 *
+                 * `check.sh` compares what the publisher says it wrote against where each consumer
+                 * has got to. Both numbers are true, and they are read a few milliseconds apart —
+                 * so a record produced in between is a disagreement that means nothing, and the job
+                 * failed at random on branches that do not touch `dev/` at all. Waiting longer does
+                 * not fix it: there is no length of wait that makes two moving numbers agree.
+                 *
+                 * Stopping the container instead would take `/stats` away with the producing, and
+                 * the check needs both. So production stops and the process stays.
+                 */
+                post("/pause") {
+                    paused.set(true)
+                    call.respondText("paused")
+                }
+
+                post("/resume") {
+                    paused.set(false)
+                    call.respondText("resumed")
+                }
             }
         }.start(wait = true)
     }
@@ -89,9 +116,16 @@ private suspend fun publishForever(
     topic: TopicHandle,
     config: PublisherConfig,
     stats: Stats,
+    paused: java.util.concurrent.atomic.AtomicBoolean,
 ) {
     val users = List(config.users) { "user-${it + 1}" }
     while (true) {
+        // Checked at the top of the loop, so a paused publisher has no record in flight: the check
+        // that follows a pause compares a count that has stopped moving (issue #12).
+        if (paused.get()) {
+            delay(config.intervalMillis)
+            continue
+        }
         val user = users[Random.nextInt(users.size)]
         val key = user.toByteArray()
         // Asked before sending, and the answer is stable: the keyed partitioner is a pure function
@@ -113,10 +147,15 @@ private suspend fun publishTasks(
     topic: String,
     config: PublisherConfig,
     stats: Stats,
+    paused: java.util.concurrent.atomic.AtomicBoolean,
 ) {
     val name = TopicName(topic)
     var number = 0L
     while (true) {
+        if (paused.get()) {
+            delay(config.taskIntervalMillis)
+            continue
+        }
         producer
             .send(name, PartitionId(0), """{"task":"resize","n":$number}""".toByteArray())
             .await()
