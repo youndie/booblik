@@ -18,7 +18,7 @@ ktlint = "1.8.0"
 turbine = "1.2.1"
 ktlintGradle = "14.2.0"
 # Benchmarks. kotlinx-benchmark drives JMH; JMH itself is what actually measures.
-benchmark = "0.4.17"
+benchmark = "0.4.19"
 # Latency histograms for the end-to-end load harness. Percentiles from a plain list of samples
 # would cost more memory than the payload being measured.
 hdrhistogram = "2.2.2"
