@@ -2,7 +2,7 @@
 # The build conventions: where the group, the toolchain, the ktlint wiring, the test platform and the
 # publication come from. Bumping this changes how every module is built, so it is pinned like any
 # other dependency and moved deliberately.
-sborka = "0.1.0.18"
+sborka = "0.1.0.23"
 # Kotlin 2.4.10 — last stable on 2026-08-10 (2.4.20-Beta2 is a beta), checked against
 # maven-metadata.xml of org.jetbrains.kotlin:kotlin-stdlib.
 kotlin = "2.4.10"
