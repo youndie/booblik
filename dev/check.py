@@ -22,6 +22,16 @@ import sys
 
 
 def split() -> int:
+    """stdin holds the publisher's /stats followed by one line per consumer.
+
+    Equality is the assertion, and it is only legitimate because `check.sh` pauses the publisher and
+    waits for every consumer to reach lag zero before reading anything. Without that this compared
+    two numbers that were both moving — issue #12, where the job failed by exactly one record on
+    branches that do not touch the sample, and passed on a re-run of the same commit.
+
+    The third time this family of check has had to learn that a distributed reading taken at two
+    instants is not a disagreement. The other two were the queue's, in `queue()` below.
+    """
     lines = [json.loads(line) for line in sys.stdin if line.strip()]
     publisher, consumers = lines[0], lines[1:]
     failed = False
@@ -38,7 +48,11 @@ def split() -> int:
         )
 
     if failed:
-        print("::error:: a consumer position does not match what was written to its partition")
+        print(
+            "::error:: a consumer position does not match what was written to its partition. "
+            "The publisher was paused and every consumer had reached lag zero before these numbers "
+            "were read, so this is a real disagreement rather than a race"
+        )
         return 1
     print(f"   {publisher['sent']} records, none lost and none handled twice")
     return 0
