@@ -8,7 +8,7 @@
 
 services:
   broker:
-    image: ${BOOBLIK_IMAGE:-ghcr.io/youndie/booblik:0.2.0}
+    image: ${BOOBLIK_IMAGE:-ghcr.io/youndie/booblik:0.3.0}
     # Published for amd64 only. Named explicitly so an arm64 host emulates it with a warning
     # instead of failing with "no matching manifest", which reads like a broken tag. Emulation is
     # fine for watching the sample and wrong for measuring it — set BOOBLIK_IMAGE and
