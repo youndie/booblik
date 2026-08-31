@@ -177,7 +177,7 @@ services:
   # where the broker "really" is, and then dials its own localhost. The relay sat there logging
   # `NoAvailableBrokersException` while `docker compose ps` showed everything healthy.
   kafka:
-    image: apache/kafka:4.1.1
+    image: apache/kafka:4.3.1
     profiles: [relay]
     ports:
       - "19092:9092"
