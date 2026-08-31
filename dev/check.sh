@@ -37,6 +37,34 @@ for _ in $(seq 1 60); do
     sleep 1
 done
 
+# A quiescent point before anything is compared, and this is the fix for issue #12.
+#
+# The check reads what the publisher says it wrote and where each consumer has got to. Both numbers
+# are true and they are read milliseconds apart, so a record produced in between made the two
+# disagree by one — a failure on branches that do not touch `dev/` at all, passing on a re-run of
+# the same commit. No length of wait fixes that: two moving numbers do not agree by being watched
+# longer. Production stops, the consumers are given until they catch up, and only then is anything
+# compared.
+echo "→ pausing the publisher so the counts stop moving"
+curl -fsS -X POST "$PUBLISHER/pause" >/dev/null
+
+caught_up=0
+for _ in $(seq 1 60); do
+    behind=0
+    for url in $CONSUMERS; do
+        lag=$(curl -fsS "$url/stats" |
+            python3 -c 'import json,sys; print(json.load(sys.stdin)["lag"])' 2>/dev/null || echo 1)
+        [ "${lag:-1}" -eq 0 ] || behind=1
+    done
+    [ "$behind" = "0" ] && { caught_up=1; break; }
+    sleep 1
+done
+[ "$caught_up" = "1" ] || {
+    echo "::error:: the consumers never caught up with a stopped publisher — that is a real failure"
+    curl -fsS -X POST "$PUBLISHER/resume" >/dev/null || true
+    exit 1
+}
+
 echo "→ every record reaches exactly one consumer"
 {
     curl -fsS "$PUBLISHER/stats"
@@ -46,6 +74,11 @@ echo "→ every record reaches exactly one consumer"
         echo
     done
 } | python3 check.py split
+
+# Back on before the restart check: that one needs the publisher writing while a consumer is down,
+# or it would pass on a consumer that resumed at the end of an idle log.
+echo "→ resuming the publisher"
+curl -fsS -X POST "$PUBLISHER/resume" >/dev/null
 
 echo
 echo "→ a restarted consumer carries on rather than replaying"
