@@ -22,6 +22,7 @@ import ru.workinprogress.booblik.net.client.BooblikConnection
 import ru.workinprogress.booblik.net.client.Producer
 import ru.workinprogress.booblik.net.client.TopicHandle
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.random.Random
 
@@ -40,7 +41,7 @@ fun main() {
 
     // Set by /pause, read by both producing loops. `AtomicBoolean` rather than `@Volatile` only
     // because it is shared with the HTTP routes below.
-    val paused = java.util.concurrent.atomic.AtomicBoolean(false)
+    val paused = AtomicBoolean(false)
 
     runBlocking {
         val connection = openConnection(config)
@@ -116,7 +117,7 @@ private suspend fun publishForever(
     topic: TopicHandle,
     config: PublisherConfig,
     stats: Stats,
-    paused: java.util.concurrent.atomic.AtomicBoolean,
+    paused: AtomicBoolean,
 ) {
     val users = List(config.users) { "user-${it + 1}" }
     while (true) {
@@ -147,7 +148,7 @@ private suspend fun publishTasks(
     topic: String,
     config: PublisherConfig,
     stats: Stats,
-    paused: java.util.concurrent.atomic.AtomicBoolean,
+    paused: AtomicBoolean,
 ) {
     val name = TopicName(topic)
     var number = 0L
