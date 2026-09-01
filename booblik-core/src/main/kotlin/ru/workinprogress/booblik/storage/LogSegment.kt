@@ -278,6 +278,28 @@ class LogSegment private constructor(
             val readChannel = FileChannel.open(file, StandardOpenOption.READ)
             val index = SparseOffsetIndex(baseOffset, indexIntervalBytes)
 
+            // A file larger than the capacity it is being opened with means the capacity was
+            // changed under an existing log, and there is no safe way to continue: recovery below
+            // takes its limit from the capacity, so it would stop early, and the `truncateTo` after
+            // it would plant a zero length prefix at that point — leaving the records past it on
+            // disk, unreachable, freeing nothing. That is what issue #25 arrived as: 1.2 million
+            // records and 108 MiB gone at a restart, reported as a healthy shorter log.
+            //
+            // Refused rather than warned about. A warning at startup competes with the throughput
+            // lines, and by the time anybody reads it the zero has been written. Both numbers are
+            // in the message because acting on it means restoring the old capacity.
+            val onDisk = readChannel.size()
+            if (onDisk > capacity) {
+                runCatching { readChannel.close() }
+                runCatching { writeChannel.close() }
+                throw IllegalStateException(
+                    "booblik: $file holds $onDisk bytes and segment.capacity.bytes is $capacity. " +
+                        "Lowering the capacity under an existing log would discard everything past " +
+                        "it. Start with a capacity of at least $onDisk; a new capacity applies to " +
+                        "segments created after it, not to this one.",
+                )
+            }
+
             // How far the data can possibly reach differs between the two write paths, and getting
             // this wrong is silent: a mapped segment is pre-sized to its full capacity, so its file
             // length says nothing at all about how much log is in it. There the end is marked by a

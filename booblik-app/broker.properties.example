@@ -22,6 +22,10 @@ booblik.topics=orders:3,clicks:1
 # FILE_CHANNEL is the alternative: slower, and its files are exactly as long as their contents.
 booblik.segment.mode=MAPPED
 booblik.segment.capacity.bytes=536870912
+# Lowering this under a log that already exists is refused at startup, and the broker names the file
+# and both numbers. It is not a precaution: recovery took its limit from the capacity, so a smaller
+# one discarded everything past it — and the truncation that follows made it permanent, leaving the
+# records on disk and unreachable (issue #25). A new capacity applies to segments created after it.
 booblik.index.interval.bytes=4096
 
 # Bounds the WINDOW OF LOSS, not durability. A producer told WRITTEN was told that before any
