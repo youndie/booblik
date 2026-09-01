@@ -84,7 +84,7 @@ replaces it — after which what ships is a process nobody measured.
 
 ```bash
 docker run -d -p 9092:9092 -e BOOBLIK_TOPICS=orders:3 \
-  -v booblik-data:/var/lib/booblik ghcr.io/youndie/booblik:0.2.0
+  -v booblik-data:/var/lib/booblik ghcr.io/youndie/booblik:0.3.1
 ```
 
 Or build it yourself — the script runs the gate, then `installDist`, then `docker build`, in that
@@ -124,13 +124,13 @@ of [the conformance kit](conformance/) against a live broker.
 
 | | install | |
 |---|---|---|
-| **Kotlin/JVM** | `io.github.youndie.booblik:booblik-client:0.3.0` | [readme](booblik-client) |
+| **Kotlin/JVM** | `io.github.youndie.booblik:booblik-client:0.3.1` | [readme](booblik-client) |
 | **Go** | `go get github.com/youndie/booblik/clients/go` | [readme](clients/go/README.md) |
 | **Python** | `pip install booblik` — sync and `booblik.aio` | [readme](clients/python/README.md) |
 | **Node** | `npm install booblik` | [readme](clients/node/README.md) |
 | **.NET** | `dotnet add package Booblik` | [readme](clients/dotnet/README.md) |
 | **Java** | `io.github.youndie.booblik:booblik-java:0.1.0` | [readme](clients/java/README.md) |
-| **Kotlin/Native** | `io.github.youndie.booblik:booblik-native:0.3.0` | [readme](clients/kotlin-native/README.md) |
+| **Kotlin/Native** | `io.github.youndie.booblik:booblik-native:0.3.1` | [readme](clients/kotlin-native/README.md) |
 
 None of them has a dependency: a client here is a socket and integer arithmetic. Why there are six
 rather than one, and what each language gets wrong at the checksum, is in
@@ -148,7 +148,7 @@ repositories {
 }
 
 dependencies {
-    implementation("io.github.youndie.booblik:booblik-client:0.3.0")
+    implementation("io.github.youndie.booblik:booblik-client:0.3.1")
 }
 ```
 

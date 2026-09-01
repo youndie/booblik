@@ -13,7 +13,7 @@ so a Kotlin/Native client is checked exactly like a Go or a Python one.
 
 ```kotlin
 dependencies {
-    implementation("io.github.youndie.booblik:booblik-native:0.3.0")
+    implementation("io.github.youndie.booblik:booblik-native:0.3.1")
 }
 ```
 
