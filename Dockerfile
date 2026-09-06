@@ -2,7 +2,7 @@ FROM bellsoft/liberica-openjre-alpine:25
 
 LABEL org.opencontainers.image.title="booblik" \
       org.opencontainers.image.description="A message broker: append-only log, one process, no cluster" \
-      org.opencontainers.image.licenses="Apache-2.0"
+      org.opencontainers.image.licenses="MIT"
 
 RUN addgroup -S -g 10001 booblik \
     && adduser -S -u 10001 -G booblik -h /var/lib/booblik booblik \
