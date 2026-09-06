@@ -82,6 +82,10 @@ internal object LoadDriver {
         println("# preloaded $records records of $recordSize B")
     }
 
+    @Suppress(
+        "ktlint:kapkan:swallowed-failure",
+        "a receiver thread whose connection went away has nothing left to measure or report",
+    )
     fun drive(
         workload: Workload,
         address: InetSocketAddress,

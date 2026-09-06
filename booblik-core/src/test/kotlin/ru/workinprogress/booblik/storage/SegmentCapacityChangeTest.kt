@@ -86,7 +86,9 @@ class SegmentCapacityChangeTest {
                 fill(dir, mode, capacity = 1 shl 20, records = 200)
                 val before = Files.size(dir.resolve(LogSegment.fileName(Offset.ZERO)))
 
-                runCatching { LogSegment.open(dir, Offset.ZERO, mode, capacity = 1 shl 16).use {} }
+                assertFailsWith<IllegalStateException> {
+                    LogSegment.open(dir, Offset.ZERO, mode, capacity = 1 shl 16).use {}
+                }
 
                 // The old behaviour truncated on the way through, which is why this is asserted
                 // rather than assumed: a refusal that has already damaged the file is not a refusal.

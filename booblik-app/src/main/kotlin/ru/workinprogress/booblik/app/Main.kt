@@ -132,6 +132,10 @@ private suspend fun reportMetrics(
  * so that tests can advance time by calling it rather than by waiting. This is the only place that
  * decides *when*.
  */
+@Suppress(
+    "ktlint:kapkan:wall-clock",
+    "age is compared with Files.getLastModifiedTime, stamped by this same host's wall clock",
+)
 private suspend fun applyRetention(
     broker: Broker,
     config: BooblikConfig,

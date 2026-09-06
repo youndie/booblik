@@ -196,6 +196,10 @@ class BooblikServer(
         }
     }
 
+    @Suppress(
+        "ktlint:kapkan:swallowed-failure",
+        "accept throwing is how this acceptor is told to stop; close() is the one who did it",
+    )
     private fun startVirtualThreads() {
         val executor = Executors.newVirtualThreadPerTaskExecutor()
         virtualThreads = executor
@@ -250,6 +254,10 @@ class BooblikServer(
         }
     }
 
+    @Suppress(
+        "ktlint:kapkan:swallowed-failure",
+        "a listener that will not close cannot change a shutdown that is already under way",
+    )
     override fun close() {
         runCatching { serverChannel.close() }
         acceptorThread?.interrupt()

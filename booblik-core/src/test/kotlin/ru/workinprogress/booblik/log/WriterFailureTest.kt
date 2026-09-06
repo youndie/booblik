@@ -119,7 +119,7 @@ class WriterFailureTest {
             // two-core runner, which is not a test, it is a coin.
             val depthWhenRefused =
                 async(Dispatchers.Unconfined) {
-                    runCatching { writer.append("first".toByteArray()) }
+                    assertFailsWith<WriterFailedException> { writer.append("first".toByteArray()) }
                     writer.mailboxDepth
                 }
 

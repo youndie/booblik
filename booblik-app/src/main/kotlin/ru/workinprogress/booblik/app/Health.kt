@@ -32,6 +32,12 @@ import kotlin.system.exitProcess
 object Health {
     private const val DEFAULT_TIMEOUT_MILLIS = 5_000
 
+    // Both discarded closes sit on paths that have already decided what this check will say: one
+    // is about to exitProcess, the other has the answer in hand.
+    @Suppress(
+        "ktlint:kapkan:swallowed-failure",
+        "a close that fails changes neither verdict this check can reach by that point",
+    )
     @JvmStatic
     fun main(args: Array<String>) {
         val host = args.getOrElse(0) { "127.0.0.1" }
