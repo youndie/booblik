@@ -186,9 +186,17 @@ public class Metrics {
             // appears only when a partition is refusing breaks that shape on purpose.
             val unavailable = partitions.count { it.unavailable }
             val refusing = if (unavailable == 0) "" else " unavailable %d/%d".format(unavailable, partitions.size)
+            // Collected since M-64 and printed by nobody until now, which is how a connection that
+            // is accepted and dropped before its session starts became invisible: `conns` counts
+            // from `serve`, so a failure in `configure` or `register` moves this counter and
+            // nothing else. A client in a reconnect loop then reads as `conns 0 errors 0` while it
+            // is being disconnected several times a second — the shape reported in M-164, whose
+            // cause nobody could name afterwards because the number that would have named it was
+            // never on screen.
+            val refused = if (acceptFailures == 0L) "" else " accept-failed %d".format(acceptFailures)
             return (
                 "in %.0f rec/s, %.1f MiB/s | produce %.0f/s fetch %.0f/s (%.1f MiB/s) | " +
-                    "conns %d backlog %d errors %d dropped %d held %d%s"
+                    "conns %d backlog %d errors %d dropped %d held %d%s%s"
             ).format(
                 written / seconds,
                 bytes / seconds / 1024 / 1024,
@@ -201,6 +209,7 @@ public class Metrics {
                 sessionFailures,
                 heldFetches,
                 refusing,
+                refused,
             )
         }
     }
