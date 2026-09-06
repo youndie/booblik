@@ -2,6 +2,10 @@
 
 from enum import IntEnum
 
+#: Pseudo-members for codes newer than this build, by wire value. Module level because anything
+#: named in an ``Enum`` body becomes a member of it.
+_UNKNOWN: "dict[int, Code]" = {}
+
 
 class Code(IntEnum):
     NONE = 0
@@ -13,6 +17,32 @@ class Code(IntEnum):
     #: The partition's writer died — a full volume being the case it was added for. Retrying does
     #: not help; reads from the same partition still work.
     PARTITION_UNAVAILABLE = 6
+
+    @classmethod
+    def _missing_(cls, value: object) -> "Code | None":
+        """A code this client has never heard of, kept rather than raised on.
+
+        Codes are added to the wire over time — ``PARTITION_UNAVAILABLE`` was — and a client that
+        meets one it does not know must still report a refusal. Raising ``ValueError`` here turned a
+        newer broker's newer code into a crash naming neither the broker nor the reason: it happened
+        against a full volume, and the operator saw ``6 is not a valid Code`` instead of the refusal
+        the broker had just sent.
+
+        The number is kept rather than folded into an existing code, so ``refusal.code == 7`` still
+        compares and the name reads ``UNKNOWN(7)`` — the answer Go, Node and .NET already give.
+        """
+        if type(value) is not int:
+            return None
+        cached = _UNKNOWN.get(value)
+        if cached is None:
+            # The documented recipe for a pseudo-member: an instance that never joined the class's
+            # member map. Cached so that two decodes of the same code are the same object, the way
+            # every real member is.
+            cached = int.__new__(cls, value)
+            cached._value_ = value
+            cached._name_ = f"UNKNOWN({value})"
+            _UNKNOWN[value] = cached
+        return cached
 
 
 class BrokerError(Exception):

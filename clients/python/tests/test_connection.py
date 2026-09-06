@@ -53,6 +53,26 @@ class ConnectionTest(unittest.TestCase):
         self.broker.refuse_with = Code.NONE
         self.assertIsNotNone(self.connection.produce("orders", 0, [b"x"]))
 
+    def test_a_code_this_build_does_not_know_is_still_a_refusal(self):
+        # The field case, and it is not hypothetical: a broker carrying PARTITION_UNAVAILABLE met a
+        # client built before that code existed, and the producer died with "6 is not a valid Code"
+        # — a message naming neither the broker nor the full volume that caused it. Codes are added
+        # to the wire over time, so every build is eventually the old one.
+        self.broker.refuse_with = 7
+
+        with self.assertRaises(BrokerError) as caught:
+            self.connection.produce("orders", 0, [b"x"])
+
+        self.assertEqual(7, caught.exception.code, "the number survives, so a caller can match on it")
+        self.assertEqual("UNKNOWN(7)", caught.exception.code.name)
+        self.assertIn("UNKNOWN(7)", str(caught.exception), "the operator is told what arrived")
+        self.assertIs(Code(7), Code(7), "one code, one object, like every other member")
+
+        # A refusal it could not name is still only a refusal: framing was intact, so the connection
+        # has to survive it exactly like a known code.
+        self.broker.refuse_with = Code.NONE
+        self.assertIsNotNone(self.connection.produce("orders", 0, [b"x"]))
+
     def test_metadata_and_key_routing(self):
         topic = self.connection.topic("orders")
         self.assertEqual(3, len(topic.partitions))
