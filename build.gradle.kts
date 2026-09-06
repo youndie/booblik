@@ -1,3 +1,4 @@
+import org.gradle.plugins.signing.Sign
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     // Declared here as well, and for the same reason: the Kotlin plugin lands on the build classpath
@@ -107,6 +108,76 @@ subprojects {
             // Tests run under the production footprint on purpose: an allocation the storage layer
             // is not supposed to make shows up here as an OOM in the gate, not in production.
             jvmArgs(rootProject.extra["brokerJvmArgs"] as List<String>)
+        }
+    }
+}
+
+// ## Maven Central
+//
+// The portfolio's convention publishes to reposilite, which is a private repository and needs
+// neither signatures nor a javadoc jar. Central needs both, plus the artefacts assembled into one
+// bundle and handed to the Portal API. None of that belongs in `ru.workinprogress.sborka` yet — one
+// repository is not a convention — so it lives here until a second one wants it.
+//
+// Two things are added to every module the convention publishes:
+//
+//   * a **javadoc jar**, empty and deliberately so. Central requires the artefact to exist; it does
+//     not require it to hold anything, and Kotlin's documentation lives in the source jar that ships
+//     beside it. A Dokka build would be a dependency and a minute of CI for a file nobody opens.
+//   * **detached PGP signatures**, from a key held in memory rather than a keyring on the runner.
+//     Signing is skipped entirely when no key is present, so an ordinary `publishToMavenLocal` on a
+//     laptop keeps working — a build that demanded a private key to run at all would be worse than
+//     no signing.
+subprojects {
+    plugins.withId("maven-publish") {
+        val javadocJar =
+            tasks.register<Jar>("emptyJavadocJar") {
+                archiveClassifier.set("javadoc")
+                // Not an empty file with no explanation: whoever opens this from Central should be
+                // told where the documentation actually is rather than left to wonder.
+                from(
+                    resources.text.fromString(
+                        "Kotlin API documentation for booblik lives with the sources jar published " +
+                            "beside this one, and at https://github.com/youndie/booblik.\n",
+                    ),
+                ) {
+                    rename { "README.txt" }
+                }
+            }
+
+        extensions.configure<PublishingExtension> {
+            publications.withType<MavenPublication>().configureEach {
+                artifact(javadocJar)
+            }
+            repositories {
+                // A directory, not a server. The Portal takes one bundle for the whole release
+                // rather than a module at a time, so the modules are staged locally and zipped —
+                // which also means a failed upload cannot leave half a release visible, the way a
+                // per-module push to a live repository can.
+                maven {
+                    name = "CentralStaging"
+                    url = uri(rootProject.layout.buildDirectory.dir("central-staging"))
+                }
+            }
+        }
+
+        // Every publication in a multiplatform module attaches the **same** javadoc jar, so every
+        // signing task writes the same `.asc` path and Gradle refuses the graph: a publish task
+        // reading a file another task produces without saying so. Declared rather than worked
+        // around by giving each publication its own jar — the file is three lines of text, and one
+        // per target would be four copies of it to keep the dependency graph quiet.
+        tasks.withType<AbstractPublishToMaven>().configureEach {
+            dependsOn(tasks.withType<Sign>())
+        }
+
+        val signingKey = providers.gradleProperty("SIGNING_KEY").orNull
+        val signingPassword = providers.gradleProperty("SIGNING_PASSWORD").orNull
+        if (!signingKey.isNullOrBlank()) {
+            apply(plugin = "signing")
+            extensions.configure<SigningExtension> {
+                useInMemoryPgpKeys(signingKey, signingPassword.orEmpty())
+                sign(extensions.getByType<PublishingExtension>().publications)
+            }
         }
     }
 }
