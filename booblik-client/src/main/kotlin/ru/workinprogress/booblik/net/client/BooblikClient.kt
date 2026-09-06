@@ -21,7 +21,7 @@ import java.nio.channels.SocketChannel
  * Anything wanting a producer or a consumer should use [Producer] and [Consumer] instead; this is
  * the layer they are built on.
  */
-class BooblikClient(
+public class BooblikClient(
     address: InetSocketAddress,
 ) : Closeable {
     private val channel =
@@ -31,13 +31,13 @@ class BooblikClient(
 
     /** Where this client is talking from and to. Diagnostics only — a connection that cannot say
      * which socket pair it is makes every network failure a guess (M-64). */
-    val localAddress: java.net.SocketAddress? get() = runCatching { channel.localAddress }.getOrNull()
-    val remoteAddress: java.net.SocketAddress? get() = runCatching { channel.remoteAddress }.getOrNull()
+    public val localAddress: java.net.SocketAddress? get() = runCatching { channel.localAddress }.getOrNull()
+    public val remoteAddress: java.net.SocketAddress? get() = runCatching { channel.remoteAddress }.getOrNull()
 
     private var nextCorrelationId = 1
 
     /** Queues a PRODUCE. Returns the correlation id, or null with [AckPolicy.NONE] — no answer comes. */
-    fun sendProduce(
+    public fun sendProduce(
         topic: TopicName,
         partition: PartitionId,
         records: List<ByteArray>,
@@ -49,7 +49,7 @@ class BooblikClient(
     }
 
     /** Queues a FETCH and returns its correlation id. */
-    fun sendFetch(
+    public fun sendFetch(
         topic: TopicName,
         partition: PartitionId,
         fetchOffset: Offset,
@@ -67,17 +67,17 @@ class BooblikClient(
     }
 
     /** Asks what exists. Empty [topics] means "everything". */
-    fun sendMetadata(topics: List<TopicName> = emptyList()): Int {
+    public fun sendMetadata(topics: List<TopicName> = emptyList()): Int {
         val correlationId = nextCorrelationId++
         writeFully(ByteBuffer.wrap(RequestEncoder.metadata(correlationId, topics)))
         return correlationId
     }
 
-    fun receiveMetadata(): MetadataResult = ResponseReader.metadata(ResponseReader.readFrame(channel))
+    public fun receiveMetadata(): MetadataResult = ResponseReader.metadata(ResponseReader.readFrame(channel))
 
-    fun receiveProduce(): ProduceResult = ResponseReader.produce(ResponseReader.readFrame(channel))
+    public fun receiveProduce(): ProduceResult = ResponseReader.produce(ResponseReader.readFrame(channel))
 
-    fun receiveFetch(): FetchResult = ResponseReader.fetch(ResponseReader.readFrame(channel))
+    public fun receiveFetch(): FetchResult = ResponseReader.fetch(ResponseReader.readFrame(channel))
 
     private fun writeFully(buffer: ByteBuffer) {
         while (buffer.hasRemaining()) channel.write(buffer)

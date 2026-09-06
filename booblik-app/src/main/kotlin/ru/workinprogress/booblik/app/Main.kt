@@ -30,7 +30,7 @@ import kotlin.io.path.Path
  * systemd, a container runtime, a test — and each of those already has opinions about all three.
  * Output goes to stdout because that is what every one of them reads.
  */
-fun main(args: Array<String>) {
+public fun main(args: Array<String>) {
     val config = BooblikConfig.load(args.firstOrNull()?.let(::Path))
     println("booblik starting")
     println(config.describe().prependIndent("  "))

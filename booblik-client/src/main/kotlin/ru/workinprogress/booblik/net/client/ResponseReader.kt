@@ -11,7 +11,7 @@ import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
 
 /** What the broker answered a FETCH with. [records] are already unframed and checksum-verified. */
-data class FetchResult(
+public data class FetchResult(
     val correlationId: Int,
     val error: ErrorCode,
     val highWatermark: Offset,
@@ -36,7 +36,7 @@ data class FetchResult(
  * to the socket without looking at them — that is what zero-copy means — so verification has to
  * happen where the bytes finally land.
  */
-class CorruptRecordException(
+public class CorruptRecordException(
     index: Int,
 ) : IllegalStateException("record $index in the fetch response fails its checksum")
 
@@ -52,9 +52,9 @@ class CorruptRecordException(
  * record has to be checksum-verified, `CRC32C` on the JVM is an intrinsic, and a decoder written for
  * common code was expected to cost a JVM reader. It does not (measurement 25).
  */
-object ResponseReader {
+public object ResponseReader {
     /** Reads one whole frame, without its length prefix. */
-    fun readFrame(channel: SocketChannel): ByteArray {
+    public fun readFrame(channel: SocketChannel): ByteArray {
         val prefix = ByteBuffer.allocate(Protocol.LENGTH_PREFIX_BYTES)
         readFully(channel, prefix)
         prefix.flip()
@@ -66,9 +66,9 @@ object ResponseReader {
         return body.array()
     }
 
-    fun produce(body: ByteArray): ProduceResult = ResponseDecoder.produce(body)
+    public fun produce(body: ByteArray): ProduceResult = ResponseDecoder.produce(body)
 
-    fun metadata(body: ByteArray): MetadataResult = ResponseDecoder.metadata(body)
+    public fun metadata(body: ByteArray): MetadataResult = ResponseDecoder.metadata(body)
 
     /**
      * Unpacks a FETCH response, checksum and all.
@@ -87,7 +87,7 @@ object ResponseReader {
      * [CorruptRecordException] are this library's published types, and swapping them for the
      * protocol module's would break every caller for no gain a caller can see.
      */
-    fun fetch(frame: ByteArray): FetchResult {
+    public fun fetch(frame: ByteArray): FetchResult {
         val answer =
             try {
                 ResponseDecoder.fetch(frame, Offset.ZERO)
@@ -108,7 +108,7 @@ object ResponseReader {
         )
     }
 
-    fun readFully(
+    public fun readFully(
         channel: SocketChannel,
         buffer: ByteBuffer,
     ) {

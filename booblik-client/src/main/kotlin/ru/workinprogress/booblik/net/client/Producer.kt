@@ -14,11 +14,11 @@ import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.log.AckPolicy
 import ru.workinprogress.booblik.net.wire.ErrorCode
 
-class ProduceFailedException(
-    val code: ErrorCode,
+public class ProduceFailedException(
+    public val code: ErrorCode,
 ) : IllegalStateException("broker refused the record: $code")
 
-data class ProducerConfig(
+public data class ProducerConfig(
     /** Records per request. Reached first, the batch goes immediately. */
     val maxBatchSize: Int = 100,
     /**
@@ -51,7 +51,7 @@ data class ProducerConfig(
  * Records for different partitions accumulate separately and go out as separate requests: a request
  * addresses one partition, because a partition is what has one writer.
  */
-class Producer(
+public class Producer(
     internal val connection: BooblikConnection,
     scope: CoroutineScope,
     private val config: ProducerConfig = ProducerConfig(),
@@ -75,7 +75,7 @@ class Producer(
      * The record is not on the wire when this returns — that is the point. Await the result to know
      * it landed, or [flush] to push everything queued.
      */
-    suspend fun send(
+    public suspend fun send(
         topic: TopicName,
         partition: PartitionId,
         record: ByteArray,
@@ -92,7 +92,7 @@ class Producer(
      * the result — records piling into some partitions while others are never written — reads as a
      * data problem rather than as the configuration mistake it is.
      */
-    suspend fun topic(
+    public suspend fun topic(
         topic: TopicName,
         partitioner: Partitioner = Partitioner.Fnv1a,
     ): TopicHandle {
@@ -109,7 +109,7 @@ class Producer(
     }
 
     /** Sends everything queued and waits for the broker to answer all of it. */
-    suspend fun flush() {
+    public suspend fun flush() {
         val done = CompletableDeferred<Unit>()
         mailbox.send(Command.Flush(done))
         done.await()

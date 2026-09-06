@@ -18,7 +18,7 @@ package ru.workinprogress.booblik.log
  *
  * On the wire as a single byte, in this order. The values must not be renumbered.
  */
-enum class AckPolicy {
+public enum class AckPolicy {
     NONE,
     WRITTEN,
     FORCED,

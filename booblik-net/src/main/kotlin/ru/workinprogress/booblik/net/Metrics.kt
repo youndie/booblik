@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.LongAdder
  * and a consumer that knows its own position can subtract. Lag belongs to whoever has both numbers,
  * and only the consumer does.
  */
-class Metrics {
+public class Metrics {
     private val produceRequests = LongAdder()
     private val fetchRequests = LongAdder()
     private val fetchBytes = LongAdder()
@@ -48,7 +48,7 @@ class Metrics {
      * that answers no one, which is exactly how M-64 presented.
      */
     @Volatile
-    var lastAcceptFailure: Throwable? = null
+    public var lastAcceptFailure: Throwable? = null
         private set
 
     /**
@@ -62,20 +62,20 @@ class Metrics {
      * at all attached to it (M-64).
      */
     @Volatile
-    var lastSessionFailure: Throwable? = null
+    public var lastSessionFailure: Throwable? = null
         private set
 
-    fun onProduce() = produceRequests.increment()
+    public fun onProduce(): Unit = produceRequests.increment()
 
-    fun onFetch(bytes: Int) {
+    public fun onFetch(bytes: Int) {
         fetchRequests.increment()
         fetchBytes.add(bytes.toLong())
     }
 
-    fun onError() = errors.increment()
+    public fun onError(): Unit = errors.increment()
 
     /** A session died on an exception rather than on the client leaving. */
-    fun onSessionFailure(cause: Throwable) {
+    public fun onSessionFailure(cause: Throwable) {
         sessionFailures.increment()
         lastSessionFailure = cause
     }
@@ -88,7 +88,7 @@ class Metrics {
      * sees a connection that was established and then dropped without a word. Counting only
      * sessions made that gap invisible (M-64).
      */
-    fun onConnectionAccepted() = connectionsAccepted.increment()
+    public fun onConnectionAccepted(): Unit = connectionsAccepted.increment()
 
     /**
      * A FETCH started waiting for records that do not exist yet.
@@ -98,21 +98,21 @@ class Metrics {
      * connections up, `produce 0/s`, `fetch 0/s` — and M-64 was a day spent on precisely that kind
      * of indistinguishability.
      */
-    fun onFetchHeld() = fetchesHeld.increment()
+    public fun onFetchHeld(): Unit = fetchesHeld.increment()
 
-    fun onFetchReleased() = fetchesReleased.increment()
+    public fun onFetchReleased(): Unit = fetchesReleased.increment()
 
     /** Accepting a connection failed. The loop survives it; this is how anyone finds out. */
-    fun onAcceptFailure(cause: Throwable) {
+    public fun onAcceptFailure(cause: Throwable) {
         acceptFailures.increment()
         lastAcceptFailure = cause
     }
 
-    fun onConnectionOpened() = connectionsOpened.increment()
+    public fun onConnectionOpened(): Unit = connectionsOpened.increment()
 
-    fun onConnectionClosed() = connectionsClosed.increment()
+    public fun onConnectionClosed(): Unit = connectionsClosed.increment()
 
-    fun snapshot(broker: Broker?): Snapshot =
+    public fun snapshot(broker: Broker?): Snapshot =
         Snapshot(
             produceRequests = produceRequests.sum(),
             fetchRequests = fetchRequests.sum(),
@@ -144,7 +144,7 @@ class Metrics {
                     }.orEmpty(),
         )
 
-    data class Snapshot(
+    public data class Snapshot(
         val produceRequests: Long,
         val fetchRequests: Long,
         val fetchBytes: Long,
@@ -172,7 +172,7 @@ class Metrics {
          * is a view, and the two numbers it was computed from should still be there when the view
          * looks wrong.
          */
-        fun since(
+        public fun since(
             previous: Snapshot,
             millis: Long,
         ): String {
@@ -198,7 +198,7 @@ class Metrics {
         }
     }
 
-    data class PartitionSnapshot(
+    public data class PartitionSnapshot(
         val topic: String,
         val partition: Int,
         val logStartOffset: Long,

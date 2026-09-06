@@ -23,7 +23,7 @@ import java.nio.channels.FileChannel
  * 1 GiB file with nothing in it — sparse on ext4/APFS, but `du` and `ls` will disagree, and any
  * disk-usage alarm reads the one that scares people.
  */
-class MappedSegmentWriter(
+public class MappedSegmentWriter(
     private val channel: FileChannel,
     override val capacity: Int,
     initialSize: Int = 0,

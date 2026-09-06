@@ -22,7 +22,7 @@ import kotlin.io.path.createDirectories
  * carries a checksum (M-60), a torn record is detectable on both paths, and the last objection that
  * was about correctness rather than throughput went away.
  */
-enum class SegmentMode { FILE_CHANNEL, MAPPED }
+public enum class SegmentMode { FILE_CHANNEL, MAPPED }
 
 /**
  * One segment of a partition log: an append-only data file plus its sparse index.
@@ -38,9 +38,9 @@ enum class SegmentMode { FILE_CHANNEL, MAPPED }
  * is a property of those kernels, not of the JDK — it is the reason the read path is allowed to be
  * a plain `FileChannel` while the write path may be a mapping.
  */
-class LogSegment private constructor(
-    val baseOffset: Offset,
-    val file: Path,
+public class LogSegment private constructor(
+    public val baseOffset: Offset,
+    public val file: Path,
     private val writer: SegmentWriter,
     private val readChannel: FileChannel,
     private val index: SparseOffsetIndex,
@@ -55,13 +55,13 @@ class LogSegment private constructor(
     private val closed = AtomicBoolean(false)
 
     @Volatile
-    var retired: Boolean = false
+    public var retired: Boolean = false
         private set
 
     /** Bytes of live log in this segment. Readers must not look past this. */
-    val size: Position get() = writer.size
+    public val size: Position get() = writer.size
 
-    val isFull: Boolean get() = index.isFull
+    public val isFull: Boolean get() = index.isFull
 
     override fun hasRoomFor(payloadSize: Int): Boolean = writer.hasRoomFor(payloadSize) && !index.isFull
 
@@ -79,7 +79,7 @@ class LogSegment private constructor(
         return assigned
     }
 
-    override fun force() = writer.force()
+    override fun force(): Unit = writer.force()
 
     /**
      * Byte position where [offset] starts, or null if it is not in this segment.
@@ -89,7 +89,7 @@ class LogSegment private constructor(
      * bytes are in the page cache by construction — we just wrote them, or the reader is behind and
      * the kernel has read ahead.
      */
-    fun positionOf(offset: Offset): Position? {
+    public fun positionOf(offset: Offset): Position? {
         if (offset < baseOffset || offset >= nextOffset) return null
         // No index entry at or below the target means the target is in the first interval: scan
         // from the start of the segment, which is exactly where baseOffset lives.
@@ -110,7 +110,7 @@ class LogSegment private constructor(
     }
 
     /** Reads one record into the heap. For tests and for the non-zero-copy path; not the hot path. */
-    fun read(offset: Offset): ByteArray? {
+    public fun read(offset: Offset): ByteArray? {
         val position = positionOf(offset) ?: return null
         val header = ByteBuffer.allocate(SegmentWriter.RECORD_HEADER)
         if (readChannel.read(header, position.value.toLong()) != SegmentWriter.RECORD_HEADER) return null
@@ -141,7 +141,7 @@ class LogSegment private constructor(
      * zero-copy read path against the ordinary one, and a comparison needs both halves implemented
      * with the same care. If `transferTo` turns out not to be worth its cost, this is what stays.
      */
-    fun readInto(
+    public fun readInto(
         from: Position,
         buffer: ByteBuffer,
     ): Int = readChannel.read(buffer, from.value.toLong())
@@ -155,7 +155,7 @@ class LogSegment private constructor(
      * against a non-blocking socket with a full send buffer it legitimately returns 0. The caller
      * loops on readiness; it must not spin (research §1.4).
      */
-    fun transferTo(
+    public fun transferTo(
         from: Position,
         maxBytes: Int,
         target: WritableByteChannel,
@@ -173,7 +173,7 @@ class LogSegment private constructor(
      * Order matters and is not interchangeable: `nextOffset` first, so no reader can be pointed at
      * bytes that are about to go away, and only then the bytes themselves.
      */
-    fun truncateTo(offset: Offset) {
+    public fun truncateTo(offset: Offset) {
         require(offset >= baseOffset) { "cannot truncate below the base offset" }
         if (offset >= nextOffset) return
         val position = positionOf(offset) ?: return
@@ -191,7 +191,7 @@ class LogSegment private constructor(
      * through any descriptor that is already open, and the space comes back when the last one
      * closes. What must not happen is closing those descriptors early, so the count decides when.
      */
-    fun acquire(): Boolean {
+    public fun acquire(): Boolean {
         if (retired) return false
         readers.incrementAndGet()
         // Checked again after the increment, and the second check is the one that makes this
@@ -205,7 +205,7 @@ class LogSegment private constructor(
     }
 
     /** Releases a reader. Closes the segment if it was retired while this reader held it. */
-    fun release() {
+    public fun release() {
         if (readers.decrementAndGet() == 0 && retired) closeNow()
     }
 
@@ -213,7 +213,7 @@ class LogSegment private constructor(
      * Unlinks the file and stops handing the segment out to new readers. The descriptors stay open
      * until the last current reader is gone — see [acquire].
      */
-    fun retire() {
+    public fun retire() {
         retired = true
         Files.deleteIfExists(file)
         if (readers.get() == 0) closeNow()
@@ -231,13 +231,13 @@ class LogSegment private constructor(
         }
     }
 
-    companion object {
+    public companion object {
         private const val FILE_SUFFIX = ".log"
 
-        const val DEFAULT_CAPACITY: Int = 512 * 1024 * 1024
+        public const val DEFAULT_CAPACITY: Int = 512 * 1024 * 1024
 
         /** File name for [baseOffset]: zero-padded to 20 digits, Kafka's convention. */
-        fun fileName(baseOffset: Offset): String = "%020d%s".format(baseOffset.value, FILE_SUFFIX)
+        public fun fileName(baseOffset: Offset): String = "%020d%s".format(baseOffset.value, FILE_SUFFIX)
 
         /**
          * Opens (creating if needed) the segment file for [baseOffset] under [dir], **recovering**
@@ -262,7 +262,7 @@ class LogSegment private constructor(
             "ktlint:kapkan:swallowed-failure",
             "the two closes below run while refusing to open at all; the refusal is the report",
         )
-        fun open(
+        public fun open(
             dir: Path,
             baseOffset: Offset,
             mode: SegmentMode = SegmentMode.MAPPED,

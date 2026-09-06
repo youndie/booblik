@@ -24,7 +24,7 @@ package ru.workinprogress.booblik.log
  * [Disabled] is the default, and it is honest rather than reckless: the OS still writes back on its
  * own, and a policy here would pretend to a guarantee whose size nobody has chosen.
  */
-data class FlushPolicy(
+public data class FlushPolicy(
     /** Force after this many records since the last barrier. Null disables the count trigger. */
     val everyRecords: Long? = null,
     /** Force this long after the last barrier. Null disables the time trigger. */
@@ -37,7 +37,7 @@ data class FlushPolicy(
 
     val isEnabled: Boolean get() = everyRecords != null || everyMillis != null
 
-    companion object {
-        val Disabled = FlushPolicy()
+    public companion object {
+        public val Disabled: FlushPolicy = FlushPolicy()
     }
 }

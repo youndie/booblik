@@ -16,20 +16,20 @@ package ru.workinprogress.booblik
  * result of confusing them is a broker that silently reads the wrong bytes instead of failing.
  */
 @JvmInline
-value class Position(
-    val value: Int,
+public value class Position(
+    public val value: Int,
 ) : Comparable<Position> {
     init {
         require(value >= 0) { "position must be non-negative, got $value" }
     }
 
-    operator fun plus(delta: Int): Position = Position(value + delta)
+    public operator fun plus(delta: Int): Position = Position(value + delta)
 
     override fun compareTo(other: Position): Int = value.compareTo(other.value)
 
     override fun toString(): String = value.toString()
 
-    companion object {
-        val ZERO = Position(0)
+    public companion object {
+        public val ZERO: Position = Position(0)
     }
 }

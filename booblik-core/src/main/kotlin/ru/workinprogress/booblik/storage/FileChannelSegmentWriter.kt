@@ -16,7 +16,7 @@ import java.nio.channels.FileChannel
  * kind of garbage that does not show up in a microbenchmark of the write itself and does show up
  * as GC pressure at a million records per second.
  */
-class FileChannelSegmentWriter(
+public class FileChannelSegmentWriter(
     private val channel: FileChannel,
     override val capacity: Int,
     initialSize: Int = channel.size().toInt(),

@@ -21,31 +21,31 @@ import kotlin.jvm.JvmInline
  * reason: it is a byte offset inside a segment file and never appears in a request or a response.
  */
 @JvmInline
-value class Offset(
-    val value: Long,
+public value class Offset(
+    public val value: Long,
 ) : Comparable<Offset> {
     init {
         require(value >= 0) { "offset must be non-negative, got $value" }
     }
 
-    operator fun inc(): Offset = Offset(value + 1)
+    public operator fun inc(): Offset = Offset(value + 1)
 
-    operator fun plus(delta: Long): Offset = Offset(value + delta)
+    public operator fun plus(delta: Long): Offset = Offset(value + delta)
 
-    operator fun minus(other: Offset): Long = value - other.value
+    public operator fun minus(other: Offset): Long = value - other.value
 
     override fun compareTo(other: Offset): Int = value.compareTo(other.value)
 
     override fun toString(): String = value.toString()
 
-    companion object {
-        val ZERO = Offset(0)
+    public companion object {
+        public val ZERO: Offset = Offset(0)
     }
 }
 
 @JvmInline
-value class TopicName(
-    val value: String,
+public value class TopicName(
+    public val value: String,
 ) {
     init {
         require(value.isNotEmpty()) { "topic name must not be empty" }
@@ -57,15 +57,15 @@ value class TopicName(
 
     override fun toString(): String = value
 
-    companion object {
+    public companion object {
         /** Bounded because the topic name goes on the wire with a `u16` length prefix. */
-        const val MAX_LENGTH = 249
+        public const val MAX_LENGTH: Int = 249
     }
 }
 
 @JvmInline
-value class PartitionId(
-    val value: Int,
+public value class PartitionId(
+    public val value: Int,
 ) {
     init {
         require(value >= 0) { "partition id must be non-negative, got $value" }

@@ -15,8 +15,8 @@ import ru.workinprogress.booblik.log.AckPolicy
  *
  * Returns a `ByteArray` including its own length prefix, so a caller writes one thing to one socket.
  */
-object RequestEncoder {
-    fun produce(
+public object RequestEncoder {
+    public fun produce(
         correlationId: Int,
         topic: TopicName,
         partition: PartitionId,
@@ -52,7 +52,7 @@ object RequestEncoder {
      * would exercise v1 only in the branch nobody debugs. The broker still decodes v1, for anyone
      * else's client — that is what version support is for.
      */
-    fun fetch(
+    public fun fetch(
         correlationId: Int,
         topic: TopicName,
         partition: PartitionId,
@@ -82,7 +82,7 @@ object RequestEncoder {
     }
 
     /** Empty [topics] asks for everything this broker has. */
-    fun metadata(
+    public fun metadata(
         correlationId: Int,
         topics: List<TopicName>,
     ): ByteArray {

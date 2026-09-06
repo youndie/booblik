@@ -16,6 +16,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.openjdk.jmh.annotations.OperationsPerInvocation
+import ru.workinprogress.booblik.Offset
 import ru.workinprogress.booblik.log.AckPolicy
 import ru.workinprogress.booblik.log.PartitionWriter
 import ru.workinprogress.booblik.storage.PartitionLog
@@ -45,9 +46,9 @@ import kotlin.io.path.deleteRecursively
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-class GroupCommitBenchmark {
+public class GroupCommitBenchmark {
     @Param("1", "2", "4", "8", "64")
-    var producers: Int = 1
+    public var producers: Int = 1
 
     /**
      * How long the writer holds a group open, in milliseconds. `0` is the shipped default — take
@@ -59,10 +60,10 @@ class GroupCommitBenchmark {
      * itself, which is what makes the trade a real one.
      */
     @Param("0", "2")
-    var groupWindowMillis: Long = 0
+    public var groupWindowMillis: Long = 0
 
     @Param("FILE_CHANNEL", "MAPPED")
-    var mode: String = "FILE_CHANNEL"
+    public var mode: String = "FILE_CHANNEL"
 
     private lateinit var dir: Path
     private lateinit var log: PartitionLog
@@ -71,7 +72,7 @@ class GroupCommitBenchmark {
     private lateinit var record: ByteArray
 
     @Setup
-    fun setUp() {
+    public fun setUp() {
         RuntimeFootprint.verify()
         record = ByteArray(PAYLOAD_SIZE) { it.toByte() }
         dir = MeasurementDir.create("booblik-groupcommit")
@@ -81,7 +82,7 @@ class GroupCommitBenchmark {
     }
 
     @TearDown
-    fun tearDown() {
+    public fun tearDown() {
         runBlocking { writer.close() }
         scope.cancel()
         log.close()
@@ -91,7 +92,7 @@ class GroupCommitBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(1)
-    fun durableAppend() =
+    public fun durableAppend(): List<Offset?> =
         runBlocking {
             (0 until producers)
                 .map { async { writer.append(record, AckPolicy.FORCED) } }

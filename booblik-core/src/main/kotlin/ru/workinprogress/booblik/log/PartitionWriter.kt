@@ -42,7 +42,7 @@ import ru.workinprogress.booblik.storage.Log
  * on the same barrier pay for one, so the cap becomes a floor on latency instead of a ceiling on
  * throughput. Measured in `GroupCommitBenchmark`.
  */
-class PartitionWriter(
+public class PartitionWriter(
     private val log: Log,
     scope: CoroutineScope,
     mailboxCapacity: Int = DEFAULT_MAILBOX_CAPACITY,
@@ -75,7 +75,7 @@ class PartitionWriter(
             .AtomicInteger(0)
 
     /** Batches accepted but not yet written. The one number that says "the broker is behind". */
-    val mailboxDepth: Int get() = queued.get()
+    public val mailboxDepth: Int get() = queued.get()
 
     private val watermark = MutableStateFlow(log.nextOffset)
 
@@ -92,21 +92,21 @@ class PartitionWriter(
      * Published once per committed group rather than per record — the group is what makes the
      * records visible, and per record would be a write on the hot path for no extra information.
      */
-    val highWatermark: StateFlow<Offset> get() = watermark
+    public val highWatermark: StateFlow<Offset> get() = watermark
 
     // Written by the writer coroutine and nobody else, so an ordinary field is both correct and
     // free; `@Volatile` is only so a reporter on another thread sees a recent value. A counter on
     // the hot path has to cost nothing, and this costs an increment.
     @Volatile
-    var recordsWritten: Long = 0L
+    public var recordsWritten: Long = 0L
         private set
 
     @Volatile
-    var bytesWritten: Long = 0L
+    public var bytesWritten: Long = 0L
         private set
 
     @Volatile
-    var flushes: Long = 0L
+    public var flushes: Long = 0L
         private set
 
     /**
@@ -128,7 +128,7 @@ class PartitionWriter(
      * the session turns that refusal into an error code the producer can read.
      */
     @Volatile
-    var failure: Throwable? = null
+    public var failure: Throwable? = null
         private set
 
     private val job: Job =
@@ -176,7 +176,7 @@ class PartitionWriter(
      * the actor gets to it. That is the honest shape of fire-and-forget: a "promised" offset would
      * be a number the caller could compare against nothing.
      */
-    suspend fun append(
+    public suspend fun append(
         records: List<ByteArray>,
         policy: AckPolicy = AckPolicy.WRITTEN,
     ): Offset? {
@@ -197,13 +197,13 @@ class PartitionWriter(
     }
 
     /** Convenience for the common single-record case. Still goes through the batch path. */
-    suspend fun append(
+    public suspend fun append(
         record: ByteArray,
         policy: AckPolicy = AckPolicy.WRITTEN,
     ): Offset? = append(listOf(record), policy)
 
     /** Stops accepting new batches and waits for everything already queued to be written. */
-    suspend fun close() {
+    public suspend fun close() {
         mailbox.close()
         job.join()
     }
@@ -352,19 +352,19 @@ class PartitionWriter(
         var baseOffset: Offset? = null
     }
 
-    companion object {
+    public companion object {
         /**
          * Deep enough that a burst does not immediately block producers, shallow enough that the
          * backlog stays bounded. Once it is full, `send` suspends — which is the correct
          * backpressure: the alternative is an unbounded mailbox, where overload turns into an
          * OutOfMemoryError instead of a slowdown. At a 64 MiB heap that is not a hypothetical.
          */
-        const val DEFAULT_MAILBOX_CAPACITY = 1024
+        public const val DEFAULT_MAILBOX_CAPACITY: Int = 1024
     }
 }
 
 /** Thrown to producers still waiting when the writer's scope is cancelled. */
-class WriterClosedException : IllegalStateException("partition writer was closed before the batch was written")
+public class WriterClosedException : IllegalStateException("partition writer was closed before the batch was written")
 
 /**
  * The partition's writer died, and this partition cannot be written to again.
@@ -377,6 +377,6 @@ class WriterClosedException : IllegalStateException("partition writer was closed
  * the writer died had its connection dropped mid-response, which is indistinguishable from a
  * network fault; the batch already in flight was never answered at all (issue #15).
  */
-class WriterFailedException(
+public class WriterFailedException(
     cause: Throwable,
 ) : IllegalStateException("partition writer died and cannot accept writes: $cause", cause)

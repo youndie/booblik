@@ -36,7 +36,7 @@ import kotlin.io.path.deleteRecursively
  * not also working, and expect the numbers from a machine you *are* working on to be worse for that
  * reason as well.
  */
-object SustainedWriteProbe {
+public object SustainedWriteProbe {
     private const val RECORD_SIZE = 1024
     private const val SEGMENT_CAPACITY = 128 * 1024 * 1024
     private const val RETAINED_BYTES = 512L * 1024 * 1024
@@ -44,7 +44,7 @@ object SustainedWriteProbe {
     private const val DEFAULT_SECONDS = 60
 
     @JvmStatic
-    fun main(args: Array<String>) {
+    public fun main(args: Array<String>) {
         val mode = SegmentMode.valueOf(args.getOrElse(0) { SegmentMode.MAPPED.name })
         val seconds = args.getOrElse(1) { DEFAULT_SECONDS.toString() }.toInt()
 

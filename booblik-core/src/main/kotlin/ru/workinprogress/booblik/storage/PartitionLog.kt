@@ -30,7 +30,7 @@ import kotlin.io.path.name
  * getting correct bytes to the end of its request; the space returns when it lets go. New readers
  * never see the segment at all — it left the list first.
  */
-class PartitionLog private constructor(
+public class PartitionLog private constructor(
     private val dir: Path,
     private val mode: SegmentMode,
     private val segmentCapacity: Int,
@@ -42,18 +42,18 @@ class PartitionLog private constructor(
     private var segments: List<LogSegment> = initial
 
     /** The one segment that accepts writes. Always the last in the list. */
-    val activeSegment: LogSegment get() = segments.last()
+    public val activeSegment: LogSegment get() = segments.last()
 
     /** Lowest offset still stored. Rises as retention removes segments. */
-    val logStartOffset: Offset get() = segments.first().baseOffset
+    public val logStartOffset: Offset get() = segments.first().baseOffset
 
     override val nextOffset: Offset get() = activeSegment.nextOffset
 
     /** Number of segments, live ones only. */
-    val segmentCount: Int get() = segments.size
+    public val segmentCount: Int get() = segments.size
 
     /** Bytes on disk across all live segments — the log's own accounting of itself. */
-    val sizeInBytes: Long get() = segments.sumOf { it.size.value.toLong() }
+    public val sizeInBytes: Long get() = segments.sumOf { it.size.value.toLong() }
 
     override fun hasRoomFor(payloadSize: Int): Boolean =
         payloadSize.toLong() + SegmentWriter.RECORD_HEADER <= segmentCapacity
@@ -76,10 +76,10 @@ class PartitionLog private constructor(
         return activeSegment.append(payload, from, length)
     }
 
-    override fun force() = activeSegment.force()
+    override fun force(): Unit = activeSegment.force()
 
     /** Starts a new active segment at the current end of the log. */
-    fun roll(): LogSegment {
+    public fun roll(): LogSegment {
         val next = LogSegment.open(dir, activeSegment.nextOffset, mode, segmentCapacity, indexIntervalBytes)
         // Replaced, not mutated: a reader holding the old list keeps a consistent view of it.
         segments = segments + next
@@ -87,7 +87,7 @@ class PartitionLog private constructor(
     }
 
     /** The segment that contains [offset], or null if it is outside the log. */
-    fun segmentFor(offset: Offset): LogSegment? {
+    public fun segmentFor(offset: Offset): LogSegment? {
         val snapshot = segments
         if (offset < snapshot.first().baseOffset || offset >= nextOffset) return null
         // Binary search for the last segment whose base offset is at or below the target.
@@ -107,7 +107,7 @@ class PartitionLog private constructor(
     }
 
     /** Reads one record. Not the hot path — that is [transferTo]. */
-    fun read(offset: Offset): ByteArray? {
+    public fun read(offset: Offset): ByteArray? {
         val segment = segmentFor(offset) ?: return null
         if (!segment.acquire()) return null
         return try {
@@ -129,12 +129,12 @@ class PartitionLog private constructor(
      * `null` from [openFetch] means the offset is not in the log. A non-null slice with
      * [bytes] `== 0` means the offset is valid but there is nothing past it yet.
      */
-    class FetchSlice internal constructor(
-        val segment: LogSegment,
-        val position: Position,
-        val bytes: Int,
+    public class FetchSlice internal constructor(
+        public val segment: LogSegment,
+        public val position: Position,
+        public val bytes: Int,
     ) : Closeable {
-        override fun close() = segment.release()
+        override fun close(): Unit = segment.release()
     }
 
     /**
@@ -143,7 +143,7 @@ class PartitionLog private constructor(
      *
      * The caller **must** close the slice; until then the segment cannot be closed by retention.
      */
-    fun openFetch(
+    public fun openFetch(
         offset: Offset,
         maxBytes: Int,
     ): FetchSlice? {
@@ -165,7 +165,7 @@ class PartitionLog private constructor(
      * Returns bytes moved, which is routinely less than [maxBytes] and may be zero; see
      * [LogSegment.transferTo].
      */
-    fun transferTo(
+    public fun transferTo(
         offset: Offset,
         maxBytes: Int,
         target: WritableByteChannel,
@@ -182,7 +182,7 @@ class PartitionLog private constructor(
      * prefix of an append-only file is not a thing a filesystem does cheaply, whereas unlinking a
      * whole file is.
      */
-    fun retainAtMost(maxBytes: Long): Int {
+    public fun retainAtMost(maxBytes: Long): Int {
         var live = segments
         var removed = 0
         while (live.size > 1 && live.sumOf { it.size.value.toLong() } > maxBytes) {
@@ -197,7 +197,7 @@ class PartitionLog private constructor(
     }
 
     /** Drops whole segments whose file has not been modified for [maxAgeMillis]. */
-    fun retainNewerThan(
+    public fun retainNewerThan(
         maxAgeMillis: Long,
         nowMillis: Long,
     ): Int {
@@ -219,7 +219,7 @@ class PartitionLog private constructor(
         segments.forEach(LogSegment::close)
     }
 
-    companion object {
+    public companion object {
         /**
          * Opens a partition directory, recovering every segment already in it.
          *
@@ -227,7 +227,7 @@ class PartitionLog private constructor(
          * lexicographic order equal numeric order, so the directory listing *is* the segment list.
          * An empty directory gets one segment at offset 0.
          */
-        fun open(
+        public fun open(
             dir: Path,
             mode: SegmentMode = SegmentMode.MAPPED,
             segmentCapacity: Int = LogSegment.DEFAULT_CAPACITY,

@@ -44,15 +44,15 @@ import kotlin.io.path.deleteRecursively
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-class PartitionWriterBenchmark {
+public class PartitionWriterBenchmark {
     @Param("1", "10", "100")
-    var batchSize: Int = 1
+    public var batchSize: Int = 1
 
     @Param("FILE_CHANNEL", "MAPPED")
-    var mode: String = "FILE_CHANNEL"
+    public var mode: String = "FILE_CHANNEL"
 
     @Param("WRITTEN", "NONE")
-    var ackPolicy: String = "WRITTEN"
+    public var ackPolicy: String = "WRITTEN"
 
     private lateinit var dir: Path
     private lateinit var log: PartitionLog
@@ -63,7 +63,7 @@ class PartitionWriterBenchmark {
     private var batchesPerOp: Int = 0
 
     @Setup
-    fun setUp() {
+    public fun setUp() {
         RuntimeFootprint.verify()
         require(RECORDS_PER_OP % batchSize == 0) { "batch size must divide $RECORDS_PER_OP" }
         batchesPerOp = RECORDS_PER_OP / batchSize
@@ -80,7 +80,7 @@ class PartitionWriterBenchmark {
     }
 
     @TearDown
-    fun tearDown() {
+    public fun tearDown() {
         runBlocking { writer.close() }
         scope.cancel()
         log.close()
@@ -90,7 +90,7 @@ class PartitionWriterBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(RECORDS_PER_OP)
-    fun append() =
+    public fun append(): Unit =
         runBlocking {
             repeat(batchesPerOp) {
                 writer.append(batch, policy)

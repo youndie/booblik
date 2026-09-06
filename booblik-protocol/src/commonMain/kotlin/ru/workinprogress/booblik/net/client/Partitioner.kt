@@ -8,13 +8,13 @@ package ru.workinprogress.booblik.net.client
  * do is store whatever bytes it is given in whatever partition it is told, which is all a
  * partitioner needs.
  */
-fun interface Partitioner {
-    fun partitionFor(
+public fun interface Partitioner {
+    public fun partitionFor(
         key: ByteArray,
         partitions: Int,
     ): Int
 
-    companion object {
+    public companion object {
         /**
          * FNV-1a over the key as **unsigned** bytes, folded by unsigned remainder. The default
          * since 0.3.0, and the algorithm written out in `docs/api/protocol-wire.md` §7.
@@ -34,7 +34,7 @@ fun interface Partitioner {
          * sign-extend `0x80` to `0xFFFFFF80` and disagree with any language whose bytes are not.
          * The vectors in `conformance/vectors/partitioner-fnv1a.tsv` carry `0x80` for exactly this.
          */
-        val Fnv1a =
+        public val Fnv1a: Partitioner =
             Partitioner { key, partitions ->
                 // Unsigned remainder, so the specification never has to say how a language signs
                 // its integers — the one place `floorMod` would have hidden a portability question.
@@ -48,7 +48,7 @@ fun interface Partitioner {
          * it folds to: a client checked on the fold alone can be wrong about the hash and right
          * about six remainders, and then the next partition count anyone picks exposes it.
          */
-        fun fnv1a32(key: ByteArray): Int {
+        public fun fnv1a32(key: ByteArray): Int {
             var hash = FNV_OFFSET_BASIS
             for (byte in key) {
                 hash = (hash xor (byte.toInt() and 0xFF)) * FNV_PRIME
@@ -69,7 +69,7 @@ fun interface Partitioner {
          * mid-life does not lose records, but it does lose per-key order across the change, so the
          * cheap moment to change is before there is a topic.
          */
-        val JavaArrayHash =
+        public val JavaArrayHash: Partitioner =
             Partitioner { key, partitions ->
                 // `Math.floorMod` written out: it is JVM-only, and this file compiles for Native
                 // too since M-134. For a positive divisor the two agree exactly.

@@ -16,7 +16,7 @@ import java.io.Closeable
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 
-data class BrokerConfig(
+public data class BrokerConfig(
     val segmentMode: SegmentMode = SegmentMode.MAPPED,
     val segmentCapacity: Int = LogSegment.DEFAULT_CAPACITY,
     val indexIntervalBytes: Int = SparseOffsetIndex.DEFAULT_INTERVAL_BYTES,
@@ -46,17 +46,17 @@ data class BrokerConfig(
  * answered with `UNKNOWN_TOPIC_OR_PARTITION`. A metadata layer means agreeing on cluster state,
  * which is precisely the part of Kafka this project does without.
  */
-class Broker private constructor(
+public class Broker private constructor(
     private val handles: Map<PartitionRegistry.Key, PartitionHandle>,
     private val scope: CoroutineScope,
     private val config: BrokerConfig,
 ) : Closeable {
-    val registry = PartitionRegistry(handles)
+    public val registry: PartitionRegistry = PartitionRegistry(handles)
 
     /** Every partition this broker serves, in a stable order. */
-    val partitions: List<PartitionRegistry.Key> get() = handles.keys.sortedWith(KEY_ORDER)
+    public val partitions: List<PartitionRegistry.Key> get() = handles.keys.sortedWith(KEY_ORDER)
 
-    fun handle(
+    public fun handle(
         topic: TopicName,
         partition: PartitionId,
     ): PartitionHandle? = registry.find(topic, partition)
@@ -66,7 +66,7 @@ class Broker private constructor(
      * no timer in here, because a broker that deletes data on a schedule of its own making is
      * harder to test than one that is told when to.
      */
-    fun applyRetention(
+    public fun applyRetention(
         maxAgeMillis: Long? = null,
         nowMillis: Long = 0,
     ): Int {
@@ -88,7 +88,7 @@ class Broker private constructor(
         handles.values.forEach { it.log.close() }
     }
 
-    companion object {
+    public companion object {
         private val KEY_ORDER =
             compareBy<PartitionRegistry.Key>({ it.topic.value }, { it.partition.value })
 
@@ -97,7 +97,7 @@ class Broker private constructor(
          *
          * @param partitions topic to partition count, e.g. `mapOf(TopicName("orders") to 4)`
          */
-        fun open(
+        public fun open(
             dir: Path,
             partitions: Map<TopicName, Int>,
             config: BrokerConfig = BrokerConfig(),
@@ -137,7 +137,7 @@ class Broker private constructor(
         }
 
         /** `orders-0`. Same shape as Kafka's, and readable in a directory listing. */
-        fun directoryName(
+        public fun directoryName(
             topic: TopicName,
             partition: PartitionId,
         ): String = "${topic.value}-${partition.value}"

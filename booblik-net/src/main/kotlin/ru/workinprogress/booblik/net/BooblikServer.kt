@@ -22,7 +22,7 @@ import java.nio.channels.SocketChannel
 import java.util.concurrent.Executors
 
 /** Which readiness mechanism the server runs on. Both serve the identical [Session]. */
-enum class Transport {
+public enum class Transport {
     /** Own selector loop, one coroutine per connection. The design decision Р3 committed to. */
     SELECTOR,
 
@@ -34,7 +34,7 @@ enum class Transport {
 }
 
 /** How a FETCH response body reaches the socket. Both paths exist so M-35 can compare them. */
-enum class FetchMode {
+public enum class FetchMode {
     /** `sendfile`: page cache to socket buffer, never through the JVM. */
     ZERO_COPY,
 
@@ -42,7 +42,7 @@ enum class FetchMode {
     HEAP,
 }
 
-data class ServerConfig(
+public data class ServerConfig(
     val port: Int = 0,
     /**
      * Which address to listen on. `null` means every interface.
@@ -64,9 +64,9 @@ data class ServerConfig(
 )
 
 /** One partition, ready to serve: its log and the single coroutine that writes to it. */
-class PartitionHandle(
-    val log: PartitionLog,
-    val writer: PartitionWriter,
+public class PartitionHandle(
+    public val log: PartitionLog,
+    public val writer: PartitionWriter,
 )
 
 /**
@@ -76,10 +76,10 @@ class PartitionHandle(
  * started with the partitions it will have. A request for anything else is answered with
  * `UNKNOWN_TOPIC_OR_PARTITION`, which is the honest code for "this broker does not have that".
  */
-class PartitionRegistry(
+public class PartitionRegistry(
     private val partitions: Map<Key, PartitionHandle>,
 ) {
-    fun find(
+    public fun find(
         topic: TopicName,
         partition: PartitionId,
     ): PartitionHandle? = partitions[Key(topic, partition)]
@@ -91,18 +91,19 @@ class PartitionRegistry(
      * two identical requests look different, and the first person to diff two responses would have
      * to discover that by hand.
      */
-    fun describe(): Map<TopicName, List<Pair<PartitionId, PartitionHandle>>> =
+    public fun describe(): Map<TopicName, List<Pair<PartitionId, PartitionHandle>>> =
         partitions.entries
             .sortedWith(compareBy({ it.key.topic.value }, { it.key.partition.value }))
             .groupBy({ it.key.topic }, { it.key.partition to it.value })
 
-    data class Key(
+    public data class Key(
         val topic: TopicName,
         val partition: PartitionId,
     )
 
-    companion object {
-        fun of(vararg entries: Pair<Key, PartitionHandle>) = PartitionRegistry(entries.toMap())
+    public companion object {
+        public fun of(vararg entries: Pair<Key, PartitionHandle>): PartitionRegistry =
+            PartitionRegistry(entries.toMap())
     }
 }
 
@@ -114,10 +115,10 @@ class PartitionRegistry(
  * out (research §1.3, decision Р3). That decision is the thing M-35 puts on trial: if zero-copy
  * turns out not to pay, this module is a lot of machinery for nothing.
  */
-class BooblikServer(
+public class BooblikServer(
     private val partitions: PartitionRegistry,
     private val config: ServerConfig = ServerConfig(),
-    val metrics: Metrics = Metrics(),
+    public val metrics: Metrics = Metrics(),
 ) : Closeable {
     private val serverChannel = ServerSocketChannel.open()
     private val job = SupervisorJob()
@@ -128,10 +129,10 @@ class BooblikServer(
     private var virtualThreads: java.util.concurrent.ExecutorService? = null
 
     /** The address actually bound. With `port = 0` this is how the caller learns the port. */
-    lateinit var address: InetSocketAddress
+    public lateinit var address: InetSocketAddress
         private set
 
-    fun start(): InetSocketAddress {
+    public fun start(): InetSocketAddress {
         val bind =
             config.bindAddress
                 ?.let { InetSocketAddress(java.net.InetAddress.getByName(it), config.port) }

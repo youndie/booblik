@@ -40,14 +40,14 @@ import java.util.concurrent.TimeUnit
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-class FlowOverheadBenchmark {
+public class FlowOverheadBenchmark {
     @Param("1", "10", "100")
-    var batchSize: Int = 10
+    public var batchSize: Int = 10
 
     private lateinit var batches: List<List<ByteArray>>
 
     @Setup
-    fun setUp() {
+    public fun setUp() {
         val record = ByteArray(RECORD_SIZE)
         val batch = List(batchSize) { record }
         batches = List(BATCHES) { batch }
@@ -55,7 +55,7 @@ class FlowOverheadBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(BATCHES)
-    fun loop(): Int {
+    public fun loop(): Int {
         var seen = 0
         for (batch in batches) seen += batch.size
         return seen
@@ -63,7 +63,7 @@ class FlowOverheadBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(BATCHES)
-    fun coldFlow(): Int =
+    public fun coldFlow(): Int =
         runBlocking {
             var seen = 0
             flow { batches.forEach { emit(it) } }.collect { seen += it.size }
@@ -72,7 +72,7 @@ class FlowOverheadBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(BATCHES)
-    fun bufferedFlow(): Int =
+    public fun bufferedFlow(): Int =
         runBlocking {
             var seen = 0
             flow { batches.forEach { emit(it) } }.buffer().collect { seen += it.size }

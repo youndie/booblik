@@ -13,7 +13,7 @@ import ru.workinprogress.booblik.net.wire.RequestEncoder
 import ru.workinprogress.booblik.net.wire.ResponseDecoder
 
 /** The socket died, or said something that is not a frame. */
-class ConnectionException(
+public class ConnectionException(
     message: String,
 ) : IllegalStateException("booblik: $message")
 
@@ -27,7 +27,7 @@ class ConnectionException(
  * and wrapping that in a coroutine dispatcher on Native would buy an abstraction while adding a
  * dependency and a threading model to argue about — see the module's build file.
  */
-class BooblikConnection(
+public class BooblikConnection(
     address: String,
 ) : AutoCloseable {
     private val socket = Socket.connect(address)
@@ -48,7 +48,7 @@ class BooblikConnection(
      * `CORRUPT_REQUEST`, and duplicating that rule client-side would create a second place to
      * disagree with it.
      */
-    fun produce(
+    public fun produce(
         topic: TopicName,
         partition: PartitionId,
         records: List<ByteArray>,
@@ -72,7 +72,7 @@ class BooblikConnection(
      * with `UNKNOWN_TOPIC_OR_PARTITION` rather than being left out — otherwise "no such topic" and
      * "the topic is empty" would arrive looking identical.
      */
-    fun metadata(topics: List<TopicName> = emptyList()): MetadataResult {
+    public fun metadata(topics: List<TopicName> = emptyList()): MetadataResult {
         val id = ++correlationId
         socket.writeFully(RequestEncoder.metadata(id, topics))
 
@@ -98,7 +98,7 @@ class BooblikConnection(
      * The request always goes out as v2, including when nothing is being waited for — one code path,
      * rather than a v1 branch that only the caller who never waits would exercise.
      */
-    fun fetch(
+    public fun fetch(
         topic: TopicName,
         partition: PartitionId,
         offset: Offset,
@@ -125,7 +125,7 @@ class BooblikConnection(
      * [metadata], not at zero: zero is `OFFSET_OUT_OF_RANGE` on any topic that has ever dropped a
      * segment to retention. Reading "only what is new" means its `highWatermark`.
      */
-    fun consumer(
+    public fun consumer(
         topic: TopicName,
         partition: PartitionId,
         start: Offset = Offset.ZERO,
@@ -141,7 +141,7 @@ class BooblikConnection(
      * that produces — records piling into the partitions that exist while others are never written
      * to — reads as a data problem rather than the configuration mistake it is.
      */
-    fun topic(name: TopicName): Topic {
+    public fun topic(name: TopicName): Topic {
         val answer = metadata(listOf(name))
         val partitions =
             answer.topics
@@ -153,7 +153,7 @@ class BooblikConnection(
         return Topic(this, name, partitions)
     }
 
-    override fun close() = socket.close()
+    override fun close(): Unit = socket.close()
 
     private fun readFrame(): ByteArray {
         val prefix = socket.readFully(Protocol.LENGTH_PREFIX_BYTES)
@@ -173,10 +173,10 @@ class BooblikConnection(
 }
 
 /** One topic, so its name and its routing stop being arguments to every call. */
-class Topic internal constructor(
+public class Topic internal constructor(
     private val connection: BooblikConnection,
-    val name: TopicName,
-    val partitions: List<PartitionId>,
+    public val name: TopicName,
+    public val partitions: List<PartitionId>,
 ) {
     private var roundRobin = 0
 
@@ -187,7 +187,7 @@ class Topic internal constructor(
      * asking and then sending is two turns of it and the records start skipping partitions. With a
      * key there is no such thing, the answer being a pure function of the key.
      */
-    fun partitionFor(key: ByteArray?): PartitionId {
+    public fun partitionFor(key: ByteArray?): PartitionId {
         if (key == null) {
             val chosen = partitions[roundRobin % partitions.size]
             roundRobin++
@@ -204,7 +204,7 @@ class Topic internal constructor(
      * at a time. Use [BooblikConnection.produce] with a list whenever records are available
      * together.
      */
-    fun send(
+    public fun send(
         record: ByteArray,
         key: ByteArray? = null,
         ackPolicy: AckPolicy = AckPolicy.WRITTEN,

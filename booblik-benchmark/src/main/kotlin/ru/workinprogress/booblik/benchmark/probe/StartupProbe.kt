@@ -20,13 +20,13 @@ import kotlin.system.measureNanoTime
  * The rate is what matters, not the total: a broker's startup cost is (bytes of log) ÷ (scan rate),
  * and the number of segments only matters through the bytes in them.
  */
-object StartupProbe {
+public object StartupProbe {
     private const val RECORD_SIZE = 128
     private const val SEGMENT_CAPACITY = 16 * 1024 * 1024
     private const val SEGMENTS = 16
 
     @JvmStatic
-    fun main(args: Array<String>) {
+    public fun main(args: Array<String>) {
         val mode = SegmentMode.valueOf(args.getOrElse(0) { SegmentMode.FILE_CHANNEL.name })
         val dir = MeasurementDir.create("booblik-startup")
         try {

@@ -5,7 +5,7 @@ import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
 
 /** What the broker answered a PRODUCE with. */
-data class ProduceResult(
+public data class ProduceResult(
     val correlationId: Int,
     val error: ErrorCode,
     val baseOffset: Offset,
@@ -13,7 +13,7 @@ data class ProduceResult(
 )
 
 /** One partition, as the broker describes it. */
-data class PartitionInfo(
+public data class PartitionInfo(
     val partition: PartitionId,
     /** Where the **live** log starts: retention moves this, and it is not always zero. */
     val logStartOffset: Offset,
@@ -21,13 +21,13 @@ data class PartitionInfo(
 )
 
 /** One topic and its partitions, in the order the broker listed them. */
-data class TopicInfo(
+public data class TopicInfo(
     val topic: TopicName,
     val partitions: List<PartitionInfo>,
 )
 
 /** What the broker answered a METADATA with. */
-data class MetadataResult(
+public data class MetadataResult(
     val correlationId: Int,
     val error: ErrorCode,
     val topics: List<TopicInfo>,
@@ -47,8 +47,8 @@ data class MetadataResult(
  * It has one. The bill turned out to be one function: [crc32c] is `expect`, the JVM keeps its
  * intrinsic, and only Kotlin/Native pays for a table.
  */
-object ResponseDecoder {
-    fun produce(body: ByteArray): ProduceResult {
+public object ResponseDecoder {
+    public fun produce(body: ByteArray): ProduceResult {
         val reader = ByteReader(body)
         val correlationId = reader.int()
         val error = ErrorCode.of(reader.short())
@@ -62,7 +62,7 @@ object ResponseDecoder {
         return ProduceResult(correlationId, error, baseOffset, logEndOffset)
     }
 
-    fun metadata(body: ByteArray): MetadataResult {
+    public fun metadata(body: ByteArray): MetadataResult {
         val reader = ByteReader(body)
         val correlationId = reader.int()
         val error = ErrorCode.of(reader.short())
@@ -93,7 +93,7 @@ object ResponseDecoder {
      * [fetchOffset] is the offset that was asked for. It is here only so a failure can say *which*
      * record is damaged rather than that one of them is.
      */
-    fun fetch(
+    public fun fetch(
         body: ByteArray,
         fetchOffset: Offset,
     ): FetchResponse {
@@ -161,7 +161,7 @@ object ResponseDecoder {
  * many and is written down as M-140; until that is settled, the two names at least do not collide
  * on a classpath that has both.
  */
-data class FetchResponse(
+public data class FetchResponse(
     val correlationId: Int,
     val error: ErrorCode,
     val highWatermark: Offset,
@@ -186,10 +186,10 @@ data class FetchResponse(
  * computed once at write time to protect the **disk**, and verified once at read time, by whoever
  * finally holds the bytes.
  */
-class CorruptRecordException(
-    val offset: Offset,
-    val stored: Int,
-    val computed: Int,
+public class CorruptRecordException(
+    public val offset: Offset,
+    public val stored: Int,
+    public val computed: Int,
 ) : IllegalStateException(
         "booblik: record at offset ${offset.value} fails its checksum: " +
             "stored $stored, computed $computed",

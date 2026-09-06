@@ -48,7 +48,7 @@ import kotlin.time.TimeSource
  * Usage:  BOOBLIK_BROKER=host:port probe [recordsPerCaller]
  */
 @OptIn(ExperimentalForeignApi::class)
-fun probe(args: Array<String>) {
+public fun probe(args: Array<String>) {
     val address =
         getenv("BOOBLIK_BROKER")?.toKString() ?: run {
             println("BOOBLIK_BROKER is not set (host:port)")

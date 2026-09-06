@@ -34,7 +34,7 @@ import kotlin.system.exitProcess
  * precisely by the absence of a read — and an accumulator between the contract and the socket would
  * make the answers describe the accumulator.
  */
-fun main(args: Array<String>) {
+public fun main(args: Array<String>) {
     if (args.isEmpty()) {
         System.err.println("usage: booblik-conformance <verb> [args...]  (broker in BOOBLIK_BROKER)")
         exitProcess(2)

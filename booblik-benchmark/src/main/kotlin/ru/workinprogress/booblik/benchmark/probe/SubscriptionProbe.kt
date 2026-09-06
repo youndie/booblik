@@ -46,14 +46,14 @@ import kotlin.io.path.deleteRecursively
  * (M-37), so the absolute numbers describe a pair rather than a broker. That contaminates both
  * sides equally, which is what makes the ratio usable and the absolutes not.
  */
-object SubscriptionProbe {
+public object SubscriptionProbe {
     private val TOPIC = TopicName("bench")
     private const val PARTITIONS = 4
     private const val RECORD_SIZE = 128
     private const val MAX_BYTES = 1 shl 20
 
     @JvmStatic
-    fun main(args: Array<String>) {
+    public fun main(args: Array<String>) {
         val mode = args.getOrElse(0) { "IDLE" }.uppercase()
         val consumers = args.getOrElse(1) { "8" }.toInt()
         val seconds = args.getOrElse(2) { "10" }.toLong()

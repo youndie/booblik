@@ -29,7 +29,7 @@ import kotlin.system.exitProcess
  * Exit code 0 means serving. Anything else means not, and the reason goes to stderr — a health
  * check that fails silently turns an outage into a mystery.
  */
-object Health {
+public object Health {
     private const val DEFAULT_TIMEOUT_MILLIS = 5_000
 
     // Both discarded closes sit on paths that have already decided what this check will say: one
@@ -39,7 +39,7 @@ object Health {
         "a close that fails changes neither verdict this check can reach by that point",
     )
     @JvmStatic
-    fun main(args: Array<String>) {
+    public fun main(args: Array<String>) {
         val host = args.getOrElse(0) { "127.0.0.1" }
         val port = args.getOrElse(1) { "9092" }.toIntOrNull()
         if (port == null || port !in 1..65535) {

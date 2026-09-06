@@ -7,14 +7,14 @@ import ru.workinprogress.booblik.log.AckPolicy
 import java.nio.ByteBuffer
 
 /** A decoded request header. The body that follows depends on [apiKey]. */
-data class RequestHeader(
+public data class RequestHeader(
     val apiKey: ApiKey,
     val apiVersion: Short,
     val correlationId: Int,
 )
 
-sealed interface Request {
-    val header: RequestHeader
+public sealed interface Request {
+    public val header: RequestHeader
 }
 
 /**
@@ -25,18 +25,18 @@ sealed interface Request {
  * not, and a request type forced to invent a partition it does not have would have made the
  * session look it up and fail on a broker that is working perfectly.
  */
-sealed interface PartitionRequest : Request {
-    val topic: TopicName
-    val partition: PartitionId
+public sealed interface PartitionRequest : Request {
+    public val topic: TopicName
+    public val partition: PartitionId
 }
 
 /** Empty [topics] means "everything this broker has". */
-data class MetadataRequest(
+public data class MetadataRequest(
     override val header: RequestHeader,
     val topics: List<TopicName>,
 ) : Request
 
-data class ProduceRequest(
+public data class ProduceRequest(
     override val header: RequestHeader,
     override val topic: TopicName,
     override val partition: PartitionId,
@@ -44,7 +44,7 @@ data class ProduceRequest(
     val records: List<ByteArray>,
 ) : PartitionRequest
 
-data class FetchRequest(
+public data class FetchRequest(
     override val header: RequestHeader,
     override val topic: TopicName,
     override val partition: PartitionId,
@@ -57,12 +57,12 @@ data class FetchRequest(
 ) : PartitionRequest
 
 /** Either a request, or an error the client can be told about by correlation id. */
-sealed interface DecodeResult {
-    data class Ok(
+public sealed interface DecodeResult {
+    public data class Ok(
         val request: Request,
     ) : DecodeResult
 
-    data class Failed(
+    public data class Failed(
         val correlationId: Int,
         val code: ErrorCode,
     ) : DecodeResult
@@ -76,7 +76,7 @@ sealed interface DecodeResult {
  * where a remote party chooses the numbers, so "the client would not send that" is not an argument
  * available here.
  */
-object RequestDecoder {
+public object RequestDecoder {
     /**
      * Decodes a complete frame body — everything after the `int32` length prefix.
      *
@@ -85,7 +85,7 @@ object RequestDecoder {
      * validated: an unsupported api version is a request the client can be told about by name,
      * whereas a frame too short to hold a header is one we can only answer into the void.
      */
-    fun decode(buffer: ByteBuffer): DecodeResult {
+    public fun decode(buffer: ByteBuffer): DecodeResult {
         val apiKeyId: Short
         val apiVersion: Short
         val correlationId: Int
@@ -132,7 +132,7 @@ object RequestDecoder {
     }
 
     /** Echoed when the frame was too short to contain a correlation id worth echoing. */
-    const val UNKNOWN_CORRELATION_ID = 0
+    public const val UNKNOWN_CORRELATION_ID: Int = 0
 
     private fun decodeProduce(
         header: RequestHeader,
