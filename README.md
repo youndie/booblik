@@ -1,5 +1,6 @@
 # booblik
 
+[![maven central](https://img.shields.io/maven-central/v/io.github.youndie.booblik/booblik-client?label=maven%20central&color=blue)](https://central.sonatype.com/artifact/io.github.youndie.booblik/booblik-client)
 [![ktlint](https://img.shields.io/badge/ktlint%20code--style-%E2%9D%A4-FF4081.svg)](https://ktlint.github.io/)
 [![kotlin](https://img.shields.io/badge/Kotlin-2.4.10-blue?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![jvm](https://img.shields.io/badge/JVM-25-blue?logoColor=white)](https://openjdk.org/projects/jdk/25/)
