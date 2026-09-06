@@ -2,5 +2,92 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "description": [
+    "Grouped by what a reviewer has to think about at once, not by ecosystem for its own sake.",
+    "Ten separate pull requests for one afternoon's updates is not ten decisions \u2014 it is one",
+    "decision taken ten times, and the one that actually mattered hid among the others."
+  ],
+  "packageRules": [
+    {
+      "description": [
+        "The sborka plugins move as one line and must land as one change. The settings plugin is",
+        "applied in settings.gradle.kts and the rest come from the catalog's version ref; they",
+        "share a classloader, so a pull request that moves one and not the other leaves the build",
+        "with 0.2.x settings and 0.1.x conventions. Renovate raised exactly that split on",
+        "2026-09-06 (#32 and #36), and nothing in either pull request said the other existed."
+      ],
+      "groupName": "sborka",
+      "matchPackageNames": [
+        "/^ru\\.workinprogress\\.sborka/"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch",
+        "digest"
+      ]
+    },
+    {
+      "description": [
+        "Runner images and actions. These are reviewed the same way whatever the version jump \u2014",
+        "does CI still go green \u2014 so they arrive together. The exception that cannot be reviewed",
+        "that way is the runner label in publish.yml: no check on a pull request ever runs that",
+        "workflow, so its label is first exercised by the next publish."
+      ],
+      "groupName": "github actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch",
+        "digest"
+      ]
+    },
+    {
+      "description": [
+        "The .NET client's test-side packages: xunit, the test SDK, coverlet. The dotnet gate",
+        "runs them, so a green run is the whole review."
+      ],
+      "groupName": "dotnet test",
+      "matchManagers": [
+        "nuget"
+      ]
+    },
+    {
+      "description": [
+        "Everything the JVM build resolves \u2014 the version catalog and Gradle plugins that are not",
+        "sborka. Majors stay out of this group: a major here changes how the whole portfolio is",
+        "built or tested, and that is a decision rather than a bump."
+      ],
+      "groupName": "jvm dependencies",
+      "matchManagers": [
+        "gradle",
+        "gradle-wrapper"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "matchPackageNames": [
+        "*",
+        "!/^ru\\.workinprogress\\.sborka/"
+      ]
+    },
+    {
+      "description": [
+        "booblik's own artefacts, which track this repository's releases rather than anybody",
+        "else's: the published client used by the dev sample and the image the conformance kit",
+        "and the compose files pull. They move when a release moves, so they move together."
+      ],
+      "groupName": "booblik itself",
+      "matchPackageNames": [
+        "/^io\\.github\\.youndie\\.booblik/",
+        "ghcr.io/youndie/booblik"
+      ]
+    }
   ]
 }
