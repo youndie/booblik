@@ -32,7 +32,8 @@ import kotlin.test.assertTrue
 class WriterFailureTest {
     /** A log that writes normally until it is told to fault, exactly as a full volume would. */
     private class FaultingLog(
-        private val failAfter: Int,
+        /** Writes before the fault. Raised by a test to say the volume has room again. */
+        var failAfter: Int,
     ) : Log {
         var appended = 0
             private set
@@ -63,14 +64,21 @@ class WriterFailureTest {
 
     private fun <T> withWriter(
         failAfter: Int,
+        resumeCooldownMillis: Long = 5_000,
         body: suspend CoroutineScope.(PartitionWriter) -> T,
+    ): T = withLog(FaultingLog(failAfter), resumeCooldownMillis) { _, writer -> body(writer) }
+
+    private fun <T> withLog(
+        log: FaultingLog,
+        resumeCooldownMillis: Long = 5_000,
+        body: suspend CoroutineScope.(FaultingLog, PartitionWriter) -> T,
     ): T {
         // SupervisorJob because that is what the broker uses, and it is half of why this failure was
         // silent: a writer that dies under a supervisor takes nothing with it and tells nobody.
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        val writer = PartitionWriter(FaultingLog(failAfter), scope)
+        val writer = PartitionWriter(log, scope, resumeCooldownMillis = resumeCooldownMillis)
         try {
-            return runBlocking { body(writer) }
+            return runBlocking { body(log, writer) }
         } finally {
             scope.cancel()
         }
@@ -166,6 +174,103 @@ class WriterFailureTest {
             writer.close()
             queued.cancel()
             assertEquals(null, writer.failure, "a clean shutdown is not a failure")
+        }
+    }
+
+    @Test
+    fun `a writer that faulted writes again once the volume has room`() {
+        // The field case in one method: the volume fills, the partition refuses, somebody frees
+        // space, and the next producer along is answered instead of being told to wait for a
+        // restart. Before this, only restarting the broker brought the partition back — shown on
+        // the stand after the soak, with 72% of the volume free and the partition still refusing.
+        withLog(FaultingLog(failAfter = 1), resumeCooldownMillis = 0) { log, writer ->
+            assertEquals(Offset(0), writer.append("before".toByteArray()))
+            assertNotNull(
+                withTimeoutOrNull(5_000) {
+                    assertFailsWith<WriterFailedException> { writer.append("during".toByteArray()) }
+                },
+                "the batch that met the full volume was never answered",
+            )
+
+            log.failAfter = Int.MAX_VALUE
+
+            val after =
+                assertNotNull(
+                    withTimeoutOrNull(5_000) { writer.append("after".toByteArray()) },
+                    "the writer never came back after the fault cleared",
+                )
+            // Offset 1, not 2: the record that faulted was never published, so it never took a
+            // number. `MappedSegmentWriter` advances its position after all three stores, which is
+            // why coming back is starting a loop and not repairing a log.
+            assertEquals(Offset(1), after)
+            assertEquals(Offset(2), writer.highWatermark.value)
+            assertEquals(0, writer.mailboxDepth)
+            assertEquals(null, writer.failure)
+        }
+    }
+
+    @Test
+    fun `within the cooldown the refusal is immediate, however many producers ask`() {
+        // A retry per request would mean a fault per request while the volume is still full. The
+        // cooldown makes a broken partition cost a constant instead of a multiple of the load.
+        withLog(FaultingLog(failAfter = 0), resumeCooldownMillis = 60_000) { log, writer ->
+            assertNotNull(
+                withTimeoutOrNull(5_000) {
+                    assertFailsWith<WriterFailedException> { writer.append("first".toByteArray()) }
+                },
+                "the in-flight batch was never answered",
+            )
+
+            // The first producer after a failure gets its attempt straight away — a fault that
+            // clears by itself should not cost a minute of refusals — and that attempt faults
+            // again, because the volume is still full. The cooldown starts there.
+            assertNotNull(
+                withTimeoutOrNull(5_000) {
+                    assertFailsWith<WriterFailedException> { writer.append("second".toByteArray()) }
+                },
+                "the one immediate retry was never answered",
+            )
+
+            // Now the volume has room, and the cooldown still says no. This is the assertion: a
+            // rate limit that only holds while the fault persists would not be a rate limit.
+            log.failAfter = Int.MAX_VALUE
+            repeat(3) {
+                assertNotNull(
+                    withTimeoutOrNull(5_000) {
+                        assertFailsWith<WriterFailedException> { writer.append("early".toByteArray()) }
+                    },
+                    "a producer inside the cooldown was left waiting instead of refused",
+                )
+            }
+            assertEquals(0, writer.mailboxDepth, "refused batches are not left counted as queued")
+        }
+    }
+
+    @Test
+    fun `a closed writer is not brought back by a late producer`() {
+        // Resume must not fight shutdown. The order here is the one that matters and the one the
+        // first version of this test missed: the writer has to have **failed** and then been
+        // closed, because a writer that only closed never reaches the resume path at all — so a
+        // test that closes a healthy writer passes whether the guard is there or not.
+        withLog(FaultingLog(failAfter = 0), resumeCooldownMillis = 0) { log, writer ->
+            assertNotNull(
+                withTimeoutOrNull(5_000) {
+                    assertFailsWith<WriterFailedException> { writer.append("first".toByteArray()) }
+                },
+                "the in-flight batch was never answered",
+            )
+
+            writer.close()
+            // Everything a resume would need is now in place except permission: the log is healthy
+            // and the cooldown is zero. A writer on the way down must still refuse.
+            log.failAfter = Int.MAX_VALUE
+
+            assertNotNull(
+                withTimeoutOrNull(5_000) {
+                    assertFailsWith<WriterFailedException> { writer.append("late".toByteArray()) }
+                },
+                "a producer after close was left waiting, or was served by a resurrected writer",
+            )
         }
     }
 }

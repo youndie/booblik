@@ -107,7 +107,8 @@ public enum class ErrorCode(
      * was intact, the broker understood the request, and the connection stays usable — reads from
      * this partition still work, which is why the process does not exit.
      *
-     * **Retrying does not help.** The writer is gone for the life of the process.
+     * **Retrying later can help, retrying at once cannot.** The broker brings the writer back once
+     * the fault clears, at most once every few seconds; until then this is the answer.
      */
     PARTITION_UNAVAILABLE(6),
     ;
