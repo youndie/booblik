@@ -75,6 +75,31 @@ class ConnectionTest {
     }
 
     @Test
+    void aCodeThisBuildDoesNotKnowIsStillARefusal() {
+        try (FakeBroker broker = new FakeBroker(3);
+                Connection connection = Connection.open(broker.address())) {
+
+            // Not hypothetical. A broker answering PARTITION_UNAVAILABLE met a client built before
+            // that code existed, and the producer died on the answer instead of reporting it. Codes
+            // are added to the wire over time, so every build is eventually the old one.
+            broker.refuse((short) 7);
+            BrokerException refusal =
+                    assertThrows(
+                            BrokerException.class,
+                            () -> connection.produce("orders", 0, List.of(bytes("x")), AckPolicy.WRITTEN));
+
+            // A Java enum cannot carry a member for a number it has never heard of, so an unknown
+            // code reads as CORRUPT_REQUEST — the documented choice, and the reason it is documented
+            // is this test: what matters is that the client reports a refusal rather than dying.
+            assertEquals(Code.CORRUPT_REQUEST, refusal.code());
+
+            // Framing was intact, so the connection has to survive it exactly like a known code.
+            broker.refuse(Code.NONE);
+            assertNotNull(connection.produce("orders", 0, List.of(bytes("x")), AckPolicy.WRITTEN));
+        }
+    }
+
+    @Test
     void metadataAndKeyRouting() {
         try (FakeBroker broker = new FakeBroker(3);
                 Connection connection = Connection.open(broker.address())) {

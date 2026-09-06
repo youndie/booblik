@@ -64,6 +64,29 @@ public sealed class ConnectionTests
     }
 
     [Fact]
+    public async Task ACodeThisBuildDoesNotKnowIsStillARefusal()
+    {
+        // Not hypothetical. A broker answering PARTITION_UNAVAILABLE met a client built before that
+        // code existed, and the producer died on the answer instead of reporting it. Codes are added
+        // to the wire over time, so every build is eventually the old one.
+        using var broker = new FakeBroker { RefuseWith = (Code)7 };
+        using var connection = await Connection.ConnectAsync(broker.Address);
+
+        var refusal = await Assert.ThrowsAsync<BrokerException>(
+            () => connection.ProduceAsync("orders", 0, ["x"u8.ToArray()]));
+
+        // The number survives, so a caller can still match on it, and the operator is told what
+        // arrived rather than that something unnameable happened.
+        Assert.Equal((Code)7, refusal.Code);
+        Assert.Contains("UNKNOWN(7)", refusal.Message);
+
+        // A refusal it could not name is still only a refusal: framing was intact, so the connection
+        // has to survive it exactly like a known code.
+        broker.RefuseWith = Code.None;
+        Assert.NotNull(await connection.ProduceAsync("orders", 0, ["x"u8.ToArray()]));
+    }
+
+    [Fact]
     public async Task MetadataAndKeyRouting()
     {
         using var broker = new FakeBroker(3);

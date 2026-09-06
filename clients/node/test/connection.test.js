@@ -60,6 +60,31 @@ test("a refusal is an error and keeps the connection", async (t) => {
   assert.ok(await connection.produce("orders", 0, [Buffer.from("x")]));
 });
 
+test("a code this build does not know is still a refusal", async (t) => {
+  const { broker, connection } = await fixture(t);
+
+  // Not hypothetical. A broker answering PARTITION_UNAVAILABLE met a client built before that code
+  // existed, and the producer died on the answer instead of reporting it. Codes are added to the
+  // wire over time, so every build is eventually the old one.
+  broker.refuseWith = 7;
+  await assert.rejects(
+    () => connection.produce("orders", 0, [Buffer.from("x")]),
+    (error) => {
+      assert.ok(error instanceof BrokerError);
+      // The number survives, so a caller can still match on it, and the operator is told what
+      // arrived rather than that something unnameable happened.
+      assert.equal(error.code, 7);
+      assert.equal(error.codeName, "UNKNOWN(7)");
+      return true;
+    },
+  );
+
+  // A refusal it could not name is still only a refusal: framing was intact, so the connection has
+  // to survive it exactly like a known code.
+  broker.refuseWith = Code.NONE;
+  assert.ok(await connection.produce("orders", 0, [Buffer.from("x")]));
+});
+
 test("metadata and key routing", async (t) => {
   const { connection } = await fixture(t);
   const topic = await connection.topic("orders");

@@ -47,7 +47,9 @@ final class FakeBroker implements AutoCloseable {
 
     private long nextOffset;
     private int requests;
-    private Code refuseWith = Code.NONE;
+    // Held as the wire value rather than as a Code: a test has to be able to send a number this
+    // build has no member for, which is exactly the case that broke a client in the field.
+    private short refuseWith = Code.NONE.id();
 
     FakeBroker(int partitions) {
         this.partitions = partitions;
@@ -66,8 +68,12 @@ final class FakeBroker implements AutoCloseable {
     }
 
     void refuse(Code code) {
+        refuse(code.id());
+    }
+
+    void refuse(short id) {
         synchronized (gate) {
-            refuseWith = code;
+            refuseWith = id;
         }
     }
 
@@ -139,13 +145,13 @@ final class FakeBroker implements AutoCloseable {
                     body = new byte[0];
                 }
 
-                Code refusal;
+                short refusal;
                 synchronized (gate) {
                     refusal = refuseWith;
                 }
                 out.writeInt(6 + body.length);
                 out.writeInt(correlation);
-                out.writeShort(refusal.id());
+                out.writeShort(refusal);
                 out.write(body);
                 out.flush();
             }
@@ -175,7 +181,7 @@ final class FakeBroker implements AutoCloseable {
         long base;
         synchronized (gate) {
             base = nextOffset;
-            if (refuseWith == Code.NONE) {
+            if (refuseWith == Code.NONE.id()) {
                 produced.computeIfAbsent(topic + " " + partition, ignored -> new ArrayList<>()).addAll(records);
                 nextOffset += records.size();
             }
