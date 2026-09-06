@@ -11,25 +11,6 @@
   "packageRules": [
     {
       "description": [
-        "The sborka plugins move as one line and must land as one change. The settings plugin is",
-        "applied in settings.gradle.kts and the rest come from the catalog's version ref; they",
-        "share a classloader, so a pull request that moves one and not the other leaves the build",
-        "with 0.2.x settings and 0.1.x conventions. Renovate raised exactly that split on",
-        "2026-09-06 (#32 and #36), and nothing in either pull request said the other existed."
-      ],
-      "groupName": "sborka",
-      "matchPackageNames": [
-        "/^ru\\.workinprogress\\.sborka/"
-      ],
-      "matchUpdateTypes": [
-        "major",
-        "minor",
-        "patch",
-        "digest"
-      ]
-    },
-    {
-      "description": [
         "Runner images and actions. These are reviewed the same way whatever the version jump \u2014",
         "does CI still go green \u2014 so they arrive together. The exception that cannot be reviewed",
         "that way is the runner label in publish.yml: no check on a pull request ever runs that",
@@ -58,9 +39,13 @@
     },
     {
       "description": [
-        "Everything the JVM build resolves \u2014 the version catalog and Gradle plugins that are not",
-        "sborka. Majors stay out of this group: a major here changes how the whole portfolio is",
-        "built or tested, and that is a decision rather than a bump."
+        "Everything the JVM build resolves \u2014 the version catalog and Gradle plugins. Majors stay out:",
+        "a major here changes how the whole portfolio is built or tested, and that is a decision rather",
+        "than a bump. sborka is carved back out by the rule below, which is placed after this one on",
+        "purpose: package rules are merged in order and the last groupName wins. Written as ordering",
+        "rather than as an exclusion because the exclusion Renovate accepts here is not the one its",
+        "config validator accepts \u2014 `matchPackageNames: ['*', '!/regex/']` passes validation offline",
+        "and is refused by the bot itself."
       ],
       "groupName": "jvm dependencies",
       "matchManagers": [
@@ -71,10 +56,25 @@
         "minor",
         "patch",
         "digest"
+      ]
+    },
+    {
+      "description": [
+        "The sborka plugins move as one line and must land as one change. The settings plugin is",
+        "applied in settings.gradle.kts and the rest come from the catalog's version ref; they",
+        "share a classloader, so a pull request that moves one and not the other leaves the build",
+        "with 0.2.x settings and 0.1.x conventions. Renovate raised exactly that split on",
+        "2026-09-06 (#32 and #36), and nothing in either pull request said the other existed."
       ],
+      "groupName": "sborka",
       "matchPackageNames": [
-        "*",
-        "!/^ru\\.workinprogress\\.sborka/"
+        "/^ru\\.workinprogress\\.sborka/"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch",
+        "digest"
       ]
     },
     {
