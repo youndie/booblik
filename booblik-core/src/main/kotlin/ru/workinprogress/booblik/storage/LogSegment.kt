@@ -258,6 +258,10 @@ class LogSegment private constructor(
          * alone** — there are no checksums, so a torn write *inside* a record body is not
          * detectable here. That is a known gap, not an oversight; M-60 is where it gets exercised.
          */
+        @Suppress(
+            "ktlint:kapkan:swallowed-failure",
+            "the two closes below run while refusing to open at all; the refusal is the report",
+        )
         fun open(
             dir: Path,
             baseOffset: Offset,

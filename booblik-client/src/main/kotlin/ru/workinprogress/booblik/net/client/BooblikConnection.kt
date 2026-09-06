@@ -158,6 +158,10 @@ class BooblikConnection(
         while (buffer.hasRemaining()) socket.write(buffer)
     }
 
+    @Suppress(
+        "ktlint:kapkan:swallowed-failure",
+        "every waiting caller has already been failed with the real cause; the socket is a formality",
+    )
     private fun fail(cause: Throwable) {
         if (failure == null) failure = cause
         outbound.close(cause)
