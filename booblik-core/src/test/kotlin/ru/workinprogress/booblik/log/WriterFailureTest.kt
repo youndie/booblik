@@ -111,10 +111,29 @@ class WriterFailureTest {
     @Test
     fun `the backlog does not keep counting a batch nobody will ever write`() {
         withWriter(failAfter = 0) { writer ->
-            withTimeoutOrNull(5_000) { runCatching { writer.append("first".toByteArray()) } }
+            // `Unconfined`, and that is the whole test rather than a detail. It makes the producer's
+            // continuation resume **in the writer's own thread at the instant the ack completes**,
+            // so the depth below is read at the completion point: whatever the failure path has not
+            // done by that line is not done. Read from the test's thread instead, this asks a
+            // question about scheduling — it passed on a laptop for fifteen runs and failed on a
+            // two-core runner, which is not a test, it is a coin.
+            val depthWhenRefused =
+                async(Dispatchers.Unconfined) {
+                    runCatching { writer.append("first".toByteArray()) }
+                    writer.mailboxDepth
+                }
+
             // `backlog 1` for ever is what an operator saw, and it is the number that made the
             // failure undiagnosable from outside: a queue that never drains and no errors.
-            assertEquals(0, writer.mailboxDepth, "the abandoned batch is still counted as queued")
+            assertEquals(
+                0,
+                assertNotNull(
+                    withTimeoutOrNull(5_000) { depthWhenRefused.await() },
+                    "the producer of the in-flight batch was never answered",
+                ),
+                "a producer that has been refused can read the backlog on its next instruction, " +
+                    "and its own batch was still counted there",
+            )
         }
     }
 
