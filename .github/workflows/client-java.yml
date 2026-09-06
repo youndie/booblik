@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -50,7 +50,7 @@ jobs:
 
       # Two JDKs: the client compiles under 21 and the broker image needs 25. setup-java leaves the
       # last one in JAVA_HOME, and the client's own Gradle build resolves its toolchain regardless.
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: |
