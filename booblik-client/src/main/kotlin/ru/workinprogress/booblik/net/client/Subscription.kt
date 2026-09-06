@@ -25,7 +25,7 @@ import java.net.InetSocketAddress
  * record at a time — so an API that hands out records one by one hides the thing its own numbers
  * are made of. [records] is a list; flattening it is one operator away for anyone who wants that.
  */
-data class RecordBatch(
+public data class RecordBatch(
     val topic: TopicName,
     val partition: PartitionId,
     val baseOffset: Offset,
@@ -47,24 +47,24 @@ data class RecordBatch(
 }
 
 /** Where a subscription starts when it has no stored position of its own. */
-sealed interface StartPosition {
+public sealed interface StartPosition {
     /**
      * The beginning of the **live** log.
      *
      * `logStartOffset`, not zero. On a topic that has ever expired a segment, zero is
      * `OFFSET_OUT_OF_RANGE` — which is why METADATA carries this number at all (M-70).
      */
-    data object Earliest : StartPosition
+    public data object Earliest : StartPosition
 
     /** Only what arrives from now on. */
-    data object Latest : StartPosition
+    public data object Latest : StartPosition
 
-    data class At(
+    public data class At(
         val offset: Offset,
     ) : StartPosition
 }
 
-data class SubscriptionConfig(
+public data class SubscriptionConfig(
     /** Ceiling on one response. Large enough to be worth a round trip, small enough to hold. */
     val maxBytes: Int = 1 shl 20,
     /**
@@ -101,14 +101,14 @@ data class SubscriptionConfig(
  * Nothing here remembers where you got to. [RecordBatch.nextOffset] is on every batch; storing it
  * is the caller's business, and [OffsetStore] is the shape that plugs in.
  */
-class BooblikSubscriber(
+public class BooblikSubscriber(
     private val address: InetSocketAddress,
     private val config: SubscriptionConfig = SubscriptionConfig(),
 ) : Closeable {
     private val scope = CoroutineScope(SupervisorJob())
 
     /** Which partitions [topic] has, straight from the broker (M-70). */
-    suspend fun partitionsOf(topic: TopicName): List<PartitionId> = describe(topic).map { it.partition }
+    public suspend fun partitionsOf(topic: TopicName): List<PartitionId> = describe(topic).map { it.partition }
 
     /**
      * Follows [topic] for ever, waiting on the broker rather than polling it.
@@ -116,7 +116,7 @@ class BooblikSubscriber(
      * The flow does not complete on its own. Cancel the collection to stop it; the connections it
      * opened close with it.
      */
-    fun follow(
+    public fun follow(
         topic: TopicName,
         from: StartPosition = StartPosition.Latest,
         partitions: List<PartitionId>? = null,
@@ -129,7 +129,7 @@ class BooblikSubscriber(
      * would never be reached on a topic anybody is writing to — and "read what is there" is the
      * only reason to call this rather than [follow].
      */
-    fun replay(
+    public fun replay(
         topic: TopicName,
         from: StartPosition = StartPosition.Earliest,
         partitions: List<PartitionId>? = null,
@@ -236,13 +236,13 @@ class BooblikSubscriber(
  * The name is `checkpoint` and never `commit`: a commit would imply somebody on the other side took
  * note, and the broker has no idea this happened.
  */
-interface OffsetStore {
-    suspend fun load(
+public interface OffsetStore {
+    public suspend fun load(
         topic: TopicName,
         partition: PartitionId,
     ): Offset?
 
-    suspend fun save(
+    public suspend fun save(
         topic: TopicName,
         partition: PartitionId,
         offset: Offset,
@@ -257,7 +257,7 @@ interface OffsetStore {
  * the two is acceptable is a property of what the collector does, not of this library, so it is
  * named rather than chosen quietly.
  */
-fun Flow<RecordBatch>.checkpointing(store: OffsetStore): Flow<RecordBatch> =
+public fun Flow<RecordBatch>.checkpointing(store: OffsetStore): Flow<RecordBatch> =
     flow {
         collect { batch ->
             emit(batch)

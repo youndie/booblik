@@ -14,22 +14,22 @@ import ru.workinprogress.booblik.Offset
  * comes from that ownership rather than from a lock — the reason `booblik-core` contains no
  * `Mutex` and no `synchronized` at all.
  */
-interface Log {
+public interface Log {
     /** Offset the next appended record will get. Safe to read from other threads. */
-    val nextOffset: Offset
+    public val nextOffset: Offset
 
     /** True when a record of [payloadSize] bytes can still be accepted. */
-    fun hasRoomFor(payloadSize: Int): Boolean
+    public fun hasRoomFor(payloadSize: Int): Boolean
 
     /** Appends one record and returns the offset it got. */
-    fun append(
+    public fun append(
         payload: ByteArray,
         from: Int = 0,
         length: Int = payload.size,
     ): Offset
 
     /** Makes everything written so far durable. Expensive; see [SegmentWriter.force]. */
-    fun force()
+    public fun force()
 }
 
 /**
@@ -40,7 +40,7 @@ interface Log {
  * bytes. Recovery does not throw at all: it stops, keeping everything before the damage, which is
  * the only useful thing to do with a log whose tail is questionable.
  */
-class CorruptRecordException(
+public class CorruptRecordException(
     baseOffset: ru.workinprogress.booblik.Offset,
     offset: ru.workinprogress.booblik.Offset,
     position: ru.workinprogress.booblik.Position,

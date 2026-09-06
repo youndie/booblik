@@ -34,7 +34,7 @@ import java.nio.ByteBuffer
  * order the requests went in. Serving them concurrently would need a write queue and would reorder
  * exactly the case pipelining exists for.
  */
-class Session(
+public class Session(
     private val connection: Connection,
     private val partitions: PartitionRegistry,
     private val fetchMode: FetchMode,
@@ -45,7 +45,7 @@ class Session(
     /** A reusable staging buffer for [FetchMode.HEAP]. Grown on demand, never per request. */
     private var heapStaging: ByteBuffer = ByteBuffer.allocate(INITIAL_STAGING_BYTES)
 
-    suspend fun serve() {
+    public suspend fun serve() {
         connection.use {
             while (true) {
                 val frame = readFrame() ?: return

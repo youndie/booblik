@@ -30,9 +30,9 @@ import java.net.InetSocketAddress
  * [fetchMaxBytes] [preload]"`. The broker is expected to be running already, with its own
  * `booblik.fetch.mode` — which is the setting under test, and it lives on the other side.
  */
-object RemoteLoadProbe {
+public object RemoteLoadProbe {
     @JvmStatic
-    fun main(args: Array<String>) {
+    public fun main(args: Array<String>) {
         val host = args.getOrElse(0) { error("usage: <host> <port> [FETCH|PRODUCE] ...") }
         val port = args.getOrElse(1) { "9092" }.toInt()
         val workload = LoadDriver.Workload.valueOf(args.getOrElse(2) { "FETCH" })

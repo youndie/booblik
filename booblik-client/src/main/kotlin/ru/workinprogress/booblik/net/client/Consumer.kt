@@ -5,8 +5,8 @@ import ru.workinprogress.booblik.PartitionId
 import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.net.wire.ErrorCode
 
-class FetchFailedException(
-    val code: ErrorCode,
+public class FetchFailedException(
+    public val code: ErrorCode,
 ) : IllegalStateException("broker refused the fetch: $code")
 
 /**
@@ -25,17 +25,17 @@ class FetchFailedException(
  * Added in M-139, after the same place written in Go, Python, Node, .NET and Java all reported it
  * and the JVM client alone went quiet.
  */
-class RecordExceedsMaxBytesException(
-    val offset: Offset,
-    val recordBytes: Int,
-    val maxBytes: Int,
+public class RecordExceedsMaxBytesException(
+    public val offset: Offset,
+    public val recordBytes: Int,
+    public val maxBytes: Int,
 ) : IllegalStateException(
         "record at offset ${offset.value} needs $recordBytes bytes and maxBytes is $maxBytes, " +
             "so it can never be read whole",
     )
 
 /** A batch of records and where the log ended when they were read. */
-data class Records(
+public data class Records(
     val records: List<ByteArray>,
     val highWatermark: Offset,
 ) {
@@ -53,7 +53,7 @@ data class Records(
  *
  * Not thread-safe: [position] advances on every [poll]. One consumer, one partition, one caller.
  */
-class Consumer(
+public class Consumer(
     private val connection: BooblikConnection,
     private val topic: TopicName,
     private val partition: PartitionId,
@@ -61,11 +61,11 @@ class Consumer(
     private val maxBytes: Int = DEFAULT_MAX_BYTES,
 ) {
     /** Offset of the next record this consumer will read. */
-    var position: Offset = startOffset
+    public var position: Offset = startOffset
         private set
 
     /** Moves the read position. Anything already fetched and not returned is simply forgotten. */
-    fun seek(offset: Offset) {
+    public fun seek(offset: Offset) {
         position = offset
     }
 
@@ -86,7 +86,7 @@ class Consumer(
      *     M-139 this method reported it as an empty batch — indistinguishable, from the caller's
      *     side, from having caught up.
      */
-    suspend fun poll(): Records {
+    public suspend fun poll(): Records {
         val result = connection.fetch(topic, partition, position, maxBytes)
         if (result.error != ErrorCode.NONE) throw FetchFailedException(result.error)
         if (result.records.isEmpty() && result.truncated) {
@@ -97,17 +97,17 @@ class Consumer(
     }
 
     /** True when [position] has reached everything the broker had at the last poll. */
-    suspend fun isCaughtUp(): Boolean {
+    public suspend fun isCaughtUp(): Boolean {
         val result = connection.fetch(topic, partition, position, maxBytes = 1)
         if (result.error != ErrorCode.NONE) throw FetchFailedException(result.error)
         return position >= result.highWatermark
     }
 
-    companion object {
+    public companion object {
         /**
          * 1 MiB. Large enough that a poll is worth its round trip, small enough that a single
          * response cannot dominate a 64 MiB heap on the client side.
          */
-        const val DEFAULT_MAX_BYTES = 1024 * 1024
+        public const val DEFAULT_MAX_BYTES: Int = 1024 * 1024
     }
 }

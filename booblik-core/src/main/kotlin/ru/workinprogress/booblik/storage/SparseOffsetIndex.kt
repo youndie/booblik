@@ -24,8 +24,8 @@ import ru.workinprogress.booblik.Position
  * segment. Reads run concurrently with writes and see a consistent prefix: [entryCount] is written
  * only after the slot it counts is filled, and it is `@Volatile` for exactly that reason.
  */
-class SparseOffsetIndex(
-    val baseOffset: Offset,
+public class SparseOffsetIndex(
+    public val baseOffset: Offset,
     private val intervalBytes: Int = DEFAULT_INTERVAL_BYTES,
     private val maxEntries: Int = DEFAULT_MAX_ENTRIES,
 ) {
@@ -50,16 +50,16 @@ class SparseOffsetIndex(
 
     private var bytesSinceLastEntry: Int = 0
 
-    val entryCount: Int get() = count
+    public val entryCount: Int get() = count
 
     /** Only ever true at the hard cap, which a segment reaches long after it runs out of bytes. */
-    val isFull: Boolean get() = count == maxEntries
+    public val isFull: Boolean get() = count == maxEntries
 
     /**
      * Offers a record to the index. Most calls do nothing — an entry is only added once
      * [intervalBytes] of log went by since the previous one. Returns true if an entry was added.
      */
-    fun append(
+    public fun append(
         offset: Offset,
         position: Position,
         recordBytes: Int,
@@ -96,7 +96,7 @@ class SparseOffsetIndex(
      * longer has. Called by recovery after a partial trailing record is discarded, and by a
      * benchmark recycling a segment.
      */
-    fun truncateTo(offset: Offset) {
+    public fun truncateTo(offset: Offset) {
         val relative = offset - baseOffset
         var keep = 0
         while (keep < count && relativeOffsetAt(keep) < relative) keep += 1
@@ -110,7 +110,7 @@ class SparseOffsetIndex(
      * Largest indexed entry whose offset is `<= target`, or null if the index has nothing at or
      * below it. The reader starts a forward scan from the returned position.
      */
-    fun lookup(target: Offset): IndexEntry? {
+    public fun lookup(target: Offset): IndexEntry? {
         val relative = target - baseOffset
         if (relative < 0) return null
 
@@ -144,17 +144,17 @@ class SparseOffsetIndex(
 
     private fun relativeOffsetAt(i: Int): Long = entries[i] ushr Integer.SIZE
 
-    data class IndexEntry(
+    public data class IndexEntry(
         val offset: Offset,
         val position: Position,
     )
 
-    companion object {
+    public companion object {
         /** Same default Kafka uses for `index.interval.bytes`, and for the same reason. */
-        const val DEFAULT_INTERVAL_BYTES = 4 * 1024
+        public const val DEFAULT_INTERVAL_BYTES: Int = 4 * 1024
 
         /** 128 Ki entries × 4 KiB interval covers a 512 MiB segment with 1 MiB of index. */
-        const val DEFAULT_MAX_ENTRIES = 128 * 1024
+        public const val DEFAULT_MAX_ENTRIES: Int = 128 * 1024
 
         /** 64 entries, 512 bytes. A segment that never grows past this costs almost nothing. */
         private const val INITIAL_ENTRIES = 64

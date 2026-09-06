@@ -24,7 +24,7 @@ import kotlin.system.exitProcess
  * turned out to be the whole of decision Р8's last standing objection.
  */
 @OptIn(ExperimentalForeignApi::class)
-fun main(args: Array<String>) {
+public fun main(args: Array<String>) {
     if (args.isEmpty()) {
         println("usage: conformance <verb> [args...]  (broker in BOOBLIK_BROKER)")
         exitProcess(2)

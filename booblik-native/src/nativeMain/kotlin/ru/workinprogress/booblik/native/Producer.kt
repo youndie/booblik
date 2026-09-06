@@ -18,11 +18,11 @@ import ru.workinprogress.booblik.net.wire.ErrorCode
 import kotlin.time.TimeSource
 
 /** The broker refused the batch this record was in. */
-class ProduceFailedException(
-    val code: ErrorCode,
+public class ProduceFailedException(
+    public val code: ErrorCode,
 ) : IllegalStateException("booblik: broker refused the record: $code")
 
-data class ProducerConfig(
+public data class ProducerConfig(
     /** Records per request. Reached first, the batch goes at once. */
     val maxBatchSize: Int = 100,
     /**
@@ -72,7 +72,7 @@ data class ProducerConfig(
  * a request addresses one partition — a partition being what has one writer.
  */
 @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
-class Producer(
+public class Producer(
     private val connection: BooblikConnection,
     scope: CoroutineScope,
     private val config: ProducerConfig = ProducerConfig(),
@@ -98,7 +98,7 @@ class Producer(
      * The record is not on the wire when this returns — that is the point. Await the result to know
      * it landed, or [flush] to push everything queued.
      */
-    suspend fun send(
+    public suspend fun send(
         topic: TopicName,
         partition: PartitionId,
         record: ByteArray,
@@ -109,7 +109,7 @@ class Producer(
     }
 
     /** Sends everything queued and waits for the broker to answer all of it. */
-    suspend fun flush() {
+    public suspend fun flush() {
         val done = CompletableDeferred<Unit>()
         mailbox.send(Command.Flush(done))
         done.await()

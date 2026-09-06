@@ -12,26 +12,26 @@ package ru.workinprogress.booblik.net.wire
  * to one side or the other — a client never decodes a request, a broker never encodes one — which
  * is the seam M-134 cut along when the client's half became multiplatform.
  */
-object Protocol {
-    const val VERSION: Short = 1
+public object Protocol {
+    public const val VERSION: Short = 1
 
     /** `[int32 length][int16 apiKey][int16 apiVersion][int32 correlationId]`. */
-    const val REQUEST_HEADER_BYTES = 2 + 2 + 4
+    public const val REQUEST_HEADER_BYTES: Int = 2 + 2 + 4
 
     /** `[int32 correlationId][int16 errorCode]`, after the length prefix. */
-    const val RESPONSE_HEADER_BYTES = 4 + 2
+    public const val RESPONSE_HEADER_BYTES: Int = 4 + 2
 
-    const val LENGTH_PREFIX_BYTES = 4
+    public const val LENGTH_PREFIX_BYTES: Int = 4
 
     /**
      * Ceiling on one request. A length prefix arriving from a socket is attacker-controlled, and
      * allocating whatever it asks for is how a broker gets killed by one packet — at a 64 MiB heap,
      * by a very small one.
      */
-    const val MAX_FRAME_BYTES = 8 * 1024 * 1024
+    public const val MAX_FRAME_BYTES: Int = 8 * 1024 * 1024
 
     /** FETCH v2 adds `maxWaitMillis` and `minBytes`; everything else still speaks v1. */
-    const val FETCH_VERSION: Short = 2
+    public const val FETCH_VERSION: Short = 2
 
     /**
      * Ceiling on how long a FETCH may be held, whatever the client asked for.
@@ -41,13 +41,13 @@ object Protocol {
      * earlier empty response, which it has to handle anyway — and the number is written down here
      * rather than hidden, because a silently shortened wait is a lie about the protocol.
      */
-    const val MAX_FETCH_WAIT_MILLIS = 60_000
+    public const val MAX_FETCH_WAIT_MILLIS: Int = 60_000
 
     /** `[int32 length][int32 crc]`, the header in front of every stored record. */
-    const val RECORD_HEADER_BYTES = 4 + 4
+    public const val RECORD_HEADER_BYTES: Int = 4 + 4
 
     /** Whether this broker speaks [version] of [apiKey]. Versions are per request, not global. */
-    fun supports(
+    public fun supports(
         apiKey: ApiKey,
         version: Short,
     ): Boolean =
@@ -58,8 +58,8 @@ object Protocol {
 }
 
 /** What a request asks for. Values are on the wire and must not be renumbered. */
-enum class ApiKey(
-    val id: Short,
+public enum class ApiKey(
+    public val id: Short,
 ) {
     PRODUCE(1),
     FETCH(2),
@@ -75,8 +75,8 @@ enum class ApiKey(
     METADATA(3),
     ;
 
-    companion object {
-        fun of(id: Short): ApiKey? = entries.firstOrNull { it.id == id }
+    public companion object {
+        public fun of(id: Short): ApiKey? = entries.firstOrNull { it.id == id }
     }
 }
 
@@ -85,8 +85,8 @@ enum class ApiKey(
  *
  * [NONE] is zero so that a success response needs no special case anywhere.
  */
-enum class ErrorCode(
-    val id: Short,
+public enum class ErrorCode(
+    public val id: Short,
 ) {
     NONE(0),
     UNKNOWN_TOPIC_OR_PARTITION(1),
@@ -112,12 +112,12 @@ enum class ErrorCode(
     PARTITION_UNAVAILABLE(6),
     ;
 
-    companion object {
-        fun of(id: Short): ErrorCode = entries.firstOrNull { it.id == id } ?: CORRUPT_REQUEST
+    public companion object {
+        public fun of(id: Short): ErrorCode = entries.firstOrNull { it.id == id } ?: CORRUPT_REQUEST
     }
 }
 
 /** Thrown while decoding a frame that does not make sense. Answered with [ErrorCode.CORRUPT_REQUEST]. */
-class CorruptRequestException(
+public class CorruptRequestException(
     message: String,
 ) : IllegalArgumentException(message)

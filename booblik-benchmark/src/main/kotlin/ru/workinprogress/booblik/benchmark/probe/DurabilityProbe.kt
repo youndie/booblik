@@ -37,13 +37,13 @@ import kotlin.system.measureNanoTime
  * This does not simulate power loss and cannot: no user-space program can. It measures which
  * layers still hold data when each call returns, which is the part that is decidable here.
  */
-object DurabilityProbe {
+public object DurabilityProbe {
     private const val DIRTY_BYTES = 32 * 1024 * 1024
     private const val ROUNDS = 9
     private const val WARMUP_ROUNDS = 2
 
     @JvmStatic
-    fun main(args: Array<String>) {
+    public fun main(args: Array<String>) {
         val dir = MeasurementDir.create("booblik-durability")
         try {
             println("# M-24 durability probe: ${DIRTY_BYTES / 1024 / 1024} MiB dirtied per round, $ROUNDS rounds")

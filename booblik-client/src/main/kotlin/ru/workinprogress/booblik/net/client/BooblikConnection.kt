@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Raised to every request still waiting when a connection dies. */
-class ConnectionClosedException(
+public class ConnectionClosedException(
     cause: Throwable?,
 ) : IllegalStateException("connection to the broker was closed", cause)
 
@@ -47,7 +47,7 @@ class ConnectionClosedException(
  *
  * [AckPolicy.NONE] enqueues nothing, because nothing will come back.
  */
-class BooblikConnection(
+public class BooblikConnection(
     address: InetSocketAddress,
     scope: CoroutineScope,
 ) : Closeable {
@@ -99,7 +99,7 @@ class BooblikConnection(
             }
         }
 
-    suspend fun produce(
+    public suspend fun produce(
         topic: TopicName,
         partition: PartitionId,
         records: List<ByteArray>,
@@ -117,7 +117,7 @@ class BooblikConnection(
     }
 
     /** Which topics exist and where each partition currently begins and ends (M-70). */
-    suspend fun metadata(topics: List<TopicName> = emptyList()): MetadataResult {
+    public suspend fun metadata(topics: List<TopicName> = emptyList()): MetadataResult {
         val correlationId = correlationIds.getAndIncrement()
         val answer = CompletableDeferred<MetadataResult>()
         outbound.send(
@@ -135,7 +135,7 @@ class BooblikConnection(
      * correlation ids rest on. It does mean a follower must own its connection rather than share
      * one with a producer.
      */
-    suspend fun fetch(
+    public suspend fun fetch(
         topic: TopicName,
         partition: PartitionId,
         fetchOffset: Offset,

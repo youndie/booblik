@@ -6,8 +6,8 @@ import ru.workinprogress.booblik.TopicName
 import ru.workinprogress.booblik.net.wire.ErrorCode
 
 /** The broker refused the fetch. */
-class FetchFailedException(
-    val code: ErrorCode,
+public class FetchFailedException(
+    public val code: ErrorCode,
 ) : IllegalStateException("booblik: broker refused the fetch: $code")
 
 /**
@@ -21,10 +21,10 @@ class FetchFailedException(
  * Not to be confused with [ErrorCode.RECORD_TOO_LARGE], which is the broker refusing to **store** a
  * record too big for a segment. This one is the reader's own limit, chosen by the reader.
  */
-class RecordExceedsMaxBytesException(
-    val offset: Offset,
-    val recordBytes: Int,
-    val maxBytes: Int,
+public class RecordExceedsMaxBytesException(
+    public val offset: Offset,
+    public val recordBytes: Int,
+    public val maxBytes: Int,
 ) : IllegalStateException(
         "booblik: record at offset ${offset.value} needs $recordBytes bytes and maxBytes is " +
             "$maxBytes, so it can never be read whole",
@@ -53,7 +53,7 @@ class RecordExceedsMaxBytesException(
  * **Not safe for concurrent use.** Every [poll] advances the position, and the connection matches
  * responses to requests in the order they were sent. One consumer, one partition, one thread.
  */
-class Consumer(
+public class Consumer(
     private val connection: BooblikConnection,
     private val topic: TopicName,
     private val partition: PartitionId,
@@ -76,21 +76,21 @@ class Consumer(
     private val minBytes: Int = 0,
 ) {
     /** Offset of the next record this consumer will read. This is the number to persist. */
-    var position: Offset = startOffset
+    public var position: Offset = startOffset
         private set
 
     /**
      * Where the log ended at the last successful [poll], and zero before the first one. A snapshot
      * rather than a live number: by the time it is read, the log may have grown.
      */
-    var highWatermark: Offset = Offset.ZERO
+    public var highWatermark: Offset = Offset.ZERO
         private set
 
     /** How many records this consumer was behind at the last poll. Same snapshot caveat. */
-    val lag: Long get() = maxOf(0L, highWatermark.value - position.value)
+    public val lag: Long get() = maxOf(0L, highWatermark.value - position.value)
 
     /** Moves the read position. Anything fetched and not yet returned is simply forgotten. */
-    fun seek(offset: Offset) {
+    public fun seek(offset: Offset) {
         position = offset
     }
 
@@ -107,7 +107,7 @@ class Consumer(
      * that record again from its start. The broker will not do it for us — finding the record
      * boundary means parsing the batch, which is the work the zero-copy read path exists to avoid.
      */
-    fun poll(): List<ByteArray> {
+    public fun poll(): List<ByteArray> {
         val answer = connection.fetch(topic, partition, position, maxBytes, maxWaitMillis, minBytes)
         if (answer.error != ErrorCode.NONE) throw FetchFailedException(answer.error)
 
@@ -132,21 +132,21 @@ class Consumer(
      * and persisting [position] skips the rest of that batch, so persist after the loop, or count
      * what was handled.
      */
-    fun records(): Sequence<ByteArray> =
+    public fun records(): Sequence<ByteArray> =
         sequence {
             while (true) {
                 yieldAll(poll())
             }
         }
 
-    companion object {
+    public companion object {
         /**
          * 1 MiB: large enough that a fetch is worth its round trip, small enough that one response
          * cannot dominate a small process. Every client in this repository uses the same number.
          */
-        const val DEFAULT_MAX_BYTES: Int = 1024 * 1024
+        public const val DEFAULT_MAX_BYTES: Int = 1024 * 1024
 
         /** Five seconds. See [maxWaitMillis]. */
-        const val DEFAULT_MAX_WAIT_MILLIS: Int = 5_000
+        public const val DEFAULT_MAX_WAIT_MILLIS: Int = 5_000
     }
 }

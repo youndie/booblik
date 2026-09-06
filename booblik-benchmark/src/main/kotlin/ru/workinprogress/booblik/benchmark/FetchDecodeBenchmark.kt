@@ -37,14 +37,14 @@ import java.util.zip.CRC32C
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-class FetchDecodeBenchmark {
+public class FetchDecodeBenchmark {
     @Param("64", "1024", "8192")
-    var recordSize: Int = 1024
+    public var recordSize: Int = 1024
 
     private lateinit var frame: ByteArray
 
     @Setup
-    fun build() {
+    public fun build() {
         // A whole FETCH response as the socket delivers it: correlationId, errorCode,
         // highWatermark, payloadBytes, then records exactly as the segment holds them.
         val payload = ByteArray(recordSize) { it.toByte() }
@@ -71,11 +71,11 @@ class FetchDecodeBenchmark {
 
     @Benchmark
     @OperationsPerInvocation(RECORDS)
-    fun reader(): Int = ResponseReader.fetch(frame).records.size
+    public fun reader(): Int = ResponseReader.fetch(frame).records.size
 
     @Benchmark
     @OperationsPerInvocation(RECORDS)
-    fun decoder(): Int = ResponseDecoder.fetch(frame, Offset.ZERO).records.size
+    public fun decoder(): Int = ResponseDecoder.fetch(frame, Offset.ZERO).records.size
 
     private fun writeInt(
         target: ByteArray,

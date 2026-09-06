@@ -28,11 +28,11 @@ import kotlin.io.path.deleteRecursively
  *
  * Usage: `-Pargs="PRODUCE SELECTOR ZERO_COPY <connections> <ratePerSecond> <seconds>"`.
  */
-object LoadProbe {
+public object LoadProbe {
     private const val SEGMENT_CAPACITY = 128 * 1024 * 1024
 
     @JvmStatic
-    fun main(args: Array<String>) {
+    public fun main(args: Array<String>) {
         val workload = LoadDriver.Workload.valueOf(args.getOrElse(0) { "PRODUCE" })
         val transport = Transport.valueOf(args.getOrElse(1) { "SELECTOR" })
         val fetchMode = FetchMode.valueOf(args.getOrElse(2) { "ZERO_COPY" })

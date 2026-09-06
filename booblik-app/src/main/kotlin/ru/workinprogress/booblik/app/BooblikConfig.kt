@@ -29,7 +29,7 @@ import kotlin.io.path.inputStream
  * turned into underscores — `booblik.port` is `BOOBLIK_PORT` — because that is the mapping every
  * container runtime already assumes.
  */
-data class BooblikConfig(
+public data class BooblikConfig(
     val dataDir: Path,
     val port: Int,
     /** Topic to partition count. Fixed at startup: the broker does not create topics (M-42). */
@@ -55,7 +55,7 @@ data class BooblikConfig(
     }
 
     /** One line an operator can paste into a ticket. Secrets would be redacted here; there are none. */
-    fun describe(): String =
+    public fun describe(): String =
         buildString {
             appendLine("data.dir=$dataDir port=$port")
             appendLine("topics=" + topics.entries.joinToString(",") { "${it.key.value}:${it.value}" })
@@ -65,7 +65,7 @@ data class BooblikConfig(
             append("net: transport=$transport fetch=$fetchMode metrics.interval=$metricsIntervalMillis")
         }
 
-    companion object {
+    public companion object {
         /**
          * Loads from [file] if given, then lets the environment override.
          *
@@ -73,7 +73,7 @@ data class BooblikConfig(
          * nothing but defaults is a legitimate way to start, and silently ignoring a path somebody
          * typed is not.
          */
-        fun load(
+        public fun load(
             file: Path? = null,
             env: Map<String, String> = System.getenv(),
         ): BooblikConfig {
@@ -153,7 +153,7 @@ data class BooblikConfig(
                     TopicName(parts[0]) to count
                 }
 
-        const val DEFAULT_PORT = 9092
+        public const val DEFAULT_PORT: Int = 9092
         private const val DEFAULT_TOPICS = "default:1"
         private const val DEFAULT_RETENTION_CHECK_MILLIS = 30_000L
         private const val DEFAULT_METRICS_INTERVAL_MILLIS = 10_000L

@@ -16,10 +16,10 @@ import java.util.concurrent.atomic.AtomicInteger
  * the failure it produces — records piling into partitions that exist while others are never
  * written to — looks like a data problem rather than a configuration one.
  */
-class TopicHandle internal constructor(
+public class TopicHandle internal constructor(
     private val producer: Producer,
-    val topic: TopicName,
-    val partitions: List<PartitionId>,
+    public val topic: TopicName,
+    public val partitions: List<PartitionId>,
     private val partitioner: Partitioner = Partitioner.Fnv1a,
 ) {
     private val roundRobin = AtomicInteger(0)
@@ -32,12 +32,12 @@ class TopicHandle internal constructor(
      * expects to see, whereas random distribution visibly clumps at small counts and looks like a
      * bug in the partitioner.
      */
-    suspend fun send(
+    public suspend fun send(
         record: ByteArray,
         key: ByteArray? = null,
     ): CompletableDeferred<Offset> = producer.send(topic, partitionFor(key), record)
 
-    fun partitionFor(key: ByteArray?): PartitionId =
+    public fun partitionFor(key: ByteArray?): PartitionId =
         if (key == null) {
             partitions[Math.floorMod(roundRobin.getAndIncrement(), partitions.size)]
         } else {
@@ -52,14 +52,14 @@ class TopicHandle internal constructor(
  * place in this client where records wait for company — [Producer]'s loop — and adding another
  * would give two places a record can be delayed and two explanations for any latency.
  */
-class BatchScope internal constructor() {
+public class BatchScope internal constructor() {
     internal val records = ArrayList<ByteArray>()
 
-    fun add(record: ByteArray) {
+    public fun add(record: ByteArray) {
         records += record
     }
 
-    operator fun ByteArray.unaryPlus() {
+    public operator fun ByteArray.unaryPlus() {
         add(this)
     }
 }
@@ -82,7 +82,7 @@ class BatchScope internal constructor() {
  * accumulator that merged them with somebody else's records, or split them across two requests when
  * the batch limit fell in the middle, would take the guarantee away.
  */
-suspend fun Producer.batch(
+public suspend fun Producer.batch(
     topic: TopicName,
     partition: PartitionId,
     ackPolicy: AckPolicy = AckPolicy.WRITTEN,
@@ -99,7 +99,7 @@ suspend fun Producer.batch(
 }
 
 /** [batch] against a handle, for the common case of not repeating the topic. */
-suspend fun Producer.batch(
+public suspend fun Producer.batch(
     handle: TopicHandle,
     partition: PartitionId,
     ackPolicy: AckPolicy = AckPolicy.WRITTEN,

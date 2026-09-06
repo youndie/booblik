@@ -7,7 +7,7 @@ package ru.workinprogress.booblik.net.wire
  * caller: a broker that restarted mid-frame is a connection problem to retry, and an exception
  * nobody declared coming out of a decoder reads as a bug in the client.
  */
-class TruncatedFrameException(
+public class TruncatedFrameException(
     message: String,
 ) : IllegalStateException(message)
 

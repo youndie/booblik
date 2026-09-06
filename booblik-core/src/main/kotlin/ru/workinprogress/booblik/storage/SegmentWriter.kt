@@ -15,15 +15,15 @@ import java.io.Closeable
  * Implementations are **not** thread-safe by design: a segment has exactly one writer, and that
  * writer is a single coroutine. Ordering comes from that, not from a lock.
  */
-interface SegmentWriter : Closeable {
+public interface SegmentWriter : Closeable {
     /** Bytes already written into this segment. Also the position the next record will land at. */
-    val size: Position
+    public val size: Position
 
     /** Bytes this segment can hold in total. */
-    val capacity: Int
+    public val capacity: Int
 
     /** True when [payloadSize] plus its header no longer fits. */
-    fun hasRoomFor(payloadSize: Int): Boolean = size.value.toLong() + RECORD_HEADER + payloadSize <= capacity
+    public fun hasRoomFor(payloadSize: Int): Boolean = size.value.toLong() + RECORD_HEADER + payloadSize <= capacity
 
     /**
      * Appends one record, framed as `[int32 payloadSize][int32 crc32c][payload]`, and returns the
@@ -35,7 +35,7 @@ interface SegmentWriter : Closeable {
      * length of zero is therefore the end-of-log sentinel, and a legal empty record would be
      * indistinguishable from untouched space (see [LogSegment.open]).
      */
-    fun append(
+    public fun append(
         payload: ByteArray,
         offset: Int = 0,
         length: Int = payload.size,
@@ -48,7 +48,7 @@ interface SegmentWriter : Closeable {
      * drops a record that was half-written when the process died, and the benchmark recycles a
      * segment instead of unmapping and remapping a gigabyte mid-measurement.
      */
-    fun truncateTo(position: Position)
+    public fun truncateTo(position: Position)
 
     /**
      * Asks the OS to put everything written so far on the physical device.
@@ -59,11 +59,11 @@ interface SegmentWriter : Closeable {
      * right up to the power loss. Any throughput number must state which flush policy produced it,
      * or it means nothing (docs/benchmarking.md).
      */
-    fun force()
+    public fun force()
 
-    companion object {
+    public companion object {
         /** `int32` payload length. */
-        const val LENGTH_BYTES = Int.SIZE_BYTES
+        public const val LENGTH_BYTES: Int = Int.SIZE_BYTES
 
         /**
          * `int32` CRC32C over the payload.
@@ -79,13 +79,13 @@ interface SegmentWriter : Closeable {
          * it on recovery; on the read path it cannot verify anything, because the read path never
          * touches the bytes — that is what zero-copy means. The client verifies instead.
          */
-        const val CRC_BYTES = Int.SIZE_BYTES
+        public const val CRC_BYTES: Int = Int.SIZE_BYTES
 
         /** `[int32 length][int32 crc]` in front of every record. */
-        const val RECORD_HEADER = LENGTH_BYTES + CRC_BYTES
+        public const val RECORD_HEADER: Int = LENGTH_BYTES + CRC_BYTES
 
         /** CRC32C over [length] bytes of [payload] starting at [offset]. */
-        fun checksum(
+        public fun checksum(
             payload: ByteArray,
             offset: Int,
             length: Int,

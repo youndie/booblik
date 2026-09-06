@@ -20,7 +20,7 @@ import java.nio.channels.WritableByteChannel
  * virtual thread parks instead, which is the same thing from the session's point of view and the
  * whole reason the shape fits both.
  */
-interface Connection : Closeable {
+public interface Connection : Closeable {
     /**
      * The channel [transferFrom] hands to `FileChannel.transferTo`.
      *
@@ -29,13 +29,13 @@ interface Connection : Closeable {
      * decorator silently turns the read path into a copy loop that returns identical bytes
      * (M-63, `SendfileTest`).
      */
-    val transferTarget: WritableByteChannel
+    public val transferTarget: WritableByteChannel
 
     /** Fills [buffer] completely, or throws if the peer goes away first. */
-    suspend fun readFully(buffer: ByteBuffer)
+    public suspend fun readFully(buffer: ByteBuffer)
 
     /** Writes [buffer] completely. */
-    suspend fun writeFully(buffer: ByteBuffer)
+    public suspend fun writeFully(buffer: ByteBuffer)
 
     /**
      * Streams [bytes] from [segment] starting at [position] straight into the socket.
@@ -45,7 +45,7 @@ interface Connection : Closeable {
      * responses, and treating it as "try again immediately" burns a core (research §1.4). Both
      * implementations wait for writability instead.
      */
-    suspend fun transferFrom(
+    public suspend fun transferFrom(
         segment: LogSegment,
         position: Position,
         bytes: Int,
@@ -53,7 +53,7 @@ interface Connection : Closeable {
 }
 
 /** Non-blocking transport: readiness comes from [SelectorLoop], the coroutine suspends meanwhile. */
-class SelectorConnection(
+public class SelectorConnection(
     private val channel: SocketChannel,
     private val key: SelectionKey,
     private val loop: SelectorLoop,
@@ -105,7 +105,7 @@ class SelectorConnection(
  * virtualised. A page fault inside `sendfile` pins the carrier thread (research §1.4), so this
  * transport trades a selector for a thread pool that can be stalled by a slow disk.
  */
-class BlockingConnection(
+public class BlockingConnection(
     private val channel: SocketChannel,
 ) : Connection {
     override val transferTarget: WritableByteChannel get() = channel

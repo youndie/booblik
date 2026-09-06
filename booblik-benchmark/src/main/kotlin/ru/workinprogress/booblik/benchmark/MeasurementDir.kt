@@ -24,9 +24,9 @@ import java.nio.file.Path
  * * a volatile filesystem is a **refusal**, not a warning. A warning printed above a number gets
  *   read after the number has already been believed.
  */
-object MeasurementDir {
+public object MeasurementDir {
     /** Override for pointing a run at a particular device: `-Dbooblik.bench.dir=/mnt/nvme1/bench`. */
-    const val PROPERTY = "booblik.bench.dir"
+    public const val PROPERTY: String = "booblik.bench.dir"
 
     /** Filesystems that never reach a device, and on which every durability number is fiction. */
     private val VOLATILE = setOf("tmpfs", "ramfs")
@@ -36,7 +36,7 @@ object MeasurementDir {
      *
      * @throws IllegalStateException if the directory lives on a filesystem that only exists in RAM.
      */
-    fun create(prefix: String): Path {
+    public fun create(prefix: String): Path {
         val base = System.getProperty(PROPERTY)?.let(Path::of) ?: Path.of("build", "measurements")
         Files.createDirectories(base)
         val store = Files.getFileStore(base)
@@ -55,7 +55,7 @@ object MeasurementDir {
      * printed: a number whose medium is not written down cannot be compared with anything later,
      * and the project's own rule is that runs from different hosts are not comparable.
      */
-    fun describe(path: Path): String =
+    public fun describe(path: Path): String =
         runCatching {
             val store = Files.getFileStore(path)
             "${store.type()} on ${store.name()}"

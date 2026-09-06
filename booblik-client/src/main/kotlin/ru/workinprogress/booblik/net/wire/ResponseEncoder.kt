@@ -12,9 +12,9 @@ import java.nio.ByteBuffer
  * is about to stream after it. Assembling the whole response first would undo the one thing the
  * read path is built for.
  */
-object ResponseEncoder {
+public object ResponseEncoder {
     /** `[int32 correlationId][int16 errorCode][int64 baseOffset][int64 logEndOffset]`. */
-    fun produce(
+    public fun produce(
         correlationId: Int,
         baseOffset: Offset,
         logEndOffset: Offset,
@@ -30,7 +30,7 @@ object ResponseEncoder {
      * Header of a FETCH response. [payloadBytes] is counted into the frame length even though those
      * bytes are streamed separately — the client reads one framed message either way.
      */
-    fun fetchHeader(
+    public fun fetchHeader(
         correlationId: Int,
         highWatermark: Offset,
         payloadBytes: Int,
@@ -57,7 +57,7 @@ object ResponseEncoder {
      * `highWatermark` answers "read only what is new" and lets a reader compute its lag without a
      * probing FETCH.
      */
-    fun metadata(
+    public fun metadata(
         correlationId: Int,
         topics: List<TopicMetadata>,
     ): ByteBuffer {
@@ -89,7 +89,7 @@ object ResponseEncoder {
      * A failure carries no body. Every error the broker can answer with fits in the code, and a
      * message would only be a second, less reliable copy of it.
      */
-    fun error(
+    public fun error(
         correlationId: Int,
         code: ErrorCode,
     ): ByteBuffer =
@@ -117,14 +117,14 @@ object ResponseEncoder {
 }
 
 /** One partition as METADATA describes it. */
-data class PartitionMetadata(
+public data class PartitionMetadata(
     val id: ru.workinprogress.booblik.PartitionId,
     val logStartOffset: Offset,
     val highWatermark: Offset,
 )
 
 /** One topic and its partitions, in order. */
-data class TopicMetadata(
+public data class TopicMetadata(
     val name: ru.workinprogress.booblik.TopicName,
     val partitions: List<PartitionMetadata>,
 )

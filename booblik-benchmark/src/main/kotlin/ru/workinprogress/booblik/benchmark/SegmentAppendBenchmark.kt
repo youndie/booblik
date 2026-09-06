@@ -41,15 +41,15 @@ import kotlin.io.path.deleteRecursively
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
-class SegmentAppendBenchmark {
+public class SegmentAppendBenchmark {
     @Param("FILE_CHANNEL", "MAPPED")
-    var mode: String = "FILE_CHANNEL"
+    public var mode: String = "FILE_CHANNEL"
 
     @Param("64", "1024")
-    var payloadSize: Int = 64
+    public var payloadSize: Int = 64
 
     @Param("false", "true")
-    var flushEveryAppend: Boolean = false
+    public var flushEveryAppend: Boolean = false
 
     private lateinit var dir: Path
     private lateinit var segment: LogSegment
@@ -57,7 +57,7 @@ class SegmentAppendBenchmark {
     private var recycles: Int = 0
 
     @Setup
-    fun setUp() {
+    public fun setUp() {
         RuntimeFootprint.verify()
         dir = MeasurementDir.create("booblik-bench")
         payload = ByteArray(payloadSize) { it.toByte() }
@@ -66,7 +66,7 @@ class SegmentAppendBenchmark {
     }
 
     @TearDown
-    fun tearDown() {
+    public fun tearDown() {
         // Reported rather than assumed. If recycling ever stops being cheap, this line is what
         // says whether a suspicious row had one of them in it or a thousand.
         println(
@@ -85,7 +85,7 @@ class SegmentAppendBenchmark {
      * being optimised away.
      */
     @Benchmark
-    fun append(): Long {
+    public fun append(): Long {
         // A full segment is recycled in place — the write position goes back to zero — rather than
         // closed and reopened. That is M-27, and it was not a micro-optimisation: at a kilobyte per
         // record the mapped path fills a gigabyte roughly every quarter second, so a two-second
