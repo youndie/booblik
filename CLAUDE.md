@@ -45,6 +45,8 @@
 
    Закрыта и **M9 — репозиторий, реестр, публикация**: CI зелёный, образ проверяется на каждый
    пуш, `ghcr.io/youndie/booblik:0.1.0` опубликован по тегу, клиент — в reposilite snapshots.
+   С **0.3.3** релизы JVM/Native-модулей едут на **Maven Central** (`sborka.central=true` плюс общий
+   `central.yaml` в sborka); reposilite остался тем местом, где версию пробуют.
 
    Закрыта **M13 — клиенты на других языках**: шесть клиентов (Go, Python + asyncio, Node, .NET,
    Java, Kotlin/Native), каждый и пишет, и читает, каждый отвечает на 14 проверок комплекта

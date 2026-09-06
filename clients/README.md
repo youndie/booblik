@@ -16,7 +16,7 @@ a position the reader has to keep, and a long fetch.
 | [`node/`](node/README.md) | `booblik` on npm | producer, **consumer** | none |
 | [`dotnet/`](dotnet/README.md) | `Booblik` on NuGet | producer, **consumer** | none in the library; xunit for its tests |
 | [`java/`](java/README.md) | `booblik-java` on reposilite | producer, **consumer** | none in the library; JUnit for its tests |
-| [`kotlin-native/`](kotlin-native/README.md) | `booblik-native` on reposilite | producer, **consumer** | none — **a target, not a reimplementation** |
+| [`kotlin-native/`](kotlin-native/README.md) | `booblik-native` on Maven Central | producer, **consumer** | none — **a target, not a reimplementation** |
 
 Five reimplementations plus one target. Kotlin/Native is the odd one out on purpose: its sources
 live in `booblik-native/` in the main Gradle build and it **shares** the codec, the ids and the
