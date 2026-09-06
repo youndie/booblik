@@ -11,7 +11,7 @@ ktlintGradle = "14.2.0"
 # 0.1.1 declared coroutines as `implementation`, so it resolves and then will not compile, and
 # 0.1.2 carried the accumulator that drops a record when its flush timer fires as one arrives —
 # which is what this sample found.
-booblik = "0.2.0"
+booblik = "0.3.1"
 
 [libraries]
 booblik-client = { module = "io.github.youndie.booblik:booblik-client", version.ref = "booblik" }
