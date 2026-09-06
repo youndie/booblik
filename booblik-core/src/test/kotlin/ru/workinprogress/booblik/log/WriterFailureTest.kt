@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.workinprogress.booblik.Offset
@@ -203,7 +204,15 @@ class WriterFailureTest {
             // number. `MappedSegmentWriter` advances its position after all three stores, which is
             // why coming back is starting a loop and not repairing a log.
             assertEquals(Offset(1), after)
-            assertEquals(Offset(2), writer.highWatermark.value)
+            // Waited for, not read. The watermark is published **after** the acknowledgements on
+            // purpose — a reader woken by it must find the records already readable — so a producer
+            // holding its offset may legitimately see a watermark that has not moved yet. Reading it
+            // at that instant asks a question about scheduling: it passed here and failed on a
+            // two-core runner, in the same file where that mistake was corrected this morning.
+            assertNotNull(
+                withTimeoutOrNull(5_000) { writer.highWatermark.first { it == Offset(2) } },
+                "the record written after the resume never became readable",
+            )
             assertEquals(0, writer.mailboxDepth)
             assertEquals(null, writer.failure)
         }
