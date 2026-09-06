@@ -160,6 +160,42 @@ class PartitionUnavailableTest {
     }
 
     @Test
+    fun `a connection dropped before its session starts is not invisible`() {
+        // M-164's shape: a consumer reading `broker closed the connection` several times a second
+        // while the broker's own line said `conns 0 errors 0`. `conns` counts from `serve`, so a
+        // connection that fails in `configure` or `register` moves `acceptFailures` and nothing
+        // else — and that counter was collected since M-64 and printed by nobody. The incident
+        // itself has no reproduction (the reporter kept no offset), so this pins the number being
+        // on screen, which is what the next occurrence needs.
+        val quiet = snapshotWith(acceptFailures = 0)
+        assertTrue(
+            "accept-failed" !in quiet.since(quiet, 1_000),
+            "a broker that refused nothing should not be talking about accept failures",
+        )
+
+        val noisy = snapshotWith(acceptFailures = 7)
+        assertTrue(
+            "accept-failed 7" in noisy.since(noisy, 1_000),
+            "the line hides the only counter that would name this: ${noisy.since(noisy, 1_000)}",
+        )
+    }
+
+    private fun snapshotWith(acceptFailures: Long) =
+        Metrics.Snapshot(
+            produceRequests = 0,
+            fetchRequests = 0,
+            fetchBytes = 0,
+            errors = 0,
+            sessionFailures = 0,
+            connectionsAccepted = acceptFailures,
+            acceptFailures = acceptFailures,
+            heldFetches = 0,
+            connectionsOpened = 0,
+            openConnections = 0,
+            partitions = emptyList(),
+        )
+
+    @Test
     fun `the metrics line names a partition that is refusing`() {
         // The number that was missing. On the published 0.3.0 image the line read
         // `backlog 1 errors 0` while the broker accepted nothing, and nothing in it said which
