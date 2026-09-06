@@ -85,19 +85,19 @@ class PartitionUnavailableTest {
     }
 
     @OptIn(ExperimentalPathApi::class)
-    private fun withBrokenWriter(body: (BooblikClient) -> Unit) {
+    private fun withBrokenWriter(body: (BooblikClient) -> Unit) = withBrokenWriter { client, _ -> body(client) }
+
+    @OptIn(ExperimentalPathApi::class)
+    private fun withBrokenWriter(body: (BooblikClient, PartitionHandle) -> Unit) {
         val dir = Files.createTempDirectory("booblik-unavailable")
         val scope = CoroutineScope(SupervisorJob())
         val log = PartitionLog.open(dir, SegmentMode.FILE_CHANNEL, 1 shl 20)
-        val registry =
-            PartitionRegistry.of(
-                PartitionRegistry.Key(TOPIC, PARTITION) to
-                    PartitionHandle(log, PartitionWriter(FaultingLog(), scope)),
-            )
+        val handle = PartitionHandle(log, PartitionWriter(FaultingLog(), scope))
+        val registry = PartitionRegistry.of(PartitionRegistry.Key(TOPIC, PARTITION) to handle)
         val server = BooblikServer(registry, ServerConfig(port = 0, bindAddress = "127.0.0.1"))
         try {
             val address = server.start()
-            BooblikClient(address).use(body)
+            BooblikClient(address).use { client -> body(client, handle) }
         } finally {
             server.close()
             scope.cancel()
@@ -157,5 +157,60 @@ class PartitionUnavailableTest {
     private companion object {
         val TOPIC = TopicName("orders")
         val PARTITION = PartitionId(0)
+    }
+
+    @Test
+    fun `the metrics line names a partition that is refusing`() {
+        // The number that was missing. On the published 0.3.0 image the line read
+        // `backlog 1 errors 0` while the broker accepted nothing, and nothing in it said which
+        // partition was refusing — or that any was. Health stays green on purpose (a restart does
+        // not fix a full volume, and failing the check would take the working read side out of
+        // service too), so this line is where an operator finds out.
+        withBrokenWriter { client, handle ->
+            val metrics = Metrics()
+            val before = metrics.snapshot(null)
+            assertTrue(
+                "unavailable" !in before.since(before, 1_000),
+                "a healthy broker should not be talking about unavailable partitions",
+            )
+
+            bounded { client.sendProduce(TOPIC, PARTITION, listOf("x".toByteArray())) }
+            bounded { client.receiveProduce() }
+
+            assertTrue(handle.writer.failure != null, "the fixture's writer did not fail")
+            val snapshot =
+                Metrics.Snapshot(
+                    produceRequests = 1,
+                    fetchRequests = 0,
+                    fetchBytes = 0,
+                    errors = 1,
+                    sessionFailures = 0,
+                    connectionsAccepted = 1,
+                    acceptFailures = 0,
+                    heldFetches = 0,
+                    connectionsOpened = 1,
+                    openConnections = 1,
+                    partitions =
+                        listOf(
+                            Metrics.PartitionSnapshot(
+                                topic = TOPIC.value,
+                                partition = PARTITION.value,
+                                logStartOffset = 0,
+                                logEndOffset = 0,
+                                segments = 1,
+                                sizeInBytes = 0,
+                                recordsWritten = handle.writer.recordsWritten,
+                                bytesWritten = handle.writer.bytesWritten,
+                                flushes = handle.writer.flushes,
+                                mailboxDepth = handle.writer.mailboxDepth,
+                                unavailable = handle.writer.failure != null,
+                            ),
+                        ),
+                )
+            assertTrue(
+                "unavailable 1/1" in snapshot.since(snapshot, 1_000),
+                "the line does not say the partition is refusing: ${snapshot.since(snapshot, 1_000)}",
+            )
+        }
     }
 }

@@ -28,6 +28,24 @@ import kotlin.system.exitProcess
  *
  * Exit code 0 means serving. Anything else means not, and the reason goes to stderr — a health
  * check that fails silently turns an outage into a mystery.
+ *
+ * ## What it deliberately does not check
+ *
+ * Whether the partitions are accepting writes. A broker whose volume filled refuses producers and
+ * still reports healthy, and that is the answer rather than an oversight — twice over.
+ *
+ * A failing check gets the process restarted, and a restart does not empty a disk: the broker would
+ * come back, fill again and be killed again, which is a crash loop wearing the costume of a fix.
+ * Since M-165 it is also unnecessary, because the writer comes back by itself once somebody frees
+ * space — the restart was only ever standing in for that.
+ *
+ * And a failing check costs more than it looks. Reads keep working right through a full volume, so
+ * taking the process out of service to signal "cannot write" would also stop the half that still
+ * works.
+ *
+ * What an operator needs here is to *find out*, not to have something restarted: the metrics line
+ * says `unavailable N/M` for as long as any partition is refusing, and `errors` counts every
+ * refusal. See M-161.
  */
 public object Health {
     private const val DEFAULT_TIMEOUT_MILLIS = 5_000

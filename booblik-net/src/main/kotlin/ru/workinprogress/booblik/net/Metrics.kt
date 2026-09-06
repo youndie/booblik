@@ -140,6 +140,7 @@ public class Metrics {
                             bytesWritten = handle.writer.bytesWritten,
                             flushes = handle.writer.flushes,
                             mailboxDepth = handle.writer.mailboxDepth,
+                            unavailable = handle.writer.failure != null,
                         )
                     }.orEmpty(),
         )
@@ -180,9 +181,14 @@ public class Metrics {
             val written = partitions.sumOf { it.recordsWritten } - previous.partitions.sumOf { it.recordsWritten }
             val bytes = partitions.sumOf { it.bytesWritten } - previous.partitions.sumOf { it.bytesWritten }
             val backlog = partitions.sumOf { it.mailboxDepth }
+            // Printed only when there is one, and printed **first** among the counters that follow.
+            // A steady line an operator reads every ten seconds teaches them a shape; a word that
+            // appears only when a partition is refusing breaks that shape on purpose.
+            val unavailable = partitions.count { it.unavailable }
+            val refusing = if (unavailable == 0) "" else " unavailable %d/%d".format(unavailable, partitions.size)
             return (
                 "in %.0f rec/s, %.1f MiB/s | produce %.0f/s fetch %.0f/s (%.1f MiB/s) | " +
-                    "conns %d backlog %d errors %d dropped %d held %d"
+                    "conns %d backlog %d errors %d dropped %d held %d%s"
             ).format(
                 written / seconds,
                 bytes / seconds / 1024 / 1024,
@@ -194,6 +200,7 @@ public class Metrics {
                 errors,
                 sessionFailures,
                 heldFetches,
+                refusing,
             )
         }
     }
@@ -209,5 +216,14 @@ public class Metrics {
         val bytesWritten: Long,
         val flushes: Long,
         val mailboxDepth: Int,
+        /**
+         * True while this partition's writer is stopped and producers are being refused.
+         *
+         * Reads go on working, which is why the broker neither exits nor reports itself unhealthy —
+         * and why this number has to exist. A partition that accepts nothing while the process
+         * looks fine is invisible otherwise: that is what `backlog 1, errors 0` meant on the
+         * published 0.3.0 image, and nothing in the line said which partition, or that any.
+         */
+        val unavailable: Boolean,
     )
 }
