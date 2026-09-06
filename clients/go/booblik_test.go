@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -86,6 +87,36 @@ func TestBrokerRefusalIsAnErrorAndKeepsTheConnection(t *testing.T) {
 	broker.refuse(CodeNone)
 	if _, err := conn.Produce(context.Background(), "orders", 0, [][]byte{[]byte("x")}, AckWritten); err != nil {
 		t.Fatalf("connection was unusable after a refusal: %v", err)
+	}
+}
+
+func TestACodeThisBuildDoesNotKnowIsStillARefusal(t *testing.T) {
+	broker := startFakeBroker(t, 3)
+	// Not hypothetical. A broker answering PARTITION_UNAVAILABLE met a client built before that
+	// code existed, and the producer died on the answer instead of reporting it. Codes are added
+	// to the wire over time, so every build is eventually the old one.
+	broker.refuse(Code(7))
+	conn := dial(t, broker)
+
+	_, err := conn.Produce(context.Background(), "orders", 0, [][]byte{[]byte("x")}, AckWritten)
+
+	var refusal *BrokerError
+	if !errors.As(err, &refusal) {
+		t.Fatalf("expected a refusal, got %v", err)
+	}
+	if refusal.Code != Code(7) {
+		t.Fatalf("the number must survive so a caller can match on it, got %d", refusal.Code)
+	}
+	// The operator is told what arrived rather than that something unnameable happened.
+	if !strings.Contains(err.Error(), "UNKNOWN(7)") {
+		t.Fatalf("the message does not name the code: %v", err)
+	}
+
+	// A refusal it could not name is still only a refusal: framing was intact, so the connection
+	// has to survive it exactly like a known code.
+	broker.refuse(CodeNone)
+	if _, err := conn.Produce(context.Background(), "orders", 0, [][]byte{[]byte("x")}, AckWritten); err != nil {
+		t.Fatalf("connection was unusable after an unknown refusal: %v", err)
 	}
 }
 
