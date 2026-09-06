@@ -30,7 +30,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # node --test against a fake broker that decodes what the client encoded. No
       # `npm install`: this client and its tests have no dependencies at all.
@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       # Java and Gradle in one step and at one version for the portfolio: the action installs 21 and
       # 25 and leaves 25 as the default, which is what this build asks for.

@@ -42,7 +42,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       # Two sources of truth for a version is how a package lands under a number its own manifest
@@ -88,7 +88,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Install from npm
         run: |
