@@ -6,6 +6,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
+import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -44,8 +45,8 @@ import ru.workinprogress.booblik.storage.Log
  */
 public class PartitionWriter(
     private val log: Log,
-    scope: CoroutineScope,
-    mailboxCapacity: Int = DEFAULT_MAILBOX_CAPACITY,
+    private val scope: CoroutineScope,
+    private val mailboxCapacity: Int = DEFAULT_MAILBOX_CAPACITY,
     private val flushPolicy: FlushPolicy = FlushPolicy.Disabled,
     /**
      * How long a group may wait for company before the barrier runs, in milliseconds.
@@ -60,8 +61,21 @@ public class PartitionWriter(
      * something the broker can know. What it costs is measured (замер 22).
      */
     private val groupWindowMillis: Long = 0,
+    /**
+     * How long a failed writer waits before letting a producer try to bring it back.
+     *
+     * Five seconds rather than zero: while the volume is still full every attempt costs a fault,
+     * so the retry rate has to be a constant and not a multiple of the request rate. Five rather
+     * than a minute because the thing on the other side of it is an operator who has just freed
+     * space and is watching to see whether writes come back.
+     */
+    private val resumeCooldownMillis: Long = 5_000,
 ) {
-    private val mailbox = Channel<WriteCommand>(mailboxCapacity)
+    // Replaced on resume rather than reopened: a closed `Channel` stays closed, so coming back from
+    // a fault means a new one. Volatile because a producer reads it on another thread; every use
+    // takes a local copy first, so a swap under a caller cannot leave it half-looking at two.
+    @Volatile
+    private var mailbox = Channel<WriteCommand>(mailboxCapacity)
 
     /**
      * Touched only by the writer coroutine, so plain fields are correct and free. `queued` is the
@@ -123,25 +137,45 @@ public class PartitionWriter(
     /**
      * Why this writer stopped, or null while it is running.
      *
-     * A writer that died cannot be restarted: the mailbox is closed and the loop is gone. What it
-     * can do is say so — [append] refuses immediately instead of blocking on a closed channel, and
-     * the session turns that refusal into an error code the producer can read.
+     * Set by the loop on the way out and cleared by [tryResume]. While it is set, [append] refuses
+     * immediately instead of blocking on a closed channel, and the session turns that refusal into
+     * an error code the producer can read.
      */
     @Volatile
     public var failure: Throwable? = null
         private set
 
-    private val job: Job =
+    /**
+     * Single-flight guard for [tryResume]. A `compareAndSet` rather than a lock, because
+     * `booblik-core` has neither `synchronized` nor `Mutex` and `NoLocksTest` fails the build over
+     * either — see M-62.
+     */
+    private val resuming =
+        java.util.concurrent.atomic
+            .AtomicBoolean(false)
+
+    @Volatile
+    private var lastResumeNanos = 0L
+
+    /** Set by [close], so a writer on the way down is never brought back by a late producer. */
+    @Volatile
+    private var closed = false
+
+    @Volatile
+    private var job: Job = launchLoop()
+
+    private fun launchLoop(): Job =
         scope.launch {
             try {
                 runLoop()
             } catch (cancellation: kotlin.coroutines.cancellation.CancellationException) {
                 throw cancellation
             } catch (broken: Throwable) {
-                // A write that cannot land is not something this loop can recover from — the volume
-                // is full, or the mapping faulted, and the next batch would fault the same way.
-                // What it must not do is disappear quietly: the exception is kept so that every
-                // producer after this one gets an answer rather than a dropped connection.
+                // This loop cannot carry on — the volume is full, or the mapping faulted, and the
+                // next batch in this group would fault the same way. What it must not do is
+                // disappear quietly: the exception is kept so that every producer after this one
+                // gets an answer rather than a dropped connection, and so that [tryResume] knows
+                // there is something to come back from.
                 failure = broken
                 throw broken
             } finally {
@@ -184,16 +218,67 @@ public class PartitionWriter(
         // Checked before the send rather than after it: sending into a closed channel throws
         // `ClosedSendChannelException`, which says the channel is shut but not why — and the caller
         // has to tell "the broker is stopping" from "this partition is broken" to answer at all.
-        failure?.let { throw WriterFailedException(it) }
-        if (policy == AckPolicy.NONE) {
-            queued.incrementAndGet()
-            mailbox.send(WriteCommand(records, policy, ack = null))
-            return null
+        failure?.let { existing ->
+            if (!tryResume()) throw WriterFailedException(existing)
         }
-        val ack = CompletableDeferred<Offset>()
+
+        val ack = if (policy == AckPolicy.NONE) null else CompletableDeferred<Offset>()
+        val outbox = mailbox
         queued.incrementAndGet()
-        mailbox.send(WriteCommand(records, policy, ack))
-        return ack.await()
+        try {
+            outbox.send(WriteCommand(records, policy, ack))
+        } catch (closed: ClosedSendChannelException) {
+            // The writer died between the check above and this send, or a resume swapped the
+            // mailbox under it. Either way this batch never reached the loop, so the loop's drain
+            // will not count it down — this is the one place that has to.
+            queued.decrementAndGet()
+            throw failure?.let { WriterFailedException(it) } ?: WriterClosedException().initCause(closed)
+        }
+        return ack?.await()
+    }
+
+    /**
+     * Brings a failed writer back, if it is worth trying yet.
+     *
+     * The fault this exists for is a full volume: `MAPPED` is the default, and a write into a
+     * mapping whose backing store cannot grow is a SIGBUS the JVM raises as `InternalError`. What
+     * makes coming back safe is where that fault leaves the segment. `MappedSegmentWriter.append`
+     * advances its `written` **after** all three stores, and stores the length prefix **last**, so
+     * a fault leaves the write position exactly where it was and the end-of-log marker exactly
+     * where it was. Nothing was published: the high watermark never moved, and no reader ever saw
+     * the attempt. Resuming is therefore starting a new loop over the same log, not repairing one.
+     *
+     * It does not reopen the log, and that is deliberate. Readers hold the same segments and go on
+     * reading right through the failure — the one thing that still works — and closing the mapping
+     * under them to rebuild it would take that away to buy back writes.
+     *
+     * Attempts are rate-limited to one per [resumeCooldownMillis]. Retrying per request would mean
+     * a SIGBUS per request while the volume is still full; the cooldown makes the cost a constant
+     * rather than a multiple of the load, and the producer that arrives after somebody freed space
+     * still gets its record written rather than a refusal that outlives its cause.
+     *
+     * @return true when the writer is running again — including when another caller resumed it.
+     */
+    private suspend fun tryResume(): Boolean {
+        if (closed) return false
+        val since = System.nanoTime() - lastResumeNanos
+        if (lastResumeNanos != 0L && since < resumeCooldownMillis * NANOS_PER_MILLI) return failure == null
+        if (!resuming.compareAndSet(false, true)) return failure == null
+        try {
+            if (failure == null) return true
+            lastResumeNanos = System.nanoTime()
+            // The old loop set `failure` on its way out, so it is at or past its `finally`. Joined
+            // rather than assumed: swapping the mailbox under a loop that still holds it is how a
+            // batch would land in a channel nobody reads.
+            job.join()
+            if (closed) return false
+            mailbox = Channel(mailboxCapacity)
+            failure = null
+            job = launchLoop()
+            return true
+        } finally {
+            resuming.set(false)
+        }
     }
 
     /** Convenience for the common single-record case. Still goes through the batch path. */
@@ -204,6 +289,7 @@ public class PartitionWriter(
 
     /** Stops accepting new batches and waits for everything already queued to be written. */
     public suspend fun close() {
+        closed = true
         mailbox.close()
         job.join()
     }
@@ -353,6 +439,8 @@ public class PartitionWriter(
     }
 
     public companion object {
+        private const val NANOS_PER_MILLI = 1_000_000L
+
         /**
          * Deep enough that a burst does not immediately block producers, shallow enough that the
          * backlog stays bounded. Once it is full, `send` suspends — which is the correct

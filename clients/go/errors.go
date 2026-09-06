@@ -13,9 +13,10 @@ const (
 	CodeRecordTooLarge          Code = 3
 	CodeUnsupportedVersion      Code = 4
 	CodeCorruptRequest          Code = 5
-	// CodePartitionUnavailable is the partition's writer having died — a full volume being the
-	// case it was added for. Retrying does not help: the writer is gone for the life of the
-	// broker process, and reads from the same partition still work.
+	// CodePartitionUnavailable is the partition's writer having stopped — a full volume being the case
+	// it was added for. Retrying later can help: the broker brings the writer back once somebody frees
+	// space, at most once every few seconds. Retrying in a tight loop cannot. Reads from the same
+	// partition work throughout.
 	CodePartitionUnavailable Code = 6
 )
 

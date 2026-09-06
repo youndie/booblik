@@ -11,8 +11,10 @@ public enum Code : short
     CorruptRequest = 5,
 
     /// <summary>
-    /// The partition's writer died — a full volume being the case it was added for. Retrying does
-    /// not help; reads from the same partition still work.
+    /// The partition's writer stopped — a full volume being the case it was added for. Retrying
+    /// later can help: the broker tries to bring the writer back once somebody frees space, at most
+    /// once every few seconds. Retrying in a tight loop cannot. Reads from the same partition work
+    /// throughout.
     /// </summary>
     PartitionUnavailable = 6,
 }
