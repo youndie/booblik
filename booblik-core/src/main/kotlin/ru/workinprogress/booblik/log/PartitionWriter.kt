@@ -149,14 +149,20 @@ class PartitionWriter(
                 // scope is the ordinary way this coroutine ends, and it must not strand producers.
                 mailbox.close()
                 val why = failure?.let { WriterFailedException(it) } ?: WriterClosedException()
-                for (pending in inFlight) {
+                // Counted down **before** anyone is woken, and that order is the whole point: the
+                // completion is what releases the producer, and a producer that has its answer is
+                // free to read the backlog on the very next instruction. Waking first left a window
+                // in which a refused batch was still counted as queued — small, real, and exactly
+                // the number this failure made undiagnosable in the first place (issue #15).
+                val stranded = inFlight
+                queued.addAndGet(-stranded.size)
+                inFlight = emptyList()
+                for (pending in stranded) {
                     pending.ack?.completeExceptionally(why)
                 }
-                queued.addAndGet(-inFlight.size)
-                inFlight = emptyList()
                 for (pending in generateSequence { mailbox.tryReceive().getOrNull() }) {
-                    pending.ack?.completeExceptionally(why)
                     queued.decrementAndGet()
+                    pending.ack?.completeExceptionally(why)
                 }
             }
         }
@@ -230,11 +236,14 @@ class PartitionWriter(
 
             // Acknowledged only after the barrier, and only after every write in the group — a
             // producer that hears "written" must not be able to observe a log that disagrees.
+            // The count goes down first for the same reason it does on the failure path: the
+            // acknowledgement releases the producer, so anything it may then read has to be true
+            // already.
+            queued.addAndGet(-group.size)
+            inFlight = emptyList()
             for (command in group) {
                 command.ack?.complete(command.baseOffset!!)
             }
-            queued.addAndGet(-group.size)
-            inFlight = emptyList()
             group.clear()
             // After the acks, not before: a reader woken by this must find the records already
             // readable, and `Log.nextOffset` is what makes them so.
