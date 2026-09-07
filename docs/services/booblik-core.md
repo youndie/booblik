@@ -39,7 +39,7 @@ zero-copy-пути, см. [protocol-wire](../api/protocol-wire.md).
 
 | Файл | Что там |
 |---|---|
-| `src/main/kotlin/ru/workinprogress/booblik/Ids.kt` | `Offset`, `Position`, `TopicName`, `PartitionId` |
+| `src/main/kotlin/io/github/youndie/booblik/Ids.kt` | `Offset`, `Position`, `TopicName`, `PartitionId` |
 | `.../storage/Log.kt` | то, что видит писатель: `append` / `force` / `nextOffset` |
 | `.../storage/SegmentWriter.kt` | интерфейс записи; здесь же правило про долговечность |
 | `.../storage/FileChannelSegmentWriter.kt` | запись через `FileChannel`, gathering write |
@@ -64,7 +64,7 @@ zero-copy-пути, см. [protocol-wire](../api/protocol-wire.md).
 для пользователя, а предмет замера (решение Р1). Умолчание — `MAPPED` с M-45; `FILE_CHANNEL`
 остаётся рабочим режимом и путём отката, и данные читаются в обе стороны (`ModeMigrationTest`). Ничто выше `SegmentWriter` не должно уметь их
 различать, и тесты
-[`LogSegmentTest`](../../booblik-core/src/test/kotlin/ru/workinprogress/booblik/storage/LogSegmentTest.kt)
+[`LogSegmentTest`](../../booblik-core/src/test/kotlin/io/github/youndie/booblik/storage/LogSegmentTest.kt)
 гоняют оба режима через один и тот же набор утверждений именно для того, чтобы это оставалось
 правдой.
 

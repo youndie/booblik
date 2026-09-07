@@ -1,9 +1,9 @@
-public final class ru/workinprogress/booblik/Position : java/lang/Comparable {
-	public static final field Companion Lru/workinprogress/booblik/Position$Companion;
-	public static final synthetic fun box-impl (I)Lru/workinprogress/booblik/Position;
+public final class io/github/youndie/booblik/Position : java/lang/Comparable {
+	public static final field Companion Lio/github/youndie/booblik/Position$Companion;
+	public static final synthetic fun box-impl (I)Lio/github/youndie/booblik/Position;
 	public synthetic fun compareTo (Ljava/lang/Object;)I
-	public fun compareTo-8A5L4xw (I)I
-	public static fun compareTo-8A5L4xw (II)I
+	public fun compareTo-1YtfeZo (I)I
+	public static fun compareTo-1YtfeZo (II)I
 	public static fun constructor-impl (I)I
 	public fun equals (Ljava/lang/Object;)Z
 	public static fun equals-impl (ILjava/lang/Object;)Z
@@ -11,25 +11,25 @@ public final class ru/workinprogress/booblik/Position : java/lang/Comparable {
 	public final fun getValue ()I
 	public fun hashCode ()I
 	public static fun hashCode-impl (I)I
-	public static final fun plus-qM1PzYc (II)I
+	public static final fun plus-QbQz2Cc (II)I
 	public fun toString ()Ljava/lang/String;
 	public static fun toString-impl (I)Ljava/lang/String;
 	public final synthetic fun unbox-impl ()I
 }
 
-public final class ru/workinprogress/booblik/Position$Companion {
-	public final fun getZERO-zKT0D7o ()I
+public final class io/github/youndie/booblik/Position$Companion {
+	public final fun getZERO-W8ixn3c ()I
 }
 
-public final class ru/workinprogress/booblik/log/FlushPolicy {
-	public static final field Companion Lru/workinprogress/booblik/log/FlushPolicy$Companion;
+public final class io/github/youndie/booblik/log/FlushPolicy {
+	public static final field Companion Lio/github/youndie/booblik/log/FlushPolicy$Companion;
 	public fun <init> ()V
 	public fun <init> (Ljava/lang/Long;Ljava/lang/Long;)V
 	public synthetic fun <init> (Ljava/lang/Long;Ljava/lang/Long;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/lang/Long;
 	public final fun component2 ()Ljava/lang/Long;
-	public final fun copy (Ljava/lang/Long;Ljava/lang/Long;)Lru/workinprogress/booblik/log/FlushPolicy;
-	public static synthetic fun copy$default (Lru/workinprogress/booblik/log/FlushPolicy;Ljava/lang/Long;Ljava/lang/Long;ILjava/lang/Object;)Lru/workinprogress/booblik/log/FlushPolicy;
+	public final fun copy (Ljava/lang/Long;Ljava/lang/Long;)Lio/github/youndie/booblik/log/FlushPolicy;
+	public static synthetic fun copy$default (Lio/github/youndie/booblik/log/FlushPolicy;Ljava/lang/Long;Ljava/lang/Long;ILjava/lang/Object;)Lio/github/youndie/booblik/log/FlushPolicy;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getEveryMillis ()Ljava/lang/Long;
 	public final fun getEveryRecords ()Ljava/lang/Long;
@@ -38,19 +38,19 @@ public final class ru/workinprogress/booblik/log/FlushPolicy {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class ru/workinprogress/booblik/log/FlushPolicy$Companion {
-	public final fun getDisabled ()Lru/workinprogress/booblik/log/FlushPolicy;
+public final class io/github/youndie/booblik/log/FlushPolicy$Companion {
+	public final fun getDisabled ()Lio/github/youndie/booblik/log/FlushPolicy;
 }
 
-public final class ru/workinprogress/booblik/log/PartitionWriter {
-	public static final field Companion Lru/workinprogress/booblik/log/PartitionWriter$Companion;
+public final class io/github/youndie/booblik/log/PartitionWriter {
+	public static final field Companion Lio/github/youndie/booblik/log/PartitionWriter$Companion;
 	public static final field DEFAULT_MAILBOX_CAPACITY I
-	public fun <init> (Lru/workinprogress/booblik/storage/Log;Lkotlinx/coroutines/CoroutineScope;ILru/workinprogress/booblik/log/FlushPolicy;JJ)V
-	public synthetic fun <init> (Lru/workinprogress/booblik/storage/Log;Lkotlinx/coroutines/CoroutineScope;ILru/workinprogress/booblik/log/FlushPolicy;JJILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun append-YokPrsk (Ljava/util/List;Lru/workinprogress/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public final fun append-YokPrsk ([BLru/workinprogress/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public static synthetic fun append-YokPrsk$default (Lru/workinprogress/booblik/log/PartitionWriter;Ljava/util/List;Lru/workinprogress/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
-	public static synthetic fun append-YokPrsk$default (Lru/workinprogress/booblik/log/PartitionWriter;[BLru/workinprogress/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public fun <init> (Lio/github/youndie/booblik/storage/Log;Lkotlinx/coroutines/CoroutineScope;ILio/github/youndie/booblik/log/FlushPolicy;JJ)V
+	public synthetic fun <init> (Lio/github/youndie/booblik/storage/Log;Lkotlinx/coroutines/CoroutineScope;ILio/github/youndie/booblik/log/FlushPolicy;JJILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun append-m1LcINo (Ljava/util/List;Lio/github/youndie/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun append-m1LcINo ([BLio/github/youndie/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun append-m1LcINo$default (Lio/github/youndie/booblik/log/PartitionWriter;Ljava/util/List;Lio/github/youndie/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public static synthetic fun append-m1LcINo$default (Lio/github/youndie/booblik/log/PartitionWriter;[BLio/github/youndie/booblik/log/AckPolicy;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
 	public final fun close (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun getBytesWritten ()J
 	public final fun getFailure ()Ljava/lang/Throwable;
@@ -60,178 +60,178 @@ public final class ru/workinprogress/booblik/log/PartitionWriter {
 	public final fun getRecordsWritten ()J
 }
 
-public final class ru/workinprogress/booblik/log/PartitionWriter$Companion {
+public final class io/github/youndie/booblik/log/PartitionWriter$Companion {
 }
 
-public final class ru/workinprogress/booblik/log/WriterClosedException : java/lang/IllegalStateException {
+public final class io/github/youndie/booblik/log/WriterClosedException : java/lang/IllegalStateException {
 	public fun <init> ()V
 }
 
-public final class ru/workinprogress/booblik/log/WriterFailedException : java/lang/IllegalStateException {
+public final class io/github/youndie/booblik/log/WriterFailedException : java/lang/IllegalStateException {
 	public fun <init> (Ljava/lang/Throwable;)V
 }
 
-public final class ru/workinprogress/booblik/storage/CorruptRecordException : java/lang/IllegalStateException {
+public final class io/github/youndie/booblik/storage/CorruptRecordException : java/lang/IllegalStateException {
 	public synthetic fun <init> (JJILkotlin/jvm/internal/DefaultConstructorMarker;)V
 }
 
-public final class ru/workinprogress/booblik/storage/FileChannelSegmentWriter : ru/workinprogress/booblik/storage/SegmentWriter {
+public final class io/github/youndie/booblik/storage/FileChannelSegmentWriter : io/github/youndie/booblik/storage/SegmentWriter {
 	public fun <init> (Ljava/nio/channels/FileChannel;II)V
 	public synthetic fun <init> (Ljava/nio/channels/FileChannel;IIILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun append-ls4KlFE ([BII)I
+	public fun append-vnJUOpk ([BII)I
 	public fun close ()V
 	public fun force ()V
 	public fun getCapacity ()I
-	public fun getSize-zKT0D7o ()I
+	public fun getSize-W8ixn3c ()I
 	public fun hasRoomFor (I)Z
-	public fun truncateTo-8A5L4xw (I)V
+	public fun truncateTo-1YtfeZo (I)V
 }
 
-public abstract interface class ru/workinprogress/booblik/storage/Log {
-	public abstract fun append-khgh5Gw ([BII)J
-	public static synthetic fun append-khgh5Gw$default (Lru/workinprogress/booblik/storage/Log;[BIIILjava/lang/Object;)J
+public abstract interface class io/github/youndie/booblik/storage/Log {
+	public abstract fun append-c2ONQLA ([BII)J
+	public static synthetic fun append-c2ONQLA$default (Lio/github/youndie/booblik/storage/Log;[BIIILjava/lang/Object;)J
 	public abstract fun force ()V
-	public abstract fun getNextOffset-SgWxkiU ()J
+	public abstract fun getNextOffset-GL_zwBA ()J
 	public abstract fun hasRoomFor (I)Z
 }
 
-public final class ru/workinprogress/booblik/storage/Log$DefaultImpls {
-	public static synthetic fun append-khgh5Gw$default (Lru/workinprogress/booblik/storage/Log;[BIIILjava/lang/Object;)J
+public final class io/github/youndie/booblik/storage/Log$DefaultImpls {
+	public static synthetic fun append-c2ONQLA$default (Lio/github/youndie/booblik/storage/Log;[BIIILjava/lang/Object;)J
 }
 
-public final class ru/workinprogress/booblik/storage/LogSegment : java/io/Closeable, ru/workinprogress/booblik/storage/Log {
-	public static final field Companion Lru/workinprogress/booblik/storage/LogSegment$Companion;
+public final class io/github/youndie/booblik/storage/LogSegment : io/github/youndie/booblik/storage/Log, java/io/Closeable {
+	public static final field Companion Lio/github/youndie/booblik/storage/LogSegment$Companion;
 	public static final field DEFAULT_CAPACITY I
 	public final fun acquire ()Z
-	public fun append-khgh5Gw ([BII)J
+	public fun append-c2ONQLA ([BII)J
 	public fun close ()V
 	public fun force ()V
-	public final fun getBaseOffset-SgWxkiU ()J
+	public final fun getBaseOffset-GL_zwBA ()J
 	public final fun getFile ()Ljava/nio/file/Path;
-	public fun getNextOffset-SgWxkiU ()J
+	public fun getNextOffset-GL_zwBA ()J
 	public final fun getRetired ()Z
-	public final fun getSize-zKT0D7o ()I
+	public final fun getSize-W8ixn3c ()I
 	public fun hasRoomFor (I)Z
 	public final fun isFull ()Z
-	public final fun positionOf-LliU-58 (J)Lru/workinprogress/booblik/Position;
-	public final fun read-0rT4OEU (J)[B
-	public final fun readInto-j7Syzm0 (ILjava/nio/ByteBuffer;)I
+	public final fun positionOf-GGI8cvI (J)Lio/github/youndie/booblik/Position;
+	public final fun read-wL3PA38 (J)[B
+	public final fun readInto-Jy03gx0 (ILjava/nio/ByteBuffer;)I
 	public final fun release ()V
 	public final fun retire ()V
-	public final fun transferTo-JYsEA18 (IILjava/nio/channels/WritableByteChannel;)J
-	public final fun truncateTo-0rT4OEU (J)V
+	public final fun transferTo-f9gICzc (IILjava/nio/channels/WritableByteChannel;)J
+	public final fun truncateTo-wL3PA38 (J)V
 }
 
-public final class ru/workinprogress/booblik/storage/LogSegment$Companion {
-	public final fun fileName-0rT4OEU (J)Ljava/lang/String;
-	public final fun open-5puDwSE (Ljava/nio/file/Path;JLru/workinprogress/booblik/storage/SegmentMode;II)Lru/workinprogress/booblik/storage/LogSegment;
-	public static synthetic fun open-5puDwSE$default (Lru/workinprogress/booblik/storage/LogSegment$Companion;Ljava/nio/file/Path;JLru/workinprogress/booblik/storage/SegmentMode;IIILjava/lang/Object;)Lru/workinprogress/booblik/storage/LogSegment;
+public final class io/github/youndie/booblik/storage/LogSegment$Companion {
+	public final fun fileName-wL3PA38 (J)Ljava/lang/String;
+	public final fun open-jxW03Jg (Ljava/nio/file/Path;JLio/github/youndie/booblik/storage/SegmentMode;II)Lio/github/youndie/booblik/storage/LogSegment;
+	public static synthetic fun open-jxW03Jg$default (Lio/github/youndie/booblik/storage/LogSegment$Companion;Ljava/nio/file/Path;JLio/github/youndie/booblik/storage/SegmentMode;IIILjava/lang/Object;)Lio/github/youndie/booblik/storage/LogSegment;
 }
 
-public final class ru/workinprogress/booblik/storage/MappedSegmentWriter : ru/workinprogress/booblik/storage/SegmentWriter {
+public final class io/github/youndie/booblik/storage/MappedSegmentWriter : io/github/youndie/booblik/storage/SegmentWriter {
 	public fun <init> (Ljava/nio/channels/FileChannel;II)V
 	public synthetic fun <init> (Ljava/nio/channels/FileChannel;IIILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public fun append-ls4KlFE ([BII)I
+	public fun append-vnJUOpk ([BII)I
 	public fun close ()V
 	public fun force ()V
 	public fun getCapacity ()I
-	public fun getSize-zKT0D7o ()I
+	public fun getSize-W8ixn3c ()I
 	public fun hasRoomFor (I)Z
-	public fun truncateTo-8A5L4xw (I)V
+	public fun truncateTo-1YtfeZo (I)V
 }
 
-public final class ru/workinprogress/booblik/storage/PartitionLog : java/io/Closeable, ru/workinprogress/booblik/storage/Log {
-	public static final field Companion Lru/workinprogress/booblik/storage/PartitionLog$Companion;
-	public fun append-khgh5Gw ([BII)J
+public final class io/github/youndie/booblik/storage/PartitionLog : io/github/youndie/booblik/storage/Log, java/io/Closeable {
+	public static final field Companion Lio/github/youndie/booblik/storage/PartitionLog$Companion;
+	public fun append-c2ONQLA ([BII)J
 	public fun close ()V
 	public fun force ()V
-	public final fun getActiveSegment ()Lru/workinprogress/booblik/storage/LogSegment;
-	public final fun getLogStartOffset-SgWxkiU ()J
-	public fun getNextOffset-SgWxkiU ()J
+	public final fun getActiveSegment ()Lio/github/youndie/booblik/storage/LogSegment;
+	public final fun getLogStartOffset-GL_zwBA ()J
+	public fun getNextOffset-GL_zwBA ()J
 	public final fun getSegmentCount ()I
 	public final fun getSizeInBytes ()J
 	public fun hasRoomFor (I)Z
-	public final fun openFetch-nHkojbE (JI)Lru/workinprogress/booblik/storage/PartitionLog$FetchSlice;
-	public final fun read-0rT4OEU (J)[B
+	public final fun openFetch-lTBKpmI (JI)Lio/github/youndie/booblik/storage/PartitionLog$FetchSlice;
+	public final fun read-wL3PA38 (J)[B
 	public final fun retainAtMost (J)I
 	public final fun retainNewerThan (JJ)I
-	public final fun roll ()Lru/workinprogress/booblik/storage/LogSegment;
-	public final fun segmentFor-0rT4OEU (J)Lru/workinprogress/booblik/storage/LogSegment;
-	public final fun transferTo-CdBgCq0 (JILjava/nio/channels/WritableByteChannel;)J
+	public final fun roll ()Lio/github/youndie/booblik/storage/LogSegment;
+	public final fun segmentFor-wL3PA38 (J)Lio/github/youndie/booblik/storage/LogSegment;
+	public final fun transferTo-zi_YN3E (JILjava/nio/channels/WritableByteChannel;)J
 }
 
-public final class ru/workinprogress/booblik/storage/PartitionLog$Companion {
-	public final fun open (Ljava/nio/file/Path;Lru/workinprogress/booblik/storage/SegmentMode;II)Lru/workinprogress/booblik/storage/PartitionLog;
-	public static synthetic fun open$default (Lru/workinprogress/booblik/storage/PartitionLog$Companion;Ljava/nio/file/Path;Lru/workinprogress/booblik/storage/SegmentMode;IIILjava/lang/Object;)Lru/workinprogress/booblik/storage/PartitionLog;
+public final class io/github/youndie/booblik/storage/PartitionLog$Companion {
+	public final fun open (Ljava/nio/file/Path;Lio/github/youndie/booblik/storage/SegmentMode;II)Lio/github/youndie/booblik/storage/PartitionLog;
+	public static synthetic fun open$default (Lio/github/youndie/booblik/storage/PartitionLog$Companion;Ljava/nio/file/Path;Lio/github/youndie/booblik/storage/SegmentMode;IIILjava/lang/Object;)Lio/github/youndie/booblik/storage/PartitionLog;
 }
 
-public final class ru/workinprogress/booblik/storage/PartitionLog$FetchSlice : java/io/Closeable {
+public final class io/github/youndie/booblik/storage/PartitionLog$FetchSlice : java/io/Closeable {
 	public fun close ()V
 	public final fun getBytes ()I
-	public final fun getPosition-zKT0D7o ()I
-	public final fun getSegment ()Lru/workinprogress/booblik/storage/LogSegment;
+	public final fun getPosition-W8ixn3c ()I
+	public final fun getSegment ()Lio/github/youndie/booblik/storage/LogSegment;
 }
 
-public final class ru/workinprogress/booblik/storage/SegmentMode : java/lang/Enum {
-	public static final field FILE_CHANNEL Lru/workinprogress/booblik/storage/SegmentMode;
-	public static final field MAPPED Lru/workinprogress/booblik/storage/SegmentMode;
+public final class io/github/youndie/booblik/storage/SegmentMode : java/lang/Enum {
+	public static final field FILE_CHANNEL Lio/github/youndie/booblik/storage/SegmentMode;
+	public static final field MAPPED Lio/github/youndie/booblik/storage/SegmentMode;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lru/workinprogress/booblik/storage/SegmentMode;
-	public static fun values ()[Lru/workinprogress/booblik/storage/SegmentMode;
+	public static fun valueOf (Ljava/lang/String;)Lio/github/youndie/booblik/storage/SegmentMode;
+	public static fun values ()[Lio/github/youndie/booblik/storage/SegmentMode;
 }
 
-public abstract interface class ru/workinprogress/booblik/storage/SegmentWriter : java/io/Closeable {
+public abstract interface class io/github/youndie/booblik/storage/SegmentWriter : java/io/Closeable {
 	public static final field CRC_BYTES I
-	public static final field Companion Lru/workinprogress/booblik/storage/SegmentWriter$Companion;
+	public static final field Companion Lio/github/youndie/booblik/storage/SegmentWriter$Companion;
 	public static final field LENGTH_BYTES I
 	public static final field RECORD_HEADER I
-	public abstract fun append-ls4KlFE ([BII)I
-	public static synthetic fun append-ls4KlFE$default (Lru/workinprogress/booblik/storage/SegmentWriter;[BIIILjava/lang/Object;)I
+	public abstract fun append-vnJUOpk ([BII)I
+	public static synthetic fun append-vnJUOpk$default (Lio/github/youndie/booblik/storage/SegmentWriter;[BIIILjava/lang/Object;)I
 	public abstract fun force ()V
 	public abstract fun getCapacity ()I
-	public abstract fun getSize-zKT0D7o ()I
+	public abstract fun getSize-W8ixn3c ()I
 	public fun hasRoomFor (I)Z
-	public abstract fun truncateTo-8A5L4xw (I)V
+	public abstract fun truncateTo-1YtfeZo (I)V
 }
 
-public final class ru/workinprogress/booblik/storage/SegmentWriter$Companion {
+public final class io/github/youndie/booblik/storage/SegmentWriter$Companion {
 	public static final field CRC_BYTES I
 	public static final field LENGTH_BYTES I
 	public static final field RECORD_HEADER I
 	public final fun checksum ([BII)I
 }
 
-public final class ru/workinprogress/booblik/storage/SegmentWriter$DefaultImpls {
-	public static synthetic fun append-ls4KlFE$default (Lru/workinprogress/booblik/storage/SegmentWriter;[BIIILjava/lang/Object;)I
-	public static fun hasRoomFor (Lru/workinprogress/booblik/storage/SegmentWriter;I)Z
+public final class io/github/youndie/booblik/storage/SegmentWriter$DefaultImpls {
+	public static synthetic fun append-vnJUOpk$default (Lio/github/youndie/booblik/storage/SegmentWriter;[BIIILjava/lang/Object;)I
+	public static fun hasRoomFor (Lio/github/youndie/booblik/storage/SegmentWriter;I)Z
 }
 
-public final class ru/workinprogress/booblik/storage/SparseOffsetIndex {
-	public static final field Companion Lru/workinprogress/booblik/storage/SparseOffsetIndex$Companion;
+public final class io/github/youndie/booblik/storage/SparseOffsetIndex {
+	public static final field Companion Lio/github/youndie/booblik/storage/SparseOffsetIndex$Companion;
 	public static final field DEFAULT_INTERVAL_BYTES I
 	public static final field DEFAULT_MAX_ENTRIES I
 	public synthetic fun <init> (JIIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public synthetic fun <init> (JIILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun append-fbV8y7c (JII)Z
-	public final fun getBaseOffset-SgWxkiU ()J
+	public final fun append--7-7M5g (JII)Z
+	public final fun getBaseOffset-GL_zwBA ()J
 	public final fun getEntryCount ()I
 	public final fun isFull ()Z
-	public final fun lookup-0rT4OEU (J)Lru/workinprogress/booblik/storage/SparseOffsetIndex$IndexEntry;
-	public final fun truncateTo-0rT4OEU (J)V
+	public final fun lookup-wL3PA38 (J)Lio/github/youndie/booblik/storage/SparseOffsetIndex$IndexEntry;
+	public final fun truncateTo-wL3PA38 (J)V
 }
 
-public final class ru/workinprogress/booblik/storage/SparseOffsetIndex$Companion {
+public final class io/github/youndie/booblik/storage/SparseOffsetIndex$Companion {
 }
 
-public final class ru/workinprogress/booblik/storage/SparseOffsetIndex$IndexEntry {
+public final class io/github/youndie/booblik/storage/SparseOffsetIndex$IndexEntry {
 	public synthetic fun <init> (JILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-SgWxkiU ()J
-	public final fun component2-zKT0D7o ()I
-	public final fun copy-SAsllR8 (JI)Lru/workinprogress/booblik/storage/SparseOffsetIndex$IndexEntry;
-	public static synthetic fun copy-SAsllR8$default (Lru/workinprogress/booblik/storage/SparseOffsetIndex$IndexEntry;JIILjava/lang/Object;)Lru/workinprogress/booblik/storage/SparseOffsetIndex$IndexEntry;
+	public final fun component1-GL_zwBA ()J
+	public final fun component2-W8ixn3c ()I
+	public final fun copy-a7SlNio (JI)Lio/github/youndie/booblik/storage/SparseOffsetIndex$IndexEntry;
+	public static synthetic fun copy-a7SlNio$default (Lio/github/youndie/booblik/storage/SparseOffsetIndex$IndexEntry;JIILjava/lang/Object;)Lio/github/youndie/booblik/storage/SparseOffsetIndex$IndexEntry;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getOffset-SgWxkiU ()J
-	public final fun getPosition-zKT0D7o ()I
+	public final fun getOffset-GL_zwBA ()J
+	public final fun getPosition-W8ixn3c ()I
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }

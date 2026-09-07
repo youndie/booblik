@@ -1,0 +1,89 @@
+package io.github.youndie.booblik.net.client
+
+import io.github.youndie.booblik.Offset
+import io.github.youndie.booblik.PartitionId
+import io.github.youndie.booblik.TopicName
+import io.github.youndie.booblik.log.AckPolicy
+import io.github.youndie.booblik.net.wire.MetadataResult
+import io.github.youndie.booblik.net.wire.ProduceResult
+import io.github.youndie.booblik.net.wire.RequestEncoder
+import java.io.Closeable
+import java.net.InetSocketAddress
+import java.net.StandardSocketOptions
+import java.nio.ByteBuffer
+import java.nio.channels.SocketChannel
+
+/**
+ * The low-level client: one socket, blocking, no bookkeeping.
+ *
+ * Sending and receiving are separate calls so that requests can be pipelined by hand — which is
+ * what the load harness wants, and what a test that needs to prove response *ordering* needs.
+ * Anything wanting a producer or a consumer should use [Producer] and [Consumer] instead; this is
+ * the layer they are built on.
+ */
+public class BooblikClient(
+    address: InetSocketAddress,
+) : Closeable {
+    private val channel =
+        SocketChannel.open(address).apply {
+            setOption(StandardSocketOptions.TCP_NODELAY, true)
+        }
+
+    /** Where this client is talking from and to. Diagnostics only — a connection that cannot say
+     * which socket pair it is makes every network failure a guess (M-64). */
+    public val localAddress: java.net.SocketAddress? get() = runCatching { channel.localAddress }.getOrNull()
+    public val remoteAddress: java.net.SocketAddress? get() = runCatching { channel.remoteAddress }.getOrNull()
+
+    private var nextCorrelationId = 1
+
+    /** Queues a PRODUCE. Returns the correlation id, or null with [AckPolicy.NONE] — no answer comes. */
+    public fun sendProduce(
+        topic: TopicName,
+        partition: PartitionId,
+        records: List<ByteArray>,
+        ackPolicy: AckPolicy = AckPolicy.WRITTEN,
+    ): Int? {
+        val correlationId = nextCorrelationId++
+        writeFully(ByteBuffer.wrap(RequestEncoder.produce(correlationId, topic, partition, records, ackPolicy)))
+        return if (ackPolicy == AckPolicy.NONE) null else correlationId
+    }
+
+    /** Queues a FETCH and returns its correlation id. */
+    public fun sendFetch(
+        topic: TopicName,
+        partition: PartitionId,
+        fetchOffset: Offset,
+        maxBytes: Int,
+        maxWaitMillis: Int = 0,
+        minBytes: Int = 0,
+    ): Int {
+        val correlationId = nextCorrelationId++
+        writeFully(
+            ByteBuffer.wrap(
+                RequestEncoder.fetch(correlationId, topic, partition, fetchOffset, maxBytes, maxWaitMillis, minBytes),
+            ),
+        )
+        return correlationId
+    }
+
+    /** Asks what exists. Empty [topics] means "everything". */
+    public fun sendMetadata(topics: List<TopicName> = emptyList()): Int {
+        val correlationId = nextCorrelationId++
+        writeFully(ByteBuffer.wrap(RequestEncoder.metadata(correlationId, topics)))
+        return correlationId
+    }
+
+    public fun receiveMetadata(): MetadataResult = ResponseReader.metadata(ResponseReader.readFrame(channel))
+
+    public fun receiveProduce(): ProduceResult = ResponseReader.produce(ResponseReader.readFrame(channel))
+
+    public fun receiveFetch(): FetchResult = ResponseReader.fetch(ResponseReader.readFrame(channel))
+
+    private fun writeFully(buffer: ByteBuffer) {
+        while (buffer.hasRemaining()) channel.write(buffer)
+    }
+
+    override fun close() {
+        channel.close()
+    }
+}

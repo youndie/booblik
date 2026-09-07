@@ -22,7 +22,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("ru.workinprogress.booblik.conformance.MainKt")
+    mainClass.set("io.github.youndie.booblik.conformance.MainKt")
     // Not the broker's runtime profile. This is a short-lived process that starts once per check,
     // and a 64 MiB heap with SerialGC would be describing a JVM nobody is measuring here.
 }

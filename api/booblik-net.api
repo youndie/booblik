@@ -1,58 +1,58 @@
-public final class ru/workinprogress/booblik/net/BooblikServer : java/io/Closeable {
-	public fun <init> (Lru/workinprogress/booblik/net/PartitionRegistry;Lru/workinprogress/booblik/net/ServerConfig;Lru/workinprogress/booblik/net/Metrics;)V
-	public synthetic fun <init> (Lru/workinprogress/booblik/net/PartitionRegistry;Lru/workinprogress/booblik/net/ServerConfig;Lru/workinprogress/booblik/net/Metrics;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+public final class io/github/youndie/booblik/net/BooblikServer : java/io/Closeable {
+	public fun <init> (Lio/github/youndie/booblik/net/PartitionRegistry;Lio/github/youndie/booblik/net/ServerConfig;Lio/github/youndie/booblik/net/Metrics;)V
+	public synthetic fun <init> (Lio/github/youndie/booblik/net/PartitionRegistry;Lio/github/youndie/booblik/net/ServerConfig;Lio/github/youndie/booblik/net/Metrics;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun close ()V
 	public final fun getAddress ()Ljava/net/InetSocketAddress;
-	public final fun getMetrics ()Lru/workinprogress/booblik/net/Metrics;
+	public final fun getMetrics ()Lio/github/youndie/booblik/net/Metrics;
 	public final fun start ()Ljava/net/InetSocketAddress;
 }
 
-public final class ru/workinprogress/booblik/net/Broker : java/io/Closeable {
-	public static final field Companion Lru/workinprogress/booblik/net/Broker$Companion;
+public final class io/github/youndie/booblik/net/Broker : java/io/Closeable {
+	public static final field Companion Lio/github/youndie/booblik/net/Broker$Companion;
 	public final fun applyRetention (Ljava/lang/Long;J)I
-	public static synthetic fun applyRetention$default (Lru/workinprogress/booblik/net/Broker;Ljava/lang/Long;JILjava/lang/Object;)I
+	public static synthetic fun applyRetention$default (Lio/github/youndie/booblik/net/Broker;Ljava/lang/Long;JILjava/lang/Object;)I
 	public fun close ()V
 	public final fun getPartitions ()Ljava/util/List;
-	public final fun getRegistry ()Lru/workinprogress/booblik/net/PartitionRegistry;
-	public final fun handle-EY0p_5M (Ljava/lang/String;I)Lru/workinprogress/booblik/net/PartitionHandle;
+	public final fun getRegistry ()Lio/github/youndie/booblik/net/PartitionRegistry;
+	public final fun handle-goti_M8 (Ljava/lang/String;I)Lio/github/youndie/booblik/net/PartitionHandle;
 }
 
-public final class ru/workinprogress/booblik/net/Broker$Companion {
-	public final fun directoryName-EY0p_5M (Ljava/lang/String;I)Ljava/lang/String;
-	public final fun open (Ljava/nio/file/Path;Ljava/util/Map;Lru/workinprogress/booblik/net/BrokerConfig;)Lru/workinprogress/booblik/net/Broker;
-	public static synthetic fun open$default (Lru/workinprogress/booblik/net/Broker$Companion;Ljava/nio/file/Path;Ljava/util/Map;Lru/workinprogress/booblik/net/BrokerConfig;ILjava/lang/Object;)Lru/workinprogress/booblik/net/Broker;
+public final class io/github/youndie/booblik/net/Broker$Companion {
+	public final fun directoryName-goti_M8 (Ljava/lang/String;I)Ljava/lang/String;
+	public final fun open (Ljava/nio/file/Path;Ljava/util/Map;Lio/github/youndie/booblik/net/BrokerConfig;)Lio/github/youndie/booblik/net/Broker;
+	public static synthetic fun open$default (Lio/github/youndie/booblik/net/Broker$Companion;Ljava/nio/file/Path;Ljava/util/Map;Lio/github/youndie/booblik/net/BrokerConfig;ILjava/lang/Object;)Lio/github/youndie/booblik/net/Broker;
 }
 
-public final class ru/workinprogress/booblik/net/BrokerConfig {
+public final class io/github/youndie/booblik/net/BrokerConfig {
 	public fun <init> ()V
-	public fun <init> (Lru/workinprogress/booblik/storage/SegmentMode;IILru/workinprogress/booblik/log/FlushPolicy;Ljava/lang/Long;)V
-	public synthetic fun <init> (Lru/workinprogress/booblik/storage/SegmentMode;IILru/workinprogress/booblik/log/FlushPolicy;Ljava/lang/Long;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1 ()Lru/workinprogress/booblik/storage/SegmentMode;
+	public fun <init> (Lio/github/youndie/booblik/storage/SegmentMode;IILio/github/youndie/booblik/log/FlushPolicy;Ljava/lang/Long;)V
+	public synthetic fun <init> (Lio/github/youndie/booblik/storage/SegmentMode;IILio/github/youndie/booblik/log/FlushPolicy;Ljava/lang/Long;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lio/github/youndie/booblik/storage/SegmentMode;
 	public final fun component2 ()I
 	public final fun component3 ()I
-	public final fun component4 ()Lru/workinprogress/booblik/log/FlushPolicy;
+	public final fun component4 ()Lio/github/youndie/booblik/log/FlushPolicy;
 	public final fun component5 ()Ljava/lang/Long;
-	public final fun copy (Lru/workinprogress/booblik/storage/SegmentMode;IILru/workinprogress/booblik/log/FlushPolicy;Ljava/lang/Long;)Lru/workinprogress/booblik/net/BrokerConfig;
-	public static synthetic fun copy$default (Lru/workinprogress/booblik/net/BrokerConfig;Lru/workinprogress/booblik/storage/SegmentMode;IILru/workinprogress/booblik/log/FlushPolicy;Ljava/lang/Long;ILjava/lang/Object;)Lru/workinprogress/booblik/net/BrokerConfig;
+	public final fun copy (Lio/github/youndie/booblik/storage/SegmentMode;IILio/github/youndie/booblik/log/FlushPolicy;Ljava/lang/Long;)Lio/github/youndie/booblik/net/BrokerConfig;
+	public static synthetic fun copy$default (Lio/github/youndie/booblik/net/BrokerConfig;Lio/github/youndie/booblik/storage/SegmentMode;IILio/github/youndie/booblik/log/FlushPolicy;Ljava/lang/Long;ILjava/lang/Object;)Lio/github/youndie/booblik/net/BrokerConfig;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getFlushPolicy ()Lru/workinprogress/booblik/log/FlushPolicy;
+	public final fun getFlushPolicy ()Lio/github/youndie/booblik/log/FlushPolicy;
 	public final fun getIndexIntervalBytes ()I
 	public final fun getRetainedBytesPerPartition ()Ljava/lang/Long;
 	public final fun getSegmentCapacity ()I
-	public final fun getSegmentMode ()Lru/workinprogress/booblik/storage/SegmentMode;
+	public final fun getSegmentMode ()Lio/github/youndie/booblik/storage/SegmentMode;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class ru/workinprogress/booblik/net/FetchMode : java/lang/Enum {
-	public static final field HEAP Lru/workinprogress/booblik/net/FetchMode;
-	public static final field ZERO_COPY Lru/workinprogress/booblik/net/FetchMode;
+public final class io/github/youndie/booblik/net/FetchMode : java/lang/Enum {
+	public static final field HEAP Lio/github/youndie/booblik/net/FetchMode;
+	public static final field ZERO_COPY Lio/github/youndie/booblik/net/FetchMode;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lru/workinprogress/booblik/net/FetchMode;
-	public static fun values ()[Lru/workinprogress/booblik/net/FetchMode;
+	public static fun valueOf (Ljava/lang/String;)Lio/github/youndie/booblik/net/FetchMode;
+	public static fun values ()[Lio/github/youndie/booblik/net/FetchMode;
 }
 
-public final class ru/workinprogress/booblik/net/Metrics {
+public final class io/github/youndie/booblik/net/Metrics {
 	public fun <init> ()V
 	public final fun getLastAcceptFailure ()Ljava/lang/Throwable;
 	public final fun getLastSessionFailure ()Ljava/lang/Throwable;
@@ -66,10 +66,10 @@ public final class ru/workinprogress/booblik/net/Metrics {
 	public final fun onFetchReleased ()V
 	public final fun onProduce ()V
 	public final fun onSessionFailure (Ljava/lang/Throwable;)V
-	public final fun snapshot (Lru/workinprogress/booblik/net/Broker;)Lru/workinprogress/booblik/net/Metrics$Snapshot;
+	public final fun snapshot (Lio/github/youndie/booblik/net/Broker;)Lio/github/youndie/booblik/net/Metrics$Snapshot;
 }
 
-public final class ru/workinprogress/booblik/net/Metrics$PartitionSnapshot {
+public final class io/github/youndie/booblik/net/Metrics$PartitionSnapshot {
 	public fun <init> (Ljava/lang/String;IJJIJJJJIZ)V
 	public final fun component1 ()Ljava/lang/String;
 	public final fun component10 ()I
@@ -82,8 +82,8 @@ public final class ru/workinprogress/booblik/net/Metrics$PartitionSnapshot {
 	public final fun component7 ()J
 	public final fun component8 ()J
 	public final fun component9 ()J
-	public final fun copy (Ljava/lang/String;IJJIJJJJIZ)Lru/workinprogress/booblik/net/Metrics$PartitionSnapshot;
-	public static synthetic fun copy$default (Lru/workinprogress/booblik/net/Metrics$PartitionSnapshot;Ljava/lang/String;IJJIJJJJIZILjava/lang/Object;)Lru/workinprogress/booblik/net/Metrics$PartitionSnapshot;
+	public final fun copy (Ljava/lang/String;IJJIJJJJIZ)Lio/github/youndie/booblik/net/Metrics$PartitionSnapshot;
+	public static synthetic fun copy$default (Lio/github/youndie/booblik/net/Metrics$PartitionSnapshot;Ljava/lang/String;IJJIJJJJIZILjava/lang/Object;)Lio/github/youndie/booblik/net/Metrics$PartitionSnapshot;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBytesWritten ()J
 	public final fun getFlushes ()J
@@ -100,7 +100,7 @@ public final class ru/workinprogress/booblik/net/Metrics$PartitionSnapshot {
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class ru/workinprogress/booblik/net/Metrics$Snapshot {
+public final class io/github/youndie/booblik/net/Metrics$Snapshot {
 	public fun <init> (JJJJJJJJJJLjava/util/List;)V
 	public final fun component1 ()J
 	public final fun component10 ()J
@@ -113,8 +113,8 @@ public final class ru/workinprogress/booblik/net/Metrics$Snapshot {
 	public final fun component7 ()J
 	public final fun component8 ()J
 	public final fun component9 ()J
-	public final fun copy (JJJJJJJJJJLjava/util/List;)Lru/workinprogress/booblik/net/Metrics$Snapshot;
-	public static synthetic fun copy$default (Lru/workinprogress/booblik/net/Metrics$Snapshot;JJJJJJJJJJLjava/util/List;ILjava/lang/Object;)Lru/workinprogress/booblik/net/Metrics$Snapshot;
+	public final fun copy (JJJJJJJJJJLjava/util/List;)Lio/github/youndie/booblik/net/Metrics$Snapshot;
+	public static synthetic fun copy$default (Lio/github/youndie/booblik/net/Metrics$Snapshot;JJJJJJJJJJLjava/util/List;ILjava/lang/Object;)Lio/github/youndie/booblik/net/Metrics$Snapshot;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getAcceptFailures ()J
 	public final fun getConnectionsAccepted ()J
@@ -128,103 +128,103 @@ public final class ru/workinprogress/booblik/net/Metrics$Snapshot {
 	public final fun getProduceRequests ()J
 	public final fun getSessionFailures ()J
 	public fun hashCode ()I
-	public final fun since (Lru/workinprogress/booblik/net/Metrics$Snapshot;J)Ljava/lang/String;
+	public final fun since (Lio/github/youndie/booblik/net/Metrics$Snapshot;J)Ljava/lang/String;
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class ru/workinprogress/booblik/net/PartitionHandle {
-	public fun <init> (Lru/workinprogress/booblik/storage/PartitionLog;Lru/workinprogress/booblik/log/PartitionWriter;)V
-	public final fun getLog ()Lru/workinprogress/booblik/storage/PartitionLog;
-	public final fun getWriter ()Lru/workinprogress/booblik/log/PartitionWriter;
+public final class io/github/youndie/booblik/net/PartitionHandle {
+	public fun <init> (Lio/github/youndie/booblik/storage/PartitionLog;Lio/github/youndie/booblik/log/PartitionWriter;)V
+	public final fun getLog ()Lio/github/youndie/booblik/storage/PartitionLog;
+	public final fun getWriter ()Lio/github/youndie/booblik/log/PartitionWriter;
 }
 
-public final class ru/workinprogress/booblik/net/PartitionRegistry {
-	public static final field Companion Lru/workinprogress/booblik/net/PartitionRegistry$Companion;
+public final class io/github/youndie/booblik/net/PartitionRegistry {
+	public static final field Companion Lio/github/youndie/booblik/net/PartitionRegistry$Companion;
 	public fun <init> (Ljava/util/Map;)V
 	public final fun describe ()Ljava/util/Map;
-	public final fun find-EY0p_5M (Ljava/lang/String;I)Lru/workinprogress/booblik/net/PartitionHandle;
+	public final fun find-goti_M8 (Ljava/lang/String;I)Lio/github/youndie/booblik/net/PartitionHandle;
 }
 
-public final class ru/workinprogress/booblik/net/PartitionRegistry$Companion {
-	public final fun of ([Lkotlin/Pair;)Lru/workinprogress/booblik/net/PartitionRegistry;
+public final class io/github/youndie/booblik/net/PartitionRegistry$Companion {
+	public final fun of ([Lkotlin/Pair;)Lio/github/youndie/booblik/net/PartitionRegistry;
 }
 
-public final class ru/workinprogress/booblik/net/PartitionRegistry$Key {
+public final class io/github/youndie/booblik/net/PartitionRegistry$Key {
 	public synthetic fun <init> (Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
-	public final fun component1-CPONTrc ()Ljava/lang/String;
-	public final fun component2-6_o2rbo ()I
-	public final fun copy-EY0p_5M (Ljava/lang/String;I)Lru/workinprogress/booblik/net/PartitionRegistry$Key;
-	public static synthetic fun copy-EY0p_5M$default (Lru/workinprogress/booblik/net/PartitionRegistry$Key;Ljava/lang/String;IILjava/lang/Object;)Lru/workinprogress/booblik/net/PartitionRegistry$Key;
+	public final fun component1-M5IsQYU ()Ljava/lang/String;
+	public final fun component2-_mLlVWc ()I
+	public final fun copy-goti_M8 (Ljava/lang/String;I)Lio/github/youndie/booblik/net/PartitionRegistry$Key;
+	public static synthetic fun copy-goti_M8$default (Lio/github/youndie/booblik/net/PartitionRegistry$Key;Ljava/lang/String;IILjava/lang/Object;)Lio/github/youndie/booblik/net/PartitionRegistry$Key;
 	public fun equals (Ljava/lang/Object;)Z
-	public final fun getPartition-6_o2rbo ()I
-	public final fun getTopic-CPONTrc ()Ljava/lang/String;
+	public final fun getPartition-_mLlVWc ()I
+	public final fun getTopic-M5IsQYU ()Ljava/lang/String;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class ru/workinprogress/booblik/net/ServerConfig {
+public final class io/github/youndie/booblik/net/ServerConfig {
 	public fun <init> ()V
-	public fun <init> (ILjava/lang/String;Lru/workinprogress/booblik/net/Transport;Lru/workinprogress/booblik/net/FetchMode;ZI)V
-	public synthetic fun <init> (ILjava/lang/String;Lru/workinprogress/booblik/net/Transport;Lru/workinprogress/booblik/net/FetchMode;ZIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (ILjava/lang/String;Lio/github/youndie/booblik/net/Transport;Lio/github/youndie/booblik/net/FetchMode;ZI)V
+	public synthetic fun <init> (ILjava/lang/String;Lio/github/youndie/booblik/net/Transport;Lio/github/youndie/booblik/net/FetchMode;ZIILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()I
 	public final fun component2 ()Ljava/lang/String;
-	public final fun component3 ()Lru/workinprogress/booblik/net/Transport;
-	public final fun component4 ()Lru/workinprogress/booblik/net/FetchMode;
+	public final fun component3 ()Lio/github/youndie/booblik/net/Transport;
+	public final fun component4 ()Lio/github/youndie/booblik/net/FetchMode;
 	public final fun component5 ()Z
 	public final fun component6 ()I
-	public final fun copy (ILjava/lang/String;Lru/workinprogress/booblik/net/Transport;Lru/workinprogress/booblik/net/FetchMode;ZI)Lru/workinprogress/booblik/net/ServerConfig;
-	public static synthetic fun copy$default (Lru/workinprogress/booblik/net/ServerConfig;ILjava/lang/String;Lru/workinprogress/booblik/net/Transport;Lru/workinprogress/booblik/net/FetchMode;ZIILjava/lang/Object;)Lru/workinprogress/booblik/net/ServerConfig;
+	public final fun copy (ILjava/lang/String;Lio/github/youndie/booblik/net/Transport;Lio/github/youndie/booblik/net/FetchMode;ZI)Lio/github/youndie/booblik/net/ServerConfig;
+	public static synthetic fun copy$default (Lio/github/youndie/booblik/net/ServerConfig;ILjava/lang/String;Lio/github/youndie/booblik/net/Transport;Lio/github/youndie/booblik/net/FetchMode;ZIILjava/lang/Object;)Lio/github/youndie/booblik/net/ServerConfig;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getBacklog ()I
 	public final fun getBindAddress ()Ljava/lang/String;
-	public final fun getFetchMode ()Lru/workinprogress/booblik/net/FetchMode;
+	public final fun getFetchMode ()Lio/github/youndie/booblik/net/FetchMode;
 	public final fun getPort ()I
 	public final fun getTcpNoDelay ()Z
-	public final fun getTransport ()Lru/workinprogress/booblik/net/Transport;
+	public final fun getTransport ()Lio/github/youndie/booblik/net/Transport;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
 }
 
-public final class ru/workinprogress/booblik/net/Session {
-	public fun <init> (Lru/workinprogress/booblik/net/nio/Connection;Lru/workinprogress/booblik/net/PartitionRegistry;Lru/workinprogress/booblik/net/FetchMode;Lru/workinprogress/booblik/net/Metrics;)V
-	public synthetic fun <init> (Lru/workinprogress/booblik/net/nio/Connection;Lru/workinprogress/booblik/net/PartitionRegistry;Lru/workinprogress/booblik/net/FetchMode;Lru/workinprogress/booblik/net/Metrics;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+public final class io/github/youndie/booblik/net/Session {
+	public fun <init> (Lio/github/youndie/booblik/net/nio/Connection;Lio/github/youndie/booblik/net/PartitionRegistry;Lio/github/youndie/booblik/net/FetchMode;Lio/github/youndie/booblik/net/Metrics;)V
+	public synthetic fun <init> (Lio/github/youndie/booblik/net/nio/Connection;Lio/github/youndie/booblik/net/PartitionRegistry;Lio/github/youndie/booblik/net/FetchMode;Lio/github/youndie/booblik/net/Metrics;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun serve (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
-public final class ru/workinprogress/booblik/net/Transport : java/lang/Enum {
-	public static final field SELECTOR Lru/workinprogress/booblik/net/Transport;
-	public static final field VIRTUAL_THREADS Lru/workinprogress/booblik/net/Transport;
+public final class io/github/youndie/booblik/net/Transport : java/lang/Enum {
+	public static final field SELECTOR Lio/github/youndie/booblik/net/Transport;
+	public static final field VIRTUAL_THREADS Lio/github/youndie/booblik/net/Transport;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
-	public static fun valueOf (Ljava/lang/String;)Lru/workinprogress/booblik/net/Transport;
-	public static fun values ()[Lru/workinprogress/booblik/net/Transport;
+	public static fun valueOf (Ljava/lang/String;)Lio/github/youndie/booblik/net/Transport;
+	public static fun values ()[Lio/github/youndie/booblik/net/Transport;
 }
 
-public final class ru/workinprogress/booblik/net/nio/BlockingConnection : ru/workinprogress/booblik/net/nio/Connection {
+public final class io/github/youndie/booblik/net/nio/BlockingConnection : io/github/youndie/booblik/net/nio/Connection {
 	public fun <init> (Ljava/nio/channels/SocketChannel;)V
 	public fun close ()V
 	public fun getTransferTarget ()Ljava/nio/channels/WritableByteChannel;
 	public fun readFully (Ljava/nio/ByteBuffer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public fun transferFrom-wfs8u4I (Lru/workinprogress/booblik/storage/LogSegment;IILkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun transferFrom-bEjxrkU (Lio/github/youndie/booblik/storage/LogSegment;IILkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun writeFully (Ljava/nio/ByteBuffer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
-public abstract interface class ru/workinprogress/booblik/net/nio/Connection : java/io/Closeable {
+public abstract interface class io/github/youndie/booblik/net/nio/Connection : java/io/Closeable {
 	public abstract fun getTransferTarget ()Ljava/nio/channels/WritableByteChannel;
 	public abstract fun readFully (Ljava/nio/ByteBuffer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public abstract fun transferFrom-wfs8u4I (Lru/workinprogress/booblik/storage/LogSegment;IILkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public abstract fun transferFrom-bEjxrkU (Lio/github/youndie/booblik/storage/LogSegment;IILkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun writeFully (Ljava/nio/ByteBuffer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
-public final class ru/workinprogress/booblik/net/nio/SelectorConnection : ru/workinprogress/booblik/net/nio/Connection {
-	public fun <init> (Ljava/nio/channels/SocketChannel;Ljava/nio/channels/SelectionKey;Lru/workinprogress/booblik/net/nio/SelectorLoop;)V
+public final class io/github/youndie/booblik/net/nio/SelectorConnection : io/github/youndie/booblik/net/nio/Connection {
+	public fun <init> (Ljava/nio/channels/SocketChannel;Ljava/nio/channels/SelectionKey;Lio/github/youndie/booblik/net/nio/SelectorLoop;)V
 	public fun close ()V
 	public fun getTransferTarget ()Ljava/nio/channels/WritableByteChannel;
 	public fun readFully (Ljava/nio/ByteBuffer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
-	public fun transferFrom-wfs8u4I (Lru/workinprogress/booblik/storage/LogSegment;IILkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun transferFrom-bEjxrkU (Lio/github/youndie/booblik/storage/LogSegment;IILkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun writeFully (Ljava/nio/ByteBuffer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
-public final class ru/workinprogress/booblik/net/nio/SelectorLoop : java/io/Closeable {
+public final class io/github/youndie/booblik/net/nio/SelectorLoop : java/io/Closeable {
 	public fun <init> ()V
 	public final fun awaitAcceptable (Ljava/nio/channels/SelectionKey;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun awaitReadable (Ljava/nio/channels/SelectionKey;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;

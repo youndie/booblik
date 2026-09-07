@@ -109,7 +109,7 @@ underlying channel». Проверено по API-дампу и исходник
 **Следствие.** Брокер удаляет отставшие сегменты по расписанию — то есть управляет ровно тем
 временем жизни, которое `MappedByteBuffer` отдаёт на усмотрение GC. Kafka обходит это `Unsafe`-ом
 (§1.1); на тулчейне JDK 25 обходить нечего. Поэтому маппинг здесь — FFM, а не `MappedByteBuffer`.
-Реализация: [`MappedSegmentWriter`](../../booblik-core/src/main/kotlin/ru/workinprogress/booblik/storage/MappedSegmentWriter.kt).
+Реализация: [`MappedSegmentWriter`](../../booblik-core/src/main/kotlin/io/github/youndie/booblik/storage/MappedSegmentWriter.kt).
 
 ### 1.6 `value class` в generic-позиции боксится — и именно там, где драфт обещал ноль аллокаций
 
@@ -157,7 +157,7 @@ Kotlin манглит имя функции, возвращающей value clas
 
 M0 показал барьер через маппинг в 63 раза дешевле барьера через `FileChannel` и оставил вопрос
 «дешевле за счёт чего» открытым. Ответ получен прямым экспериментом
-([`DurabilityProbe`](../../booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/probe/DurabilityProbe.kt)):
+([`DurabilityProbe`](../../booblik-benchmark/src/main/kotlin/io/github/youndie/booblik/benchmark/probe/DurabilityProbe.kt)):
 если `msync` действительно сделал данные долговечными, то следующий за ним `fsync` не найдёт
 работы и будет почти бесплатным.
 
@@ -193,7 +193,7 @@ WSL2-машина. Там `force()` — это `F_FULLFSYNC`, и известн�
 
 **Следствие 1.** На APFS `msync` возвращает управление, когда работа `fsync` ещё не сделана.
 Это не барьер долговечности. Поэтому
-[`MappedSegmentWriter.force()`](../../booblik-core/src/main/kotlin/ru/workinprogress/booblik/storage/MappedSegmentWriter.kt)
+[`MappedSegmentWriter.force()`](../../booblik-core/src/main/kotlin/io/github/youndie/booblik/storage/MappedSegmentWriter.kt)
 теперь зовёт **оба**, и `FORCED` означает одно и то же на обоих путях записи.
 
 **Следствие 2.** Заодно объясняется, откуда в M0 взялись «63 раза»: `msync` стоит пропорционально
@@ -224,7 +224,7 @@ WSL2-машина. Там `force()` — это `F_FULLFSYNC`, и известн�
 
 Риск 1 был сформулирован как предсказание: короткий замер на свежем каталоге — самый выгодный
 для маппинга случай, а на дистанции он должен просесть, причём ступенькой.
-[`SustainedWriteProbe`](../../booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/probe/SustainedWriteProbe.kt)
+[`SustainedWriteProbe`](../../booblik-benchmark/src/main/kotlin/io/github/youndie/booblik/benchmark/probe/SustainedWriteProbe.kt)
 пишет минуту, объёмом в несколько раз больше ОЗУ машины, и печатает пропускную способность
 посекундно.
 
@@ -533,7 +533,7 @@ JVM не ходит в `malloc`, а direct-буферов у нас 4 байта
 
 Драфт: запись только через `MappedByteBuffer`, «скорость ограничена только скоростью RAM».
 Решение: интерфейс
-[`SegmentWriter`](../../booblik-core/src/main/kotlin/ru/workinprogress/booblik/storage/SegmentWriter.kt)
+[`SegmentWriter`](../../booblik-core/src/main/kotlin/io/github/youndie/booblik/storage/SegmentWriter.kt)
 с двумя реализациями — `FileChannelSegmentWriter` и `MappedSegmentWriter`. Умолчание —
 `FILE_CHANNEL`, и оно меняется тогда, когда это скажет
 [бенчмарк](../benchmarking.md), а не раньше.
@@ -594,7 +594,7 @@ Linux (замер 10) перевернул первую, M-60 сняла дов�
 
 Драфт, Milestone 2: `ConcurrentSkipListMap<Offset, Position>`, запись на каждое сообщение.
 Решение:
-[`SparseOffsetIndex`](../../booblik-core/src/main/kotlin/ru/workinprogress/booblik/storage/SparseOffsetIndex.kt) —
+[`SparseOffsetIndex`](../../booblik-core/src/main/kotlin/io/github/youndie/booblik/storage/SparseOffsetIndex.kt) —
 одна запись на каждые 4 КиБ лога, элемент — примитивный `Long` (относительный оффсет в старших
 32 битах, позиция в младших), поиск двоичный, дальше — проход вперёд по префиксам длин.
 
@@ -655,7 +655,7 @@ Linux (замер 10) перевернул первую, M-60 сняла дов�
 ### Р4. Долговечность — явная политика, а не побочный эффект
 
 Драфт про `fsync` не говорит ничего, а «ОС сама сбросит грязные страницы» звучит как гарантия.
-Решение: [`SegmentWriter.force()`](../../booblik-core/src/main/kotlin/ru/workinprogress/booblik/storage/SegmentWriter.kt)
+Решение: [`SegmentWriter.force()`](../../booblik-core/src/main/kotlin/io/github/youndie/booblik/storage/SegmentWriter.kt)
 есть у обеих реализаций, политика вызова — параметр, и **любая цифра пропускной способности
 обязана называть режим, в котором она снята**.
 

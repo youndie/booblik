@@ -145,7 +145,7 @@ probes.forEach { (task, description) ->
     tasks.register<JavaExec>(task) {
         group = "verification"
         this.description = description
-        mainClass.set("ru.workinprogress.booblik.benchmark.probe.${task.removePrefix("probe")}Probe")
+        mainClass.set("io.github.youndie.booblik.benchmark.probe.${task.removePrefix("probe")}Probe")
         classpath = sourceSets["main"].runtimeClasspath
         // Arguments come from `-Pargs="..."` so a probe can be pointed at the other write path
         // without editing it.

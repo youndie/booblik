@@ -66,7 +66,7 @@ tags: [storage, mvp]
 
 | Модуль | Код |
 |---|---|
-| booblik-core | `src/main/kotlin/ru/workinprogress/booblik/storage/LogSegment.kt` — сборка всего вместе |
+| booblik-core | `src/main/kotlin/io/github/youndie/booblik/storage/LogSegment.kt` — сборка всего вместе |
 | booblik-core | `.../storage/SegmentWriter.kt` — контракт записи и правило про долговечность |
 | booblik-core | `.../storage/SparseOffsetIndex.kt` — поиск позиции по оффсету |
 | booblik-core | `src/test/kotlin/.../storage/LogSegmentTest.kt` — сценарии ниже |

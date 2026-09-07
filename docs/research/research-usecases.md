@@ -31,7 +31,7 @@ date: 2026-08-11
 | В booblik ключа на проводе нет: PRODUCE несёт `partitionId`, `ackPolicy`, `recordCount` и записи вида `[int32 length][payload]` | [protocol-wire](../api/protocol-wire.md) §3 |
 | Ключ используется **только на стороне клиента** — для выбора партиции | `booblik-client/.../client/Publishing.kt`, `TopicHandle.partitionFor` |
 | `OffsetStore` объявлен и не реализован; единственные реализации — `NoopStore` в пробе и заглушка в тесте | `booblik-client/.../client/Subscription.kt:232`, поиск по репозиторию |
-| Брокер не хранит позиций потребителей и не знает о них | [Subscription.kt:37](../../booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Subscription.kt), `Metrics.kt:25` |
+| Брокер не хранит позиций потребителей и не знает о них | [Subscription.kt:37](../../booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/Subscription.kt), `Metrics.kt:25` |
 
 **Оговорка.** Факты про Kafka взяты из исходников её документации в `apache/kafka` — это первоисточник,
 но он описывает Kafka, а не индустрию. Утверждения вида «так делают все» ниже не встречаются: там,

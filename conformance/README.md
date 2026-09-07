@@ -59,7 +59,7 @@ library is a first-class thing rather than a client failing four checks for ever
 *everything* was skipped is a failure, not a pass.
 
 The reference implementation is
-[`booblik-conformance`](../booblik-conformance/src/main/kotlin/ru/workinprogress/booblik/conformance/Main.kt);
+[`booblik-conformance`](../booblik-conformance/src/main/kotlin/io/github/youndie/booblik/conformance/Main.kt);
 read it for what a real answer looks like.
 
 ## Traps the checks are aimed at
