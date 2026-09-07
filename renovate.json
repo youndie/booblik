@@ -1,32 +1,19 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
   "description": [
+    "The portfolio's shared configuration, extended by name: the Monday batch, the limits, the labels,",
+    "the kotlin/kotlinx/ci-actions groups, the kotlinx-datetime guard and majors going to a human. The",
+    "`github actions` rule written here is gone with it — the preset's `ci actions` group is the same",
+    "rule, and it groups majors too.",
     "Grouped by what a reviewer has to think about at once, not by ecosystem for its own sake.",
-    "Ten separate pull requests for one afternoon's updates is not ten decisions \u2014 it is one",
-    "decision taken ten times, and the one that actually mattered hid among the others."
+    "Ten separate pull requests for one afternoon's updates is not ten decisions — it is one",
+    "decision taken ten times, and the one that actually mattered hid among the others.",
+    "Automerge (`github>youndie/sborka:automerge-harness`) is not extended: nothing merges itself here",
+    "today. Its precondition holds — build.yml and the client workflows run on `pull_request` — so it",
+    "can be added as its own change."
   ],
+  "extends": ["github>youndie/sborka"],
   "packageRules": [
-    {
-      "description": [
-        "Runner images and actions. These are reviewed the same way whatever the version jump \u2014",
-        "does CI still go green \u2014 so they arrive together. The exception that cannot be reviewed",
-        "that way is the runner label in publish.yml: no check on a pull request ever runs that",
-        "workflow, so its label is first exercised by the next publish."
-      ],
-      "groupName": "github actions",
-      "matchManagers": [
-        "github-actions"
-      ],
-      "matchUpdateTypes": [
-        "major",
-        "minor",
-        "patch",
-        "digest"
-      ]
-    },
     {
       "description": [
         "The .NET client's test-side packages: xunit, the test SDK, coverlet. The dotnet gate",
@@ -39,12 +26,12 @@
     },
     {
       "description": [
-        "Everything the JVM build resolves \u2014 the version catalog and Gradle plugins. Majors stay out:",
+        "Everything the JVM build resolves — the version catalog and Gradle plugins. Majors stay out:",
         "a major here changes how the whole portfolio is built or tested, and that is a decision rather",
         "than a bump. sborka is carved back out by the rule below, which is placed after this one on",
         "purpose: package rules are merged in order and the last groupName wins. Written as ordering",
         "rather than as an exclusion because the exclusion Renovate accepts here is not the one its",
-        "config validator accepts \u2014 `matchPackageNames: ['*', '!/regex/']` passes validation offline",
+        "config validator accepts — `matchPackageNames: ['*', '!/regex/']` passes validation offline",
         "and is refused by the bot itself."
       ],
       "groupName": "jvm dependencies",
@@ -64,11 +51,16 @@
         "applied in settings.gradle.kts and the rest come from the catalog's version ref; they",
         "share a classloader, so a pull request that moves one and not the other leaves the build",
         "with 0.2.x settings and 0.1.x conventions. Renovate raised exactly that split on",
-        "2026-09-06 (#32 and #36), and nothing in either pull request said the other existed."
+        "2026-09-06 (#32 and #36), and nothing in either pull request said the other existed.",
+        "The preset carries this rule too, but it cannot be relied on here: the preset's rules come",
+        "BEFORE this file's, so `jvm dependencies` above would take the non-major sborka updates back.",
+        "Hence the rule stays, in this position, and names both group ids — `ru.workinprogress.sborka`",
+        "is what this repository pins today, `io.github.youndie.sborka` is where the plugins moved."
       ],
       "groupName": "sborka",
       "matchPackageNames": [
-        "/^ru\\.workinprogress\\.sborka/"
+        "/^ru\\.workinprogress\\.sborka/",
+        "/^io\\.github\\.youndie\\.sborka/"
       ],
       "matchUpdateTypes": [
         "major",
