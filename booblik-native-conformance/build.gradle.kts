@@ -21,13 +21,13 @@ kotlin {
     listOf(linuxX64(), macosArm64()).forEach { target ->
         target.binaries.executable {
             baseName = "conformance"
-            entryPoint = "ru.workinprogress.booblik.native.conformance.main"
+            entryPoint = "io.github.youndie.booblik.native.conformance.main"
         }
         // The accumulator's measurement (M-134а). A second binary in the same module because it
         // needs the same thing the conformance client does — a real broker and no publishing.
         target.binaries.executable("probe") {
             baseName = "probe"
-            entryPoint = "ru.workinprogress.booblik.native.conformance.probe"
+            entryPoint = "io.github.youndie.booblik.native.conformance.probe"
         }
     }
 

@@ -108,9 +108,9 @@ jobs:
           cat > Smoke.java <<'SMOKE'
           import java.util.Arrays;
           import java.util.List;
-          import ru.workinprogress.booblik.java.AckPolicy;
-          import ru.workinprogress.booblik.java.Connection;
-          import ru.workinprogress.booblik.java.Fetched;
+          import io.github.youndie.booblik.java.AckPolicy;
+          import io.github.youndie.booblik.java.Connection;
+          import io.github.youndie.booblik.java.Fetched;
 
           public class Smoke {
               public static void main(String[] args) {

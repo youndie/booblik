@@ -13,7 +13,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("ru.workinprogress.booblik.app.MainKt")
+    mainClass.set("io.github.youndie.booblik.app.MainKt")
     // The broker's own footprint, not the build's. Same list as the tests and the benchmarks run
     // under — a runnable artifact that starts with different flags than everything was measured
     // with would make every number in docs/benchmarking.md describe something else.
@@ -30,7 +30,7 @@ application {
  */
 val healthScripts =
     tasks.register<CreateStartScripts>("healthStartScripts") {
-        mainClass.set("ru.workinprogress.booblik.app.Health")
+        mainClass.set("io.github.youndie.booblik.app.Health")
         applicationName = "booblik-health"
         outputDir =
             layout.buildDirectory

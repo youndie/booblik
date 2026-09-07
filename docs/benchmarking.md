@@ -43,7 +43,7 @@ date: 2026-08-10
 передаёт форку аргументы хостовой JVM. Это поведение JMH, а не наше, и оно может измениться
 с версией — а отказ будет тихим: бенчмарк продолжит работать и выдаст правдоподобные числа для
 JVM, которую никто не собирается разворачивать. Поэтому
-[`RuntimeFootprint`](../booblik-benchmark/src/main/kotlin/ru/workinprogress/booblik/benchmark/RuntimeFootprint.kt)
+[`RuntimeFootprint`](../booblik-benchmark/src/main/kotlin/io/github/youndie/booblik/benchmark/RuntimeFootprint.kt)
 валит прогон, если флагов нет, и печатает фактический список в шапке отчёта.
 
 Два флага стоит держать в голове при чтении чисел:
@@ -1196,7 +1196,7 @@ round-trip METADATA, — то есть она должна проигрыват�
 почти не влияет (16,4–16,8 млн выдач/с при батче от 1 до 100), и это ровно то, чего следовало
 ожидать: цена платится за **выдачу**, а не за запись.
 
-Отсюда прямое следствие для API — то самое, ради которого [`RecordBatch`](../booblik-client/src/main/kotlin/ru/workinprogress/booblik/net/client/Subscription.kt)
+Отсюда прямое следствие для API — то самое, ради которого [`RecordBatch`](../booblik-client/src/main/kotlin/io/github/youndie/booblik/net/client/Subscription.kt)
 отдаёт батч, а не запись:
 
 | Батч | `flow { }` на запись | с `buffer()` на запись |

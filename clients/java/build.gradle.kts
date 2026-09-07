@@ -59,7 +59,7 @@ val conformanceJar by tasks.registering(Jar::class) {
     archiveClassifier = "conformance"
     from(sourceSets.main.get().output)
     manifest {
-        attributes["Main-Class"] = "ru.workinprogress.booblik.java.Conformance"
+        attributes["Main-Class"] = "io.github.youndie.booblik.java.Conformance"
     }
 }
 
