@@ -9,5 +9,5 @@ dependencies {
 }
 
 application {
-    mainClass.set("io.github.youndie.booblik.dev.relay.MainKt")
+    mainClass.set("ru.workinprogress.booblik.dev.relay.MainKt")
 }

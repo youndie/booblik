@@ -7,7 +7,7 @@ dependencies {
 }
 
 application {
-    mainClass.set("io.github.youndie.booblik.dev.queue.MainKt")
+    mainClass.set("ru.workinprogress.booblik.dev.queue.MainKt")
 }
 
 /*
@@ -18,7 +18,7 @@ application {
  */
 val reportScripts =
     tasks.register<CreateStartScripts>("reportStartScripts") {
-        mainClass.set("io.github.youndie.booblik.dev.queue.Report")
+        mainClass.set("ru.workinprogress.booblik.dev.queue.Report")
         applicationName = "queue-report"
         outputDir =
             layout.buildDirectory

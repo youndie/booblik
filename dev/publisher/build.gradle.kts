@@ -7,5 +7,5 @@ dependencies {
 }
 
 application {
-    mainClass.set("io.github.youndie.booblik.dev.publisher.MainKt")
+    mainClass.set("ru.workinprogress.booblik.dev.publisher.MainKt")
 }
