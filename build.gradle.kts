@@ -65,7 +65,7 @@ extra["brokerJvmArgs"] =
 
 // The group, the version, the toolchain, the ktlint wiring, the test platform and the test logging
 // used to live here, in `allprojects` and `subprojects`, and the publication in
-// `publishing.gradle.kts`. They come from `ru.workinprogress.sborka` now, applied per module, with
+// `publishing.gradle.kts`. They come from `io.github.youndie.sborka` now, applied per module, with
 // the numbers one line each in `gradle.properties` and the reasons kept beside them.
 //
 // What stays is what is booblik's: the runtime footprint above, and the ABI dump that says which
