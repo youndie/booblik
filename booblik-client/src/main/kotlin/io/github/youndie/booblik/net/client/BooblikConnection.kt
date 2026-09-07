@@ -1,11 +1,5 @@
 package io.github.youndie.booblik.net.client
 
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
 import io.github.youndie.booblik.Offset
 import io.github.youndie.booblik.PartitionId
 import io.github.youndie.booblik.TopicName
@@ -13,6 +7,12 @@ import io.github.youndie.booblik.log.AckPolicy
 import io.github.youndie.booblik.net.wire.MetadataResult
 import io.github.youndie.booblik.net.wire.ProduceResult
 import io.github.youndie.booblik.net.wire.RequestEncoder
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import java.io.Closeable
 import java.net.InetSocketAddress
 import java.net.StandardSocketOptions

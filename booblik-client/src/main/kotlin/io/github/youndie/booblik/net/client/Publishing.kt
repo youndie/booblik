@@ -1,11 +1,11 @@
 package io.github.youndie.booblik.net.client
 
-import kotlinx.coroutines.CompletableDeferred
 import io.github.youndie.booblik.Offset
 import io.github.youndie.booblik.PartitionId
 import io.github.youndie.booblik.TopicName
 import io.github.youndie.booblik.log.AckPolicy
 import io.github.youndie.booblik.net.wire.ErrorCode
+import kotlinx.coroutines.CompletableDeferred
 import java.util.concurrent.atomic.AtomicInteger
 
 /**

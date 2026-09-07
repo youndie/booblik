@@ -1,5 +1,7 @@
 package io.github.youndie.booblik.log
 
+import io.github.youndie.booblik.Offset
+import io.github.youndie.booblik.storage.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -12,8 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.onTimeout
 import kotlinx.coroutines.selects.select
-import io.github.youndie.booblik.Offset
-import io.github.youndie.booblik.storage.Log
 
 /**
  * The single coroutine that owns a partition's write side.

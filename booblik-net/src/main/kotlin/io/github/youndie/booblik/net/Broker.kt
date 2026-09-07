@@ -1,9 +1,5 @@
 package io.github.youndie.booblik.net
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 import io.github.youndie.booblik.PartitionId
 import io.github.youndie.booblik.TopicName
 import io.github.youndie.booblik.log.FlushPolicy
@@ -12,6 +8,10 @@ import io.github.youndie.booblik.storage.LogSegment
 import io.github.youndie.booblik.storage.PartitionLog
 import io.github.youndie.booblik.storage.SegmentMode
 import io.github.youndie.booblik.storage.SparseOffsetIndex
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 import java.io.Closeable
 import java.nio.file.Path
 import kotlin.io.path.createDirectories

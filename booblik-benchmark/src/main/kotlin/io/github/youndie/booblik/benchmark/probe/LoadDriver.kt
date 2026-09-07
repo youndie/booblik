@@ -1,11 +1,11 @@
 package io.github.youndie.booblik.benchmark.probe
 
-import org.HdrHistogram.Histogram
 import io.github.youndie.booblik.Offset
 import io.github.youndie.booblik.PartitionId
 import io.github.youndie.booblik.TopicName
 import io.github.youndie.booblik.log.AckPolicy
 import io.github.youndie.booblik.net.client.BooblikClient
+import org.HdrHistogram.Histogram
 import java.net.InetSocketAddress
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch

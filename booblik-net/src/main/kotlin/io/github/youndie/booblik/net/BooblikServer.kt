@@ -1,11 +1,5 @@
 package io.github.youndie.booblik.net
 
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import io.github.youndie.booblik.PartitionId
 import io.github.youndie.booblik.TopicName
 import io.github.youndie.booblik.log.PartitionWriter
@@ -14,6 +8,12 @@ import io.github.youndie.booblik.net.nio.Connection
 import io.github.youndie.booblik.net.nio.SelectorConnection
 import io.github.youndie.booblik.net.nio.SelectorLoop
 import io.github.youndie.booblik.storage.PartitionLog
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.io.Closeable
 import java.net.InetSocketAddress
 import java.net.StandardSocketOptions

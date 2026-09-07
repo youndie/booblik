@@ -1,5 +1,8 @@
 package io.github.youndie.booblik.benchmark
 
+import io.github.youndie.booblik.Offset
+import io.github.youndie.booblik.net.client.ResponseReader
+import io.github.youndie.booblik.net.wire.ResponseDecoder
 import kotlinx.benchmark.Benchmark
 import kotlinx.benchmark.BenchmarkMode
 import kotlinx.benchmark.Mode
@@ -9,9 +12,6 @@ import kotlinx.benchmark.Scope
 import kotlinx.benchmark.Setup
 import kotlinx.benchmark.State
 import org.openjdk.jmh.annotations.OperationsPerInvocation
-import io.github.youndie.booblik.Offset
-import io.github.youndie.booblik.net.client.ResponseReader
-import io.github.youndie.booblik.net.wire.ResponseDecoder
 import java.util.concurrent.TimeUnit
 import java.util.zip.CRC32C
 

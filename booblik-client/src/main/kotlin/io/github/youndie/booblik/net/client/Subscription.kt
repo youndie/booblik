@@ -1,5 +1,10 @@
 package io.github.youndie.booblik.net.client
 
+import io.github.youndie.booblik.Offset
+import io.github.youndie.booblik.PartitionId
+import io.github.youndie.booblik.TopicName
+import io.github.youndie.booblik.net.wire.ErrorCode
+import io.github.youndie.booblik.net.wire.PartitionInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -9,11 +14,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import io.github.youndie.booblik.Offset
-import io.github.youndie.booblik.PartitionId
-import io.github.youndie.booblik.TopicName
-import io.github.youndie.booblik.net.wire.ErrorCode
-import io.github.youndie.booblik.net.wire.PartitionInfo
 import java.io.Closeable
 import java.net.InetSocketAddress
 

@@ -1,5 +1,7 @@
 package io.github.youndie.booblik.log
 
+import io.github.youndie.booblik.Offset
+import io.github.youndie.booblik.storage.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -9,8 +11,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
-import io.github.youndie.booblik.Offset
-import io.github.youndie.booblik.storage.Log
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

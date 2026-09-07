@@ -1,8 +1,5 @@
 package io.github.youndie.booblik.native.conformance
 
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.toKString
-import platform.posix.getenv
 import io.github.youndie.booblik.Offset
 import io.github.youndie.booblik.PartitionId
 import io.github.youndie.booblik.TopicName
@@ -10,6 +7,9 @@ import io.github.youndie.booblik.log.AckPolicy
 import io.github.youndie.booblik.native.BooblikConnection
 import io.github.youndie.booblik.native.Consumer
 import io.github.youndie.booblik.net.wire.ErrorCode
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.toKString
+import platform.posix.getenv
 import kotlin.system.exitProcess
 
 /**

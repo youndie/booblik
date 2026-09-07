@@ -1,7 +1,5 @@
 package io.github.youndie.booblik.net
 
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
 import io.github.youndie.booblik.log.AckPolicy
 import io.github.youndie.booblik.log.WriterFailedException
 import io.github.youndie.booblik.net.nio.Connection
@@ -18,6 +16,8 @@ import io.github.youndie.booblik.net.wire.Request
 import io.github.youndie.booblik.net.wire.RequestDecoder
 import io.github.youndie.booblik.net.wire.ResponseEncoder
 import io.github.youndie.booblik.net.wire.TopicMetadata
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.EOFException
 import java.nio.ByteBuffer
 
