@@ -132,8 +132,13 @@ kill "$BROKER"
 wait "$BROKER" 2>/dev/null || true
 "$ROOT/booblik-app/build/install/booblik-app/bin/booblik-app" "$WORK/broker.properties" > "$WORK/broker2.log" 2>&1 &
 BROKER=$!
+# Waits for the line it is about to assert, and not for "listening". The broker prints the address
+# first and the per-partition offsets immediately after, so a loop that stops at "listening" has
+# already stopped before the answer exists -- and then greps for it with no grace at all. That is a
+# check that passes on timing: green while the two printlns land inside one scheduling slice, red the
+# once they do not, and the log it dumps looks exactly like a broker that recovered nothing.
 for _ in $(seq 1 50); do
-    grep -q "booblik listening" "$WORK/broker2.log" && break
+    grep -q "smoke-0: offsets 0..64" "$WORK/broker2.log" && break
     sleep 0.2
 done
 grep -q "smoke-0: offsets 0..64" "$WORK/broker2.log" || {
