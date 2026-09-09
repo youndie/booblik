@@ -105,6 +105,10 @@ class WriterFailureTest {
     @Test
     fun `a producer arriving after the writer died is refused rather than left waiting`() {
         withWriter(failAfter = 0) { writer ->
+            @Suppress(
+                "ktlint:kapkan:cancellation-swallowed",
+                "a test whose subject is the timeout: the throw and the cancellation are both it",
+            )
             withTimeoutOrNull(5_000) { runCatching { writer.append("first".toByteArray()) } }
             // The mailbox is closed by now. Before M-160 this blocked or threw
             // ClosedSendChannelException, which says the channel is shut but not why.

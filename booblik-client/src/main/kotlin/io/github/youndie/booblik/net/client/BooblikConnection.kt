@@ -70,6 +70,10 @@ public class BooblikConnection(
      */
     private val correlationIds = AtomicInteger(1)
 
+    @Suppress(
+        "ktlint:kapkan:cancellation-swallowed",
+        "fail() is what completes every pending request; rethrowing would leave callers waiting",
+    )
     private val writer: Job =
         scope.launch(Dispatchers.IO) {
             try {
@@ -86,6 +90,10 @@ public class BooblikConnection(
             }
         }
 
+    @Suppress(
+        "ktlint:kapkan:cancellation-swallowed",
+        "fail() is what completes every pending request; rethrowing would leave callers waiting",
+    )
     private val reader: Job =
         scope.launch(Dispatchers.IO) {
             try {

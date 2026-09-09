@@ -20,6 +20,7 @@ import java.net.StandardSocketOptions
 import java.nio.channels.ServerSocketChannel
 import java.nio.channels.SocketChannel
 import java.util.concurrent.Executors
+import kotlin.coroutines.cancellation.CancellationException
 
 /** Which readiness mechanism the server runs on. Both serve the identical [Session]. */
 public enum class Transport {
@@ -167,6 +168,11 @@ public class BooblikServer(
                     } catch (e: java.nio.channels.ClosedChannelException) {
                         // The ordinary way this loop ends: someone closed the server.
                         throw e
+                    } catch (e: CancellationException) {
+                        // The other ordinary way this loop ends. Counted as a transient accept
+                        // failure it was not an ending at all: the loop went round again, waiting
+                        // for a socket on a server that had already been told to stop.
+                        throw e
                     } catch (e: Exception) {
                         // Everything else is treated as transient. Refusing one connection is
                         // recoverable; refusing every future one is not, so the loop keeps going.
@@ -187,10 +193,24 @@ public class BooblikServer(
                     // makes that true — under a plain Job the first failure would take the server
                     // down.
                     scope.launch { serve(SelectorConnection(client, key, loop)) }
+                } catch (e: CancellationException) {
+                    // Same reason the socket is closed below -- it is already accepted -- but a
+                    // stopping server is not an accept that failed, so nothing is recorded and the
+                    // cancellation goes on up.
+                    @Suppress(
+                        "ktlint:kapkan:cancellation-swallowed",
+                        "closing an accepted socket is synchronous and the cancellation leaves below",
+                    )
+                    runCatching { client.close() }
+                    throw e
                 } catch (e: Exception) {
                     // The socket is already accepted at this point, so dropping it here would
                     // leave the client connected to nobody until a GC noticed. Close it and say so.
                     metrics.onAcceptFailure(e)
+                    @Suppress(
+                        "ktlint:kapkan:cancellation-swallowed",
+                        "closing an accepted socket is synchronous: no suspension point inside",
+                    )
                     runCatching { client.close() }
                 }
             }
@@ -241,6 +261,15 @@ public class BooblikServer(
         metrics.onConnectionOpened()
         try {
             Session(connection, partitions, config.fetchMode, metrics).serve()
+        } catch (e: CancellationException) {
+            // The server stopping is not a session that died holding a request. Recorded as one it
+            // was a burst of session failures at every shutdown, one per live connection.
+            @Suppress(
+                "ktlint:kapkan:cancellation-swallowed",
+                "closing the connection is synchronous and the cancellation leaves on the next line",
+            )
+            runCatching { connection.close() }
+            throw e
         } catch (e: Exception) {
             // Reaching here means the session died **holding a request**: a client that simply
             // leaves between frames returns through `Session.serve` without an exception. From the
@@ -249,6 +278,10 @@ public class BooblikServer(
             // `ServerTest` with no evidence attached to it at all (M-64). There is still nobody to
             // tell over the wire: the connection is what broke.
             metrics.onSessionFailure(e)
+            @Suppress(
+                "ktlint:kapkan:cancellation-swallowed",
+                "closing the connection is synchronous: there is no suspension point inside",
+            )
             runCatching { connection.close() }
         } finally {
             metrics.onConnectionClosed()
