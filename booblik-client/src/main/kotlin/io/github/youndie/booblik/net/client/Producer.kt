@@ -192,6 +192,10 @@ public class Producer(
         }
     }
 
+    @Suppress(
+        "ktlint:kapkan:cancellation-swallowed",
+        "completing the answers is what stops a caller waiting on a batch nobody will send",
+    )
     private suspend fun deliver(
         key: Key,
         batch: Batch,
@@ -215,6 +219,8 @@ public class Producer(
                 answer.complete(result.baseOffset + index.toLong())
             }
         } catch (e: Throwable) {
+            // Including a cancellation, and deliberately: completing the answers is what stops a
+            // caller waiting on a batch nobody will send. Rethrowing here would leave them there.
             batch.answers.forEach { it.completeExceptionally(e) }
         }
     }
