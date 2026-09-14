@@ -5,7 +5,7 @@
 sborka = "0.4.0.43"
 # Kotlin 2.4.10 — last stable on 2026-08-10 (2.4.20-Beta2 is a beta), checked against
 # maven-metadata.xml of org.jetbrains.kotlin:kotlin-stdlib.
-kotlin = "2.4.10"
+kotlin = "2.4.20"
 # Gradle wrapper is pinned to 9.6.1 and the toolchain to JDK 25 (both chosen by the author).
 # 9.7.0 exists; do not raise the wrapper alone — KGP declares a supported Gradle range and going
 # past it fails with a message about an unsupported Gradle version, not about Kotlin.
