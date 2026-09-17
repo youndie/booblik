@@ -1,6 +1,6 @@
 [versions]
-kotlin = "2.4.10"
-ktor = "3.5.2"
+kotlin = "2.4.20"
+ktor = "3.6.0"
 logback = "1.6.3"
 kafka = "4.3.1"
 # Same formatter version as the broker repository, pinned for the same reason: otherwise the style
