@@ -2,10 +2,14 @@
 # The build conventions: where the group, the toolchain, the ktlint wiring, the test platform and the
 # publication come from. Bumping this changes how every module is built, so it is pinned like any
 # other dependency and moved deliberately.
-sborka = "0.4.0.43"
-# Kotlin 2.4.10 — last stable on 2026-08-10 (2.4.20-Beta2 is a beta), checked against
-# maven-metadata.xml of org.jetbrains.kotlin:kotlin-stdlib.
-kotlin = "2.4.10"
+# The compiler comes with them: the `wip` catalog this sborka release publishes carries `kotlin`,
+# so there is no Kotlin version in this file to drift from the rest of the portfolio. The note that
+# used to stand here — 2.4.10 being the last stable, 2.4.20 being a beta — had outlived itself:
+# 2.4.20 is the release the portfolio builds with.
+#
+# `dev/` keeps its own, and deliberately: that build stands in for a stranger's, and a stranger has
+# no `wip`.
+sborka = "0.4.0.87"
 # Gradle wrapper is pinned to 9.6.1 and the toolchain to JDK 25 (both chosen by the author).
 # 9.7.0 exists; do not raise the wrapper alone — KGP declares a supported Gradle range and going
 # past it fails with a message about an unsupported Gradle version, not about Kotlin.
@@ -37,9 +41,6 @@ ktor-network = { module = "io.ktor:ktor-network", version.ref = "ktor" }
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
 
 [plugins]
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-kotlin-allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
 benchmark = { id = "org.jetbrains.kotlinx.benchmark", version.ref = "benchmark" }
 sborkaJvm = { id = "io.github.youndie.sborka.jvm", version.ref = "sborka" }

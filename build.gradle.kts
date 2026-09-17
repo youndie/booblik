@@ -1,13 +1,13 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm) apply false
+    alias(wip.plugins.kotlinJvm) apply false
     // Declared here as well, and for the same reason: the Kotlin plugin lands on the build classpath
     // once, so a module asking for a *versioned* multiplatform plugin fails with "already on the
     // classpath with an unknown version" rather than anything about multiplatform. The sborka
     // plugins are declared the same way and for the same reason.
-    alias(libs.plugins.kotlin.multiplatform) apply false
+    alias(wip.plugins.kotlinMultiplatform) apply false
     // The benchmark module's two, declared here so its own `plugins { }` block can name them without
     // a version — the same rule the Kotlin plugins above follow.
-    alias(libs.plugins.kotlin.allopen) apply false
+    alias(wip.plugins.kotlinAllOpen) apply false
     alias(libs.plugins.benchmark) apply false
     alias(libs.plugins.sborkaJvm) apply false
     alias(libs.plugins.sborkaKmp) apply false
