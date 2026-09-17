@@ -26,7 +26,7 @@ benchmark = "0.5.0"
 # Latency histograms for the end-to-end load harness. Percentiles from a plain list of samples
 # would cost more memory than the payload being measured.
 hdrhistogram = "2.2.2"
-ktor = "3.5.2"
+ktor = "3.6.0"
 # Reads compiled classes in a test. Test-only, and the only dependency in the project that exists
 # to check a property of the code rather than to be part of it.
 asm = "9.10.1"
