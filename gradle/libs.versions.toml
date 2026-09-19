@@ -9,7 +9,7 @@
 #
 # `dev/` keeps its own, and deliberately: that build stands in for a stranger's, and a stranger has
 # no `wip`.
-sborka = "0.4.0.87"
+sborka = "0.4.0.91"
 # Gradle wrapper is pinned to 9.6.1 and the toolchain to JDK 25 (both chosen by the author).
 # 9.7.0 exists; do not raise the wrapper alone — KGP declares a supported Gradle range and going
 # past it fails with a message about an unsupported Gradle version, not about Kotlin.
