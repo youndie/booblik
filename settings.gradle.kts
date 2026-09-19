@@ -26,7 +26,7 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
     // mavenCentral() with its content filters, the shared `wip` catalog, and the check that this
     // repository's `.editorconfig` is the one the rest of them use.
-    id("io.github.youndie.sborka.settings") version "0.4.0.87"
+    id("io.github.youndie.sborka.settings") version "0.4.0.91"
 }
 
 include(":booblik-protocol")
