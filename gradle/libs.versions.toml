@@ -9,10 +9,11 @@
 #
 # `dev/` keeps its own, and deliberately: that build stands in for a stranger's, and a stranger has
 # no `wip`.
-sborka = "0.4.0.87"
-# Gradle wrapper is pinned to 9.6.1 and the toolchain to JDK 25 (both chosen by the author).
-# 9.7.0 exists; do not raise the wrapper alone — KGP declares a supported Gradle range and going
-# past it fails with a message about an unsupported Gradle version, not about Kotlin.
+sborka = "0.4.0.111"
+# Gradle wrapper is pinned to 9.7.1 and the toolchain to JDK 25. 9.8.0 exists and is held back on
+# purpose until Kotlin 2.5.20 (youndie/sborka#113); do not raise the wrapper alone — KGP declares a
+# supported Gradle range and going past it fails with a message about an unsupported Gradle
+# version, not about Kotlin.
 coroutines = "1.11.0"
 # The ktlint CLI and the Gradle plugin are versioned independently: the plugin only launches
 # the CLI of the requested version. 1.8.0 is the requirement for this project.
