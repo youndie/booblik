@@ -24,8 +24,8 @@ plugins {
 kotlin {
     jvm()
 
-    // linuxX64 because that is where the consumers are — tracy, shildik, mongkn, hub-backend, the
-    // stocker bot. macosArm64 so the tests can be run on the machine they are written on: a
+    // linuxX64 because that is where the consumers are — tracy, shildik, mongkn and two private
+    // services. macosArm64 so the tests can be run on the machine they are written on: a
     // linuxX64 test binary does not run on macOS at all, so without this target native code would
     // only ever be exercised on another host.
     linuxX64()

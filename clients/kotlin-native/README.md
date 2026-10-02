@@ -65,7 +65,7 @@ Give the consumer a thread of its own.
 ## Where decision Р8's last objection went
 
 Р8 rejected multiplatform for three reasons; M-134 re-examined all of them. Two were already gone —
-there are native consumers now (tracy, shildik, mongkn, hub-backend, the stocker bot), and the "no
+there are native consumers now (tracy, shildik, mongkn and two private services), and the "no
 TLS on Native" objection never applied because booblik has no TLS at all, TLS being incompatible
 with the zero-copy read path by construction.
 
