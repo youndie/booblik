@@ -31,7 +31,7 @@ jobs:
 
       # Java and Gradle in one step and at one version for the portfolio: the action installs 21 and
       # 25 and leaves 25 as the default, which is what this build asks for.
-      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.130
 
       - name: Version
         id: version

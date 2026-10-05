@@ -50,7 +50,7 @@ jobs:
 
       # Java and Gradle in one step and at one version for the portfolio: the action installs 21 and
       # 25 and leaves 25 as the default, which is what this build asks for.
-      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.130
 
       # A job of its own because it needs a broker in Docker, and the gate above must not be able to
       # go red for a reason that has nothing to do with this client's code.
