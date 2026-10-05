@@ -9,7 +9,7 @@
 #
 # `dev/` keeps its own, and deliberately: that build stands in for a stranger's, and a stranger has
 # no `wip`.
-sborka = "0.4.0.111"
+sborka = "0.5.0.133"
 # The Gradle wrapper and the JDK 25 toolchain are the portfolio's, not this repository's choice: the
 # Gradle version is decided by `gradle` in sborka's published catalog, and the wrappers here follow it
 # (youndie/sborka#129).
