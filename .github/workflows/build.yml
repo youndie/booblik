@@ -23,7 +23,7 @@ jobs:
       # cache can keep rather than one it fetches every time.
       # Java and Gradle in one step and at one version for the portfolio: the action installs 21 and
       # 25 and leaves 25 as the default, which is what this build asks for.
-      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.130
 
       # `./ci/gate.sh jvm` rather than `./gradlew check` directly: the gate script is what a
       # developer runs (project rule 1 since M-131а), and a script CI never executes is a script
@@ -66,7 +66,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.130
 
       # The gate is skipped here on purpose and the script says so out loud. The `check` job above
       # is running the same commit; paying for it twice would buy nothing but minutes.
@@ -106,7 +106,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: youndie/sborka/.github/actions/setup-kotlin@main
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.130
 
       # `build` includes the sample's own gate now: ktlint, and the unit tests of the queue's
       # arbiter. The arbiter is pure logic whose correctness argument was previously made only by
