@@ -63,7 +63,12 @@ fun main() {
         // a queue exists so that any worker may take any task, and splitting them by partition
         // would be the first layer again under another name.
         config.tasksTopic?.let { name ->
-            scope.launch { connected(config, stats) { producer -> publishTasks(producer, name, config, stats, paused) } }
+            scope.launch {
+                connected(
+                    config,
+                    stats,
+                ) { producer -> publishTasks(producer, name, config, stats, paused) }
+            }
             println("publisher: also writing tasks to $name")
         }
 
