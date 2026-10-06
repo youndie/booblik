@@ -298,4 +298,38 @@ def first_difference(expected: bytes, actual: bytes):
     return min(len(expected), len(actual))
 
 
+# -- reader ---------------------------------------------------------------------------------------
+#
+# A client that has a READER — an object that keeps its own position and reads forward, the way a
+# consumer storing its position next to its effects uses one — declares `reader` and answers `read`
+# through it rather than through a bare fetch (M-176). What is checked is the one number such a
+# consumer cannot do without: the offset the batch starts at, and where the next one does.
+
+
+@check("reader", "a reader's batch names where it starts and where the next one does")
+def reader_batch_offsets(context):
+    payloads = [b"r" * 40 for _ in range(6)]
+    with context.connect() as connection:
+        before = connection.metadata([SINGLE])[SINGLE][0]["highWatermark"]
+        connection.produce(SINGLE, 0, payloads)
+
+    # From the third record, with room for everything: the batch starts where it was asked to.
+    start = before + 2
+    answer = context.client.call("read", SINGLE, 0, start, 1 << 20)
+    arrived = [bytes.fromhex(hex_value) for hex_value in answer.get("record", [])]
+    assert arrived == payloads[2:], f"expected the last four records, the reader returned {len(arrived)}"
+    assert int(answer["baseOffset"][0]) == start, f"baseOffset {answer['baseOffset'][0]}, asked for {start}"
+    assert int(answer["nextOffset"][0]) == start + len(arrived), (
+        f"nextOffset {answer['nextOffset'][0]} after {len(arrived)} records from {start}"
+    )
+
+    # And a batch cut short by maxBytes: 8 bytes of header and 40 of payload a record, so 100 holds
+    # two. The next batch starts after the records returned, not after the bytes asked for.
+    answer = context.client.call("read", SINGLE, 0, before, 100)
+    arrived = answer.get("record", [])
+    assert len(arrived) == 2, f"100 bytes hold two 48-byte records, the reader returned {len(arrived)}"
+    assert int(answer["baseOffset"][0]) == before
+    assert int(answer["nextOffset"][0]) == before + 2, f"nextOffset {answer['nextOffset'][0]} after two records"
+
+
 __all__ = ["CHECKS", "Context", "ClientError", "TOPIC", "SINGLE", "PARTITIONS"]

@@ -22,11 +22,12 @@ means the client itself failed, and that is never an expected outcome of any che
 
 | verb | arguments | answers |
 |---|---|---|
-| `capabilities` | — | `roles=producer[,consumer]`, `name=<what to call it>` |
+| `capabilities` | — | `roles=producer[,consumer][,reader]`, `name=<what to call it>` |
 | `metadata` | `<topic>` | `partition=<id> <logStartOffset> <highWatermark>`, repeated |
 | `produce` | `<topic> <partition> <ack> <hex>[,<hex>…]` | `baseOffset=`, `logEndOffset=` |
 | `produce-keyed` | `<topic> <keyHex> <payloadHex>` | `partition=`, `baseOffset=` |
 | `fetch` | `<topic> <partition> <offset> <maxBytes>` | `highWatermark=`, `record=<hex>` repeated |
+| `read` | `<topic> <partition> <offset> <maxBytes>` | `baseOffset=`, `nextOffset=`, `record=<hex>` repeated — through the client's reader (role `reader`) |
 
 `ack` is `none`, `written` or `forced`. `produce` with `none` must answer nothing and **return** —
 the broker sends no response, and waiting for one is the most common way to write a first producer.
@@ -106,7 +107,7 @@ class Client:
             raise ClientError("`capabilities` did not answer `roles=`")
         self.roles = {role.strip() for role in answer["roles"].split(",") if role.strip()}
         self.name = answer.get("name", self.name)
-        unknown = self.roles - {"producer", "consumer"}
+        unknown = self.roles - {"producer", "consumer", "reader"}
         if unknown:
             raise ClientError(f"unknown role(s) declared: {', '.join(sorted(unknown))}")
         if not self.roles:

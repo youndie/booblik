@@ -17,6 +17,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -44,20 +45,30 @@ fun main() {
     val paused = AtomicBoolean(false)
 
     runBlocking {
-        val connection = openConnection(config)
-        val producer = Producer(connection, scope)
-        val topic = producer.topic(TopicName(config.topic))
-        println(
-            "publisher: ${config.topic} has ${topic.partitions.size} partition(s), every ${config.intervalMillis} ms",
-        )
-
-        scope.launch { publishForever(topic, config, stats, paused) }
+        // Each producing loop holds its own connection and opens a new one when the broker goes away
+        // (M-177). One connection opened here and shared used to be the whole of it: the broker
+        // restarted, the next `send` failed, the loop's coroutine ended — and `/stats` went on
+        // answering for a publisher that would never write again.
+        scope.launch {
+            connected(config, stats) { producer ->
+                val topic = producer.topic(TopicName(config.topic))
+                println(
+                    "publisher: ${config.topic} has ${topic.partitions.size} partition(s), every ${config.intervalMillis} ms",
+                )
+                publishForever(topic, config, stats, paused)
+            }
+        }
 
         // The second layer's input, when it is asked for. Tasks go into one partition on purpose:
         // a queue exists so that any worker may take any task, and splitting them by partition
         // would be the first layer again under another name.
         config.tasksTopic?.let { name ->
-            scope.launch { publishTasks(producer, name, config, stats, paused) }
+            scope.launch {
+                connected(
+                    config,
+                    stats,
+                ) { producer -> publishTasks(producer, name, config, stats, paused) }
+            }
             println("publisher: also writing tasks to $name")
         }
 
@@ -101,14 +112,44 @@ fun main() {
  * different claims, and a sample that dies on a startup race teaches the wrong lesson about the
  * broker.
  */
-private suspend fun openConnection(config: PublisherConfig): BooblikConnection {
+private suspend fun openConnection(
+    config: PublisherConfig,
+    scope: CoroutineScope,
+): BooblikConnection {
     val address = InetSocketAddress(config.brokerHost, config.brokerPort)
     while (true) {
         try {
-            return BooblikConnection(address, CoroutineScope(SupervisorJob()))
+            return BooblikConnection(address, scope)
         } catch (failure: Exception) {
             println("publisher: broker at $address is not answering yet (${failure.message}), retrying")
             delay(1000)
+        }
+    }
+}
+
+/**
+ * Runs [body] over a producer on a fresh connection, and again on a new one whenever it fails — the
+ * broker restarting, a node drained. A record whose send failed is not counted: whether it reached
+ * the log is unknown, and the stats say what was acknowledged.
+ */
+private suspend fun connected(
+    config: PublisherConfig,
+    stats: Stats,
+    body: suspend (Producer) -> Unit,
+) {
+    while (true) {
+        val connectionScope = CoroutineScope(SupervisorJob())
+        try {
+            val connection = openConnection(config, connectionScope)
+            body(Producer(connection, connectionScope))
+        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+            throw cancellation
+        } catch (failure: Exception) {
+            println("publisher: lost the broker (${failure.message}), reconnecting")
+            stats.reconnected()
+            delay(1000)
+        } finally {
+            connectionScope.cancel()
         }
     }
 }
@@ -178,8 +219,14 @@ private class Stats {
 
     private val tasks = AtomicLong()
 
+    private val reconnects = AtomicLong()
+
     fun task() {
         tasks.incrementAndGet()
+    }
+
+    fun reconnected() {
+        reconnects.incrementAndGet()
     }
 
     fun record(
@@ -201,6 +248,7 @@ private class Stats {
             lastOffset = lastOffset.toSortedMap().mapKeys { it.key.toString() },
             lastUser = lastUser,
             tasks = tasks.get(),
+            reconnects = reconnects.get(),
         )
 }
 
@@ -212,6 +260,7 @@ private data class PublisherStats(
     val lastOffset: Map<String, Long>,
     val lastUser: String?,
     val tasks: Long,
+    val reconnects: Long,
 )
 
 private data class PublisherConfig(
