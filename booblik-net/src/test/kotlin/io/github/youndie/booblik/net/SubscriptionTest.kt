@@ -172,6 +172,32 @@ class SubscriptionTest {
             assertContentEquals(emptyList(), saved, "a batch that was not handled must not move the position")
         }
 
+    /**
+     * A collector slower than the readers must slow the readers down, not lose batches. The
+     * subscription merges partitions through a channel, and a reader that hands over with
+     * `trySend` into a full channel drops the batch while its position moves on — a silent gap
+     * that a consumer storing its position next to its effects reads as a broken log.
+     */
+    @Test
+    fun `a slow collector loses nothing`() =
+        withBroker { address, produce ->
+            repeat(200) { produce(PartitionId(0), 1) }
+
+            BooblikSubscriber(address, SubscriptionConfig(maxBytes = 48, maxWaitMillis = 1_500)).use { subscriber ->
+                var expected = Offset(0)
+                var batches = 0
+                subscriber.replay(TOPIC, StartPosition.Earliest, listOf(PartitionId(0))).collect { batch ->
+                    assertEquals(expected, batch.baseOffset, "batch $batches starts where the previous one ended")
+                    expected = batch.nextOffset
+                    batches++
+                    delay(5)
+                }
+                assertEquals(Offset(200), expected)
+                // The channel holds 64; fewer batches than that and the old `trySend` passes too.
+                assertTrue(batches > 64, "the scenario needs more batches than the channel holds, got $batches")
+            }
+        }
+
     private companion object {
         val TOPIC = TopicName("orders")
 

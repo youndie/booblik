@@ -153,9 +153,12 @@ public class BooblikSubscriber(
             // here on purpose: if one partition's reader dies the subscription is incomplete, and
             // continuing to deliver the others would look like a working subscription that
             // silently skips a third of the topic.
+            // `send`, not `trySend`: a collector slower than the readers has to slow them down.
+            // `trySend` into a full channel drops the batch while the reader's position moves on,
+            // and the collector sees a gap in the offsets that nothing reports.
             val readers =
                 described.map { info ->
-                    launch { readPartition(topic, info, from, untilCaughtUp) { trySend(it) } }
+                    launch { readPartition(topic, info, from, untilCaughtUp) { send(it) } }
                 }
             if (untilCaughtUp) {
                 readers.forEach { it.join() }
@@ -169,7 +172,7 @@ public class BooblikSubscriber(
         info: PartitionInfo,
         from: StartPosition,
         untilCaughtUp: Boolean,
-        emit: (RecordBatch) -> Unit,
+        emit: suspend (RecordBatch) -> Unit,
     ) {
         val end = info.highWatermark
         var position =
