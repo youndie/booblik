@@ -158,6 +158,33 @@ class ClientTest {
         }
     }
 
+    // M-172: a batch names the offset it starts at, so a consumer storing its position with its effects
+    // moves it from `baseOffset` to `nextOffset` without having remembered `position` before the call.
+    @Test
+    fun `a batch says where it starts and where the next one does`() {
+        withClient { connection, _ ->
+            connection.produce(topic, partition, (0 until 30).map { "record-$it".toByteArray() })
+
+            val consumer = Consumer(connection, topic, partition, maxBytes = 270)
+            val first = consumer.poll()
+            assertEquals(Offset(0), first.baseOffset)
+            assertEquals(Offset(first.records.size.toLong()), first.nextOffset)
+            assertEquals(
+                consumer.position,
+                first.nextOffset,
+                "the batch and the consumer agree where the next one starts",
+            )
+
+            val second = consumer.poll()
+            assertEquals(first.nextOffset, second.baseOffset, "a batch starts where the previous one ended")
+
+            consumer.seek(Offset(7))
+            val third = consumer.poll()
+            assertEquals(Offset(7), third.baseOffset)
+            assertContentEquals("record-7".toByteArray(), third.records.first())
+        }
+    }
+
     @Test
     fun `a consumer advances only past whole records when a response is cut`() {
         // maxBytes cuts on a byte boundary. The partial tail is dropped, and the next poll asks for

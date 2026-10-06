@@ -108,5 +108,38 @@ sleep 5
 
 curl -fsS "$RESTARTED_URL/stats" | python3 check.py resumed "$BEFORE"
 
+
 echo
-echo "✓ the work is split by partition, and a position outlives the process that keeps it"
+echo "→ a broker restart costs a reconnect, not a replay"
+# M-173. The consumers are left running and the BROKER is restarted under them: each must follow again
+# from the position it saved, not from the one it booted with. Counted at two quiescent points — the
+# publisher paused and every consumer at lag zero — so the comparison is between numbers that stopped.
+quiesce() {
+    curl -fsS -X POST "$PUBLISHER/pause" >/dev/null
+    for _ in $(seq 1 90); do
+        behind=0
+        for url in $CONSUMERS; do
+            lag=$(curl -fsS "$url/stats" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["lag"])' 2>/dev/null || echo 1)
+            [ "${lag:-1}" -eq 0 ] || behind=1
+        done
+        [ "$behind" = "0" ] && return 0
+        sleep 1
+    done
+    echo "::error:: the consumers never caught up with a stopped publisher"
+    return 1
+}
+quiesce
+BEFORE_FILE=$(mktemp)
+for url in $CONSUMERS; do curl -fsS "$url/stats"; echo; done > "$BEFORE_FILE"
+docker compose restart broker >/dev/null
+curl -fsS -X POST "$PUBLISHER/resume" >/dev/null 2>&1 || true
+# Long enough for every consumer to find its connection dead, wait out its retry and follow again,
+# and for the publisher to write past the restart.
+sleep 20
+quiesce
+{ for url in $CONSUMERS; do curl -fsS "$url/stats"; echo; done; } | python3 check.py noreplay "$BEFORE_FILE"
+rm -f "$BEFORE_FILE"
+curl -fsS -X POST "$PUBLISHER/resume" >/dev/null
+
+echo
+echo "✓ the work is split by partition, a position outlives the process that keeps it, and the broker going away"

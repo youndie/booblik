@@ -6,6 +6,27 @@
 // - Show declarations: true
 
 // Library unique name: <io.github.youndie.booblik:booblik-native>
+final class io.github.youndie.booblik.native/Batch { // io.github.youndie.booblik.native/Batch|null[0]
+    constructor <init>(kotlin.collections/List<kotlin/ByteArray>, io.github.youndie.booblik/Offset, io.github.youndie.booblik/Offset) // io.github.youndie.booblik.native/Batch.<init>|<init>(kotlin.collections.List<kotlin.ByteArray>;io.github.youndie.booblik.Offset;io.github.youndie.booblik.Offset){}[0]
+
+    final val baseOffset // io.github.youndie.booblik.native/Batch.baseOffset|{}baseOffset[0]
+        final fun <get-baseOffset>(): io.github.youndie.booblik/Offset // io.github.youndie.booblik.native/Batch.baseOffset.<get-baseOffset>|<get-baseOffset>(){}[0]
+    final val highWatermark // io.github.youndie.booblik.native/Batch.highWatermark|{}highWatermark[0]
+        final fun <get-highWatermark>(): io.github.youndie.booblik/Offset // io.github.youndie.booblik.native/Batch.highWatermark.<get-highWatermark>|<get-highWatermark>(){}[0]
+    final val nextOffset // io.github.youndie.booblik.native/Batch.nextOffset|{}nextOffset[0]
+        final fun <get-nextOffset>(): io.github.youndie.booblik/Offset // io.github.youndie.booblik.native/Batch.nextOffset.<get-nextOffset>|<get-nextOffset>(){}[0]
+    final val records // io.github.youndie.booblik.native/Batch.records|{}records[0]
+        final fun <get-records>(): kotlin.collections/List<kotlin/ByteArray> // io.github.youndie.booblik.native/Batch.records.<get-records>|<get-records>(){}[0]
+
+    final fun component1(): kotlin.collections/List<kotlin/ByteArray> // io.github.youndie.booblik.native/Batch.component1|component1(){}[0]
+    final fun component2(): io.github.youndie.booblik/Offset // io.github.youndie.booblik.native/Batch.component2|component2(){}[0]
+    final fun component3(): io.github.youndie.booblik/Offset // io.github.youndie.booblik.native/Batch.component3|component3(){}[0]
+    final fun copy(kotlin.collections/List<kotlin/ByteArray> = ..., io.github.youndie.booblik/Offset = ..., io.github.youndie.booblik/Offset = ...): io.github.youndie.booblik.native/Batch // io.github.youndie.booblik.native/Batch.copy|copy(kotlin.collections.List<kotlin.ByteArray>;io.github.youndie.booblik.Offset;io.github.youndie.booblik.Offset){}[0]
+    final fun equals(kotlin/Any?): kotlin/Boolean // io.github.youndie.booblik.native/Batch.equals|equals(kotlin.Any?){}[0]
+    final fun hashCode(): kotlin/Int // io.github.youndie.booblik.native/Batch.hashCode|hashCode(){}[0]
+    final fun toString(): kotlin/String // io.github.youndie.booblik.native/Batch.toString|toString(){}[0]
+}
+
 final class io.github.youndie.booblik.native/BooblikConnection : kotlin/AutoCloseable { // io.github.youndie.booblik.native/BooblikConnection|null[0]
     constructor <init>(kotlin/String) // io.github.youndie.booblik.native/BooblikConnection.<init>|<init>(kotlin.String){}[0]
 
@@ -33,6 +54,7 @@ final class io.github.youndie.booblik.native/Consumer { // io.github.youndie.boo
         final fun <get-position>(): io.github.youndie.booblik/Offset // io.github.youndie.booblik.native/Consumer.position.<get-position>|<get-position>(){}[0]
 
     final fun poll(): kotlin.collections/List<kotlin/ByteArray> // io.github.youndie.booblik.native/Consumer.poll|poll(){}[0]
+    final fun pollBatch(): io.github.youndie.booblik.native/Batch // io.github.youndie.booblik.native/Consumer.pollBatch|pollBatch(){}[0]
     final fun records(): kotlin.sequences/Sequence<kotlin/ByteArray> // io.github.youndie.booblik.native/Consumer.records|records(){}[0]
     final fun seek(io.github.youndie.booblik/Offset) // io.github.youndie.booblik.native/Consumer.seek|seek(io.github.youndie.booblik.Offset){}[0]
 

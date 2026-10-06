@@ -87,10 +87,10 @@ commit;
 обработчика, и её позиция к моменту транзакции уже дальше.
 
 * `follow`/`replay` — `RecordBatch.baseOffset` и `RecordBatch.nextOffset` есть.
-* `Consumer.poll()` — `Records` оффсета не несёт; база = `position`, запомненный **до** `poll()`,
-  следующий = `position` после. *(целевое: M-172 кладёт `baseOffset` в `Records`)*
-* Kotlin/Native `Consumer.records()` двигает позицию на весь FETCH сразу — для рецепта брать
-  `poll()`, одна транзакция на один `poll()`.
+* `Consumer.poll()` — `Records.baseOffset` и `Records.nextOffset` (M-172).
+* Kotlin/Native — `Consumer.pollBatch()` отдаёт `Batch` с теми же двумя числами (M-172); `poll()`
+  по-прежнему возвращает голый список. `records()` двигает позицию на весь FETCH сразу — для рецепта
+  не годится, одна транзакция на один `pollBatch()`.
 
 ### 3.3 Когда транзакция обновила 0 строк
 

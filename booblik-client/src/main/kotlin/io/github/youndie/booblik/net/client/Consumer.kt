@@ -34,11 +34,22 @@ public class RecordExceedsMaxBytesException(
             "so it can never be read whole",
     )
 
-/** A batch of records and where the log ended when they were read. */
+/**
+ * A batch of records, where the log ended when they were read, and the offset of the first of them.
+ *
+ * [baseOffset] is what a consumer storing its position next to its effects needs (M-172,
+ * `feature-consumer-position`): the batch moves the stored position from [baseOffset] to
+ * [nextOffset], and a caller that had to remember `position` before calling `poll()` could remember
+ * it after instead — and write the wrong base into its compare-and-set.
+ */
 public data class Records(
     val records: List<ByteArray>,
     val highWatermark: Offset,
+    val baseOffset: Offset,
 ) {
+    /** Where the next batch starts: just past the last record of this one. */
+    val nextOffset: Offset get() = baseOffset + records.size.toLong()
+
     val isEmpty: Boolean get() = records.isEmpty()
 }
 
@@ -92,8 +103,9 @@ public class Consumer(
         if (result.records.isEmpty() && result.truncated) {
             throw RecordExceedsMaxBytesException(position, result.truncatedRecordBytes, maxBytes)
         }
+        val base = position
         position += result.records.size.toLong()
-        return Records(result.records, result.highWatermark)
+        return Records(result.records, result.highWatermark, base)
     }
 
     /** True when [position] has reached everything the broker had at the last poll. */

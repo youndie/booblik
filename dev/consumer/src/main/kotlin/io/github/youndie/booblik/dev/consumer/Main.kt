@@ -65,7 +65,6 @@ private suspend fun consumeForever(
     // zero — retention moves it — so a consumer that has never run reads everything still kept
     // rather than failing on records that were deleted last week.
     val saved = store.load(topic, partition)
-    val start = saved?.let { StartPosition.At(it) } ?: StartPosition.Earliest
     stats.resumedFrom = saved?.value
     println(
         "consumer ${config.name}: partition ${config.partition}, starting from ${saved?.value ?: "the beginning of the live log"}",
@@ -74,6 +73,11 @@ private suspend fun consumeForever(
     val address = InetSocketAddress(config.brokerHost, config.brokerPort)
     while (true) {
         try {
+            // READ AGAIN ON EVERY PASS, not once at boot (M-173). The position computed before the
+            // loop was the one this process started with, so every reconnect followed from there and
+            // handled again everything read since the start — at-least-once still, but a replay that
+            // grew with uptime, the opposite of what this sample shows.
+            val start = store.load(topic, partition)?.let { StartPosition.At(it) } ?: StartPosition.Earliest
             BooblikSubscriber(address).use { subscriber ->
                 subscriber
                     .follow(topic, start, listOf(partition))

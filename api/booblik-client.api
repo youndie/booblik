@@ -164,13 +164,16 @@ public final class io/github/youndie/booblik/net/client/RecordExceedsMaxBytesExc
 }
 
 public final class io/github/youndie/booblik/net/client/Records {
-	public synthetic fun <init> (Ljava/util/List;JLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Ljava/util/List;JJLkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun component1 ()Ljava/util/List;
 	public final fun component2-GL_zwBA ()J
-	public final fun copy-FJbu0cQ (Ljava/util/List;J)Lio/github/youndie/booblik/net/client/Records;
-	public static synthetic fun copy-FJbu0cQ$default (Lio/github/youndie/booblik/net/client/Records;Ljava/util/List;JILjava/lang/Object;)Lio/github/youndie/booblik/net/client/Records;
+	public final fun component3-GL_zwBA ()J
+	public final fun copy-bmYPcLE (Ljava/util/List;JJ)Lio/github/youndie/booblik/net/client/Records;
+	public static synthetic fun copy-bmYPcLE$default (Lio/github/youndie/booblik/net/client/Records;Ljava/util/List;JJILjava/lang/Object;)Lio/github/youndie/booblik/net/client/Records;
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getBaseOffset-GL_zwBA ()J
 	public final fun getHighWatermark-GL_zwBA ()J
+	public final fun getNextOffset-GL_zwBA ()J
 	public final fun getRecords ()Ljava/util/List;
 	public fun hashCode ()I
 	public final fun isEmpty ()Z

@@ -72,6 +72,35 @@ def resumed(before: int) -> int:
     return 0
 
 
+def noreplay(before_file: str) -> int:
+    """A broker restart costs each consumer a reconnect, not a replay (M-173).
+
+    `before_file` holds one /stats line per consumer read at a quiescent point before the broker was
+    restarted; stdin holds the same, read at a quiescent point after it. Between the two every
+    consumer handled exactly the records its position moved over — no more. A consumer that followed
+    again from the position it booted with would handle again everything read since its start.
+    """
+    with open(before_file) as f:
+        before = {s["name"]: s for s in (json.loads(line) for line in f if line.strip())}
+    after = [json.loads(line) for line in sys.stdin if line.strip()]
+    failed = False
+    for stats in after:
+        was = before[stats["name"]]
+        handled = stats["handled"] - was["handled"]
+        moved = stats["position"] - was["position"]
+        reconnected = stats["reconnects"] - was["reconnects"]
+        ok = handled == moved and reconnected > 0
+        failed |= not ok
+        suffix = "" if ok else "   <-- REPLAY" if reconnected > 0 else "   <-- NEVER RECONNECTED"
+        print(f"   {stats['name']}: {reconnected} reconnects, position +{moved}, handled +{handled}{suffix}")
+    if failed:
+        print("::error:: across the broker restart a consumer handled more than its position moved over, "
+              "or never noticed the restart at all")
+        return 1
+    print("   every consumer carried on from where it was")
+    return 0
+
+
 def queue() -> int:
     """stdin holds one /stats line per worker of the queue profile.
 
@@ -274,4 +303,6 @@ if __name__ == "__main__":
         sys.exit(queue())
     if mode == "redistributed":
         sys.exit(redistributed())
+    if mode == "noreplay":
+        sys.exit(noreplay(sys.argv[2]))
     sys.exit(resumed(int(sys.argv[2])))
