@@ -121,6 +121,18 @@ public class Consumer(
     }
 
     /**
+     * [poll], with the offset the records start at (M-172). What a consumer storing its position
+     * next to its effects needs: it moves the stored position from [Batch.baseOffset] to
+     * [Batch.nextOffset] in the transaction of the batch's effects. [poll] keeps returning a bare
+     * list, so nothing that already calls it changes.
+     */
+    public fun pollBatch(): Batch {
+        val base = position
+        val records = poll()
+        return Batch(records, highWatermark, base)
+    }
+
+    /**
      * [poll] one record at a time, fetching again whenever the last batch runs out.
      *
      * **The sequence does not end**: a partition has no end, only a place it has not been written to
@@ -149,4 +161,14 @@ public class Consumer(
         /** Five seconds. See [maxWaitMillis]. */
         public const val DEFAULT_MAX_WAIT_MILLIS: Int = 5_000
     }
+}
+
+/** A batch from [Consumer.pollBatch]: its records, where the log ended, and the offset of the first. */
+public data class Batch(
+    val records: List<ByteArray>,
+    val highWatermark: Offset,
+    val baseOffset: Offset,
+) {
+    /** Where the next batch starts: just past the last record of this one. */
+    val nextOffset: Offset get() = Offset(baseOffset.value + records.size)
 }
