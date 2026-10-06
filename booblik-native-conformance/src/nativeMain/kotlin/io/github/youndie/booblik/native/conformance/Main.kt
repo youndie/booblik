@@ -31,7 +31,7 @@ public fun main(args: Array<String>) {
     }
 
     if (args[0] == "capabilities") {
-        println("roles=producer,consumer")
+        println("roles=producer,consumer,reader")
         println("name=kotlin-native")
         return
     }
@@ -59,6 +59,10 @@ public fun main(args: Array<String>) {
 
             "fetch" -> {
                 fetch(connection, args[1], args[2].toInt(), args[3].toLong(), args[4].toInt())
+            }
+
+            "read" -> {
+                read(connection, args[1], args[2].toInt(), args[3].toLong(), args[4].toInt())
             }
 
             else -> {
@@ -159,6 +163,27 @@ private fun fetch(
     }
 
     for (record in answer.records) {
+        println("record=${record.joinToString("") { byte -> (byte.toInt() and 0xFF).toString(16).padStart(2, '0') }}")
+    }
+}
+
+/**
+ * One batch through [Consumer.pollBatch] — the reader a consumer storing its position uses (M-176) —
+ * rather than a bare fetch: what is checked is the offset the batch starts at and where the next does.
+ */
+private fun read(
+    connection: BooblikConnection,
+    topic: String,
+    partition: Int,
+    offset: Long,
+    maxBytes: Int,
+) {
+    val reader =
+        Consumer(connection, TopicName(topic), PartitionId(partition), Offset(offset), maxBytes, maxWaitMillis = 0)
+    val batch = reader.pollBatch()
+    println("baseOffset=${batch.baseOffset.value}")
+    println("nextOffset=${batch.nextOffset.value}")
+    for (record in batch.records) {
         println("record=${record.joinToString("") { byte -> (byte.toInt() and 0xFF).toString(16).padStart(2, '0') }}")
     }
 }

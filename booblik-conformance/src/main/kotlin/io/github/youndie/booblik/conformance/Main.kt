@@ -5,8 +5,15 @@ import io.github.youndie.booblik.PartitionId
 import io.github.youndie.booblik.TopicName
 import io.github.youndie.booblik.log.AckPolicy
 import io.github.youndie.booblik.net.client.BooblikClient
+import io.github.youndie.booblik.net.client.BooblikConnection
+import io.github.youndie.booblik.net.client.Consumer
 import io.github.youndie.booblik.net.client.Partitioner
 import io.github.youndie.booblik.net.wire.ErrorCode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 import java.net.InetSocketAddress
 import kotlin.system.exitProcess
 
@@ -41,7 +48,7 @@ public fun main(args: Array<String>) {
     }
 
     if (args[0] == "capabilities") {
-        println("roles=producer,consumer")
+        println("roles=producer,consumer,reader")
         println("name=kotlin (reference)")
         return
     }
@@ -52,6 +59,18 @@ public fun main(args: Array<String>) {
             exitProcess(2)
         }
     val address = InetSocketAddress(broker.substringBefore(':'), broker.substringAfter(':').toInt())
+
+    // The reader goes through `Consumer`, which takes the suspending connection rather than the
+    // blocking client every other verb uses — so it is answered before the client is opened.
+    if (args[0] == "read") {
+        try {
+            read(address, args[1], args[2].toInt(), args[3].toLong(), args[4].toInt())
+        } catch (failure: Exception) {
+            System.err.println("${failure::class.simpleName}: ${failure.message}")
+            exitProcess(1)
+        }
+        return
+    }
 
     try {
         BooblikClient(address).use { client ->
@@ -186,6 +205,27 @@ private fun fetch(
     // `records` already excludes an incomplete trailing record — `maxBytes` bounds the response in
     // bytes, not in records, and returning the fragment would hand the caller half a record.
     for (record in answer.records) println("record=${hex(record)}")
+}
+
+/** One batch through [Consumer.poll] and its [Records][io.github.youndie.booblik.net.client.Records] offsets (M-176). */
+private fun read(
+    address: InetSocketAddress,
+    topic: String,
+    partition: Int,
+    offset: Long,
+    maxBytes: Int,
+) = runBlocking {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    val connection = BooblikConnection(address, scope)
+    try {
+        val batch = Consumer(connection, TopicName(topic), PartitionId(partition), Offset(offset), maxBytes).poll()
+        println("baseOffset=${batch.baseOffset.value}")
+        println("nextOffset=${batch.nextOffset.value}")
+        for (record in batch.records) println("record=${hex(record)}")
+    } finally {
+        connection.close()
+        scope.cancel()
+    }
 }
 
 private fun report(error: ErrorCode) {

@@ -93,11 +93,18 @@ def noreplay(before_file: str) -> int:
         failed |= not ok
         suffix = "" if ok else "   <-- REPLAY" if reconnected > 0 else "   <-- NEVER RECONNECTED"
         print(f"   {stats['name']}: {reconnected} reconnects, position +{moved}, handled +{handled}{suffix}")
+    # AND THE PUBLISHER CARRIED ON TOO (M-177): before it reconnected, every position stood still
+    # across the restart, and the check above could only say that nothing was replayed — not that
+    # anything was read after the broker came back.
+    total = sum(stats["position"] - before[stats["name"]]["position"] for stats in after)
+    if total <= 0:
+        print("::error:: no consumer position moved across the broker restart — the publisher stopped writing")
+        failed = True
     if failed:
         print("::error:: across the broker restart a consumer handled more than its position moved over, "
-              "or never noticed the restart at all")
+              "never noticed the restart, or nothing was written after it")
         return 1
-    print("   every consumer carried on from where it was")
+    print(f"   every consumer carried on from where it was, {total} records read after the restart")
     return 0
 
 

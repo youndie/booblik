@@ -45,11 +45,12 @@ itself failed, and that is never an expected outcome.
 
 | verb | arguments | answers |
 |---|---|---|
-| `capabilities` | — | `roles=producer[,consumer]`, `name=…` |
+| `capabilities` | — | `roles=producer[,consumer][,reader]`, `name=…` |
 | `metadata` | `<topic>` | `partition=<id> <logStartOffset> <highWatermark>`, repeated |
 | `produce` | `<topic> <partition> <ack> <hex>[,<hex>…]` | `baseOffset=`, `logEndOffset=` |
 | `produce-keyed` | `<topic> <keyHex> <payloadHex>` | `partition=`, `baseOffset=` |
 | `fetch` | `<topic> <partition> <offset> <maxBytes>` | `highWatermark=`, `record=<hex>` repeated, `recordExceedsMaxBytes=<n>` |
+| `read` | `<topic> <partition> <offset> <maxBytes>` | `baseOffset=`, `nextOffset=`, `record=<hex>` repeated — through the client's reader, not a bare fetch (role `reader`, M-176) |
 
 `ack` is `none`, `written` or `forced`.
 
