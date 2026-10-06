@@ -98,6 +98,9 @@
 - [feature-subscribe-and-publish](features/feature-subscribe-and-publish.md) — подписка на топик
   и публикация: `follow`/`replay`, долгий FETCH, хендл топика с маршрутизацией по ключу. Веха M7
   закрыта, документ описывает существующее поведение.
+- [feature-consumer-position](features/feature-consumer-position.md) — **где потребителю хранить
+  позицию**, раз брокер её не хранит: проекция без позиции, позиция в транзакции эффекта с CAS
+  по `next_offset`, at-least-once для эффектов, которые не откатить. Рецепт, а не код брокера.
 - [feature-append-and-fetch](features/feature-append-and-fetch.md) — записать в лог и прочитать
   по оффсету. Это весь брокер; всё остальное существует ради скорости этих двух операций.
 
