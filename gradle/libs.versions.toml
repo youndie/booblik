@@ -29,7 +29,7 @@ hdrhistogram = "2.2.2"
 ktor = "3.6.0"
 # Reads compiled classes in a test. Test-only, and the only dependency in the project that exists
 # to check a property of the code rather than to be part of it.
-asm = "9.10.1"
+asm = "9.11"
 
 [libraries]
 coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
