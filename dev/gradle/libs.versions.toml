@@ -1,8 +1,8 @@
 [versions]
-kotlin = "2.4.20"
-ktor = "3.6.0"
-logback = "1.6.3"
-kafka = "4.3.1"
+kotlin = "2.4.21"
+ktor = "3.6.1"
+logback = "1.6.6"
+kafka = "4.4.0"
 # Same formatter version as the broker repository, pinned for the same reason: otherwise the style
 # shifts when the plugin is bumped, which is exactly when nobody is reading the diff.
 ktlint = "1.8.0"
@@ -11,7 +11,7 @@ ktlintGradle = "14.2.0"
 # 0.1.1 declared coroutines as `implementation`, so it resolves and then will not compile, and
 # 0.1.2 carried the accumulator that drops a record when its flush timer fires as one arrives —
 # which is what this sample found.
-booblik = "0.3.4"
+booblik = "0.3.5"
 
 [libraries]
 booblik-client = { module = "io.github.youndie.booblik:booblik-client", version.ref = "booblik" }
