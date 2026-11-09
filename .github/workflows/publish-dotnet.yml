@@ -34,7 +34,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     environment: nuget
     permissions:
@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '8.0'
+          dotnet-version: '10.0'
 
       # The tag triggers and the csproj is what ships; a disagreement between them is how a package
       # lands under a number its own metadata denies.
@@ -93,7 +93,7 @@ jobs:
   # real broker with it.
   verify:
     needs: publish
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # NuGet indexing is the slow one of the five — minutes rather than seconds — so this waits
     # longer than the others before calling it a failure.
     timeout-minutes: 30
@@ -108,7 +108,7 @@ jobs:
     steps:
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '8.0'
+          dotnet-version: '10.0'
 
       - name: Install from NuGet and drive the broker with it
         run: |
