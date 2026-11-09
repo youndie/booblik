@@ -32,7 +32,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       # unittest against a fake broker that decodes what the client encoded. No
       # install step: this client and its tests have no dependencies at all.
@@ -53,11 +53,11 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       # Java and Gradle in one step and at one version for the portfolio: the action installs 21 and
       # 25 and leaves 25 as the default, which is what this build asks for.
-      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.130
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.135
 
       # A job of its own because it needs a broker in Docker, and the gate above must not be able to
       # go red for a reason that has nothing to do with this client's code.
