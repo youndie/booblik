@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     environment: pypi
     permissions:
@@ -83,7 +83,7 @@ jobs:
   # clean container and drives a real broker with it.
   verify:
     needs: publish
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
 
     services:

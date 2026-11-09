@@ -24,7 +24,7 @@ on:
 
 jobs:
   gate:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
 
     steps:
@@ -45,7 +45,7 @@ jobs:
         run: ./clients/python-asyncio/gate.sh
 
   conformance:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
 
     steps:
