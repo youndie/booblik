@@ -22,7 +22,7 @@ on:
 
 jobs:
   gate:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
 
     steps:
@@ -30,7 +30,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
 
       # node --test against a fake broker that decodes what the client encoded. No
       # `npm install`: this client and its tests have no dependencies at all.
@@ -38,7 +38,7 @@ jobs:
         run: ./clients/node/gate.sh
 
   conformance:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
 
     steps:
@@ -46,11 +46,11 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
 
       # Java and Gradle in one step and at one version for the portfolio: the action installs 21 and
       # 25 and leaves 25 as the default, which is what this build asks for.
-      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.130
+      - uses: youndie/sborka/.github/actions/setup-kotlin@v0.5.0.135
 
       # A job of its own because it needs a broker in Docker, and the gate above must not be able to
       # go red for a reason that has nothing to do with this client's code.
