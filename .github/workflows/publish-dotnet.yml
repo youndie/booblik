@@ -46,7 +46,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0'
+          dotnet-version: '11.0'
 
       # The tag triggers and the csproj is what ships; a disagreement between them is how a package
       # lands under a number its own metadata denies.
@@ -108,7 +108,7 @@ jobs:
     steps:
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0'
+          dotnet-version: '11.0'
 
       - name: Install from NuGet and drive the broker with it
         run: |
