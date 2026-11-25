@@ -8,12 +8,28 @@
     "Grouped by what a reviewer has to think about at once, not by ecosystem for its own sake.",
     "Ten separate pull requests for one afternoon's updates is not ten decisions — it is one",
     "decision taken ten times, and the one that actually mattered hid among the others.",
-    "Automerge (`github>youndie/sborka:automerge-harness`) is not extended: nothing merges itself here",
+    "sborka's `automerge-harness` is extended second, so `github-actions` and `gradle-wrapper` updates merge themselves on green — with the exception below. The precondition holds, re-checked 2026-11-25: `build.yml` runs on every `pull_request`, and each client workflow runs on pull requests that touch its client. The exception is the publish workflows, which run on a tag: `NuGet/login`, `pypa/gh-action-pypi-publish` and `docker/login-action` are used there and by no pull request, so they wait for a person. One thing this does not change: the wrapper rides in this repository's own `jvm dependencies` group below, together with the Gradle libraries, and Renovate merges a group only when every update in it may merge — so here the wrapper still waits with them.",
     "today. Its precondition holds — build.yml and the client workflows run on `pull_request` — so it",
     "can be added as its own change."
   ],
-  "extends": ["github>youndie/sborka"],
+  "extends": ["github>youndie/sborka", "github>youndie/sborka:automerge-harness"],
   "packageRules": [
+    {
+      "description": [
+        "The actions that only the tag-triggered publish workflows uses wait for a person: that workflow runs on a tag (or by hand), no pull request runs it, so a green pull request says nothing about them and a broken one would surface at the next release, not on the merge. Every other action and the wrapper merge themselves through `automerge-harness`, because the pull-request workflows ran exactly those versions.",
+        "AFTER the presets, because the last match wins, and in a group of its own: Renovate merges a grouped pull request only when every update in it may merge, so left in `ci actions` these would hold every other action with them. The list is what that workflow uses and no pull-request workflow does (re-checked 2026-11-25); an action added to that workflow later is not on it until somebody adds it here."
+      ],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepNames": [
+        "NuGet/login",
+        "pypa/gh-action-pypi-publish",
+        "docker/login-action"
+      ],
+      "groupName": "ci release actions",
+      "automerge": false
+    },
     {
       "description": [
         "The .NET client's test-side packages: xunit, the test SDK, coverlet. The dotnet gate",
