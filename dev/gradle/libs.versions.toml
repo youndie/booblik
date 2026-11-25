@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.4.21"
 ktor = "3.6.1"
-logback = "1.6.6"
+logback = "1.6.8"
 kafka = "4.4.0"
 # Same formatter version as the broker repository, pinned for the same reason: otherwise the style
 # shifts when the plugin is bumped, which is exactly when nobody is reading the diff.
